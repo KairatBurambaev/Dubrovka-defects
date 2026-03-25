@@ -1,0 +1,1881 @@
+// State
+const state = {
+    currentTab: 'complexes',
+    currentComplex: null,
+    currentPropertyType: 'квартиры',
+    currentApartment: null,
+    currentApartmentData: null,
+    currentDefect: null,
+    categories: [],
+    currentItemId: null,
+    accessFilter: '',
+    loading: false
+};
+
+// DOM Elements cache
+const elements = {};
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+    cacheElements();
+    loadCategories();
+    loadComplexes();
+    setupForms();
+    setupEventListeners();
+});
+
+// Cache DOM elements
+function cacheElements() {
+    elements.toast = document.getElementById('toast');
+    elements.backBtn = document.getElementById('backBtn');
+    elements.addComplexBtn = document.getElementById('addComplexBtn');
+    elements.editComplexBtn = document.getElementById('editComplexBtn');
+    elements.deleteComplexBtn = document.getElementById('deleteComplexBtn');
+    elements.adminBtn = document.getElementById('adminBtn');
+    elements.pageTitle = document.getElementById('pageTitle');
+    elements.pageSubtitle = document.getElementById('pageSubtitle');
+    elements.complexesList = document.getElementById('complexesList');
+    elements.totalComplexes = document.getElementById('totalComplexes');
+    elements.apartmentsContainer = document.getElementById('apartmentsContainer');
+    elements.defectsList = document.getElementById('defectsList');
+    elements.defectFilterPanel = document.getElementById('defectFilterPanel');
+    elements.tabPanels = document.querySelectorAll('.tab-panel');
+}
+
+// Setup Forms
+function setupForms() {
+    const createForm = document.getElementById('createComplexForm');
+    if (createForm) createForm.addEventListener('submit', handleCreateComplex);
+    
+    const defectForm = document.getElementById('addDefectForm');
+    if (defectForm) defectForm.addEventListener('submit', handleAddDefect);
+    
+    const fileInput = document.getElementById('defectPhotos');
+    if (fileInput) fileInput.addEventListener('change', handleFileSelect);
+    
+    const uploadZone = document.getElementById('fileUploadArea');
+    if (uploadZone && fileInput) {
+        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect({ target: fileInput });
+        });
+    }
+    
+    const categorySelect = document.getElementById('defectCategory');
+    if (categorySelect) categorySelect.addEventListener('change', handleCategoryChange);
+    
+    const commentInput = document.getElementById('commentInput');
+    if (commentInput) commentInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') submitComment();
+    });
+}
+
+// Event Listeners
+function setupEventListeners() {
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal')) {
+            e.target.classList.remove('active');
+        }
+    });
+}
+
+// Navigation with animations
+function showTab(tab) {
+    const activePanel = document.querySelector('.tab-panel.active');
+    const newPanel = document.getElementById(`tab-${tab}`);
+    
+    if (!newPanel) return;
+    
+    if (activePanel) {
+        activePanel.classList.remove('active');
+    }
+    newPanel.classList.add('active');
+    
+    state.currentTab = tab;
+    
+    if (tab === 'complexes') {
+        updateHeader(false, true);
+        if (adminMode) {
+            if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'inline-flex';
+            if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'inline-flex';
+        }
+        const count = document.querySelectorAll('.complex-card').length || 0;
+        setPageTitle('Жилые комплексы', `Всего комплексов: ${count}`);
+    } else if (tab === 'create-complex') {
+        updateHeader(false, false);
+        setPageTitle('Новый ЖК', '');
+    } else if (tab === 'add-defect') {
+        updateHeader(false, false);
+    } else if (tab === 'apartment-detail') {
+        updateHeader(true, false);
+    } else if (tab === 'complex-detail') {
+        updateHeader(true, false);
+    }
+}
+
+function setPageTitle(title, subtitle) {
+    if (elements.pageTitle) elements.pageTitle.textContent = title || '';
+    if (elements.pageSubtitle) elements.pageSubtitle.textContent = subtitle || '';
+}
+
+function backToComplex() {
+    state.currentApartment = null;
+    state.currentApartmentData = null;
+    if (state.currentComplex) showComplexDetail(state.currentComplex);
+}
+
+function backToApartment() {
+    if (state.currentApartment) showApartmentDetail(state.currentApartment);
+}
+
+function goBack() {
+    if (state.currentApartment) {
+        backToComplex();
+    } else if (state.currentComplex) {
+        showTab('complexes');
+        const count = document.querySelectorAll('.complex-card').length || 0;
+        setPageTitle('Жилые комплексы', `Всего комплексов: ${count}`);
+    }
+}
+
+function toggleSidebar(show) {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (show === false) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+    } else {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+    }
+}
+
+function updateHeader(showBack, showAdd) {
+    if (elements.backBtn) elements.backBtn.style.display = showBack ? 'inline-flex' : 'none';
+    if (elements.addComplexBtn) {
+        elements.addComplexBtn.style.display = (showAdd && adminMode) ? 'inline-flex' : 'none';
+    }
+    if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'none';
+    if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'none';
+}
+
+let adminMode = false;
+
+function toggleAdminMode() {
+    if (adminMode) {
+        adminMode = false;
+        if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'none';
+        if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'none';
+        if (elements.adminBtn) elements.adminBtn.classList.remove('btn-primary');
+        showToast('Режим админа выключен', 'info');
+    } else {
+        const password = prompt('Введите пароль:');
+        if (password === '123') {
+            adminMode = true;
+            if (state.currentTab === 'complexes') {
+                if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'inline-flex';
+                if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'inline-flex';
+            }
+            if (elements.adminBtn) elements.adminBtn.classList.add('btn-primary');
+            showToast('Режим админа включен', 'success');
+        } else if (password !== null) {
+            showToast('Неверный пароль', 'error');
+        }
+    }
+}
+
+function showEditComplexForm() {
+    const name = elements.pageTitle?.textContent;
+    const newName = prompt('Введите новое название ЖК:', name);
+    if (!newName || newName.trim() === name) return;
+    
+    const formData = new FormData();
+    formData.append('name', newName.trim());
+    
+    fetch(`/api/complexes/${state.currentComplex}`, {
+        method: 'PUT',
+        body: formData
+    }).then(res => {
+        if (res.ok) {
+            showToast('ЖК обновлен', 'success');
+            loadComplexes();
+            showComplexDetail(state.currentComplex);
+        } else {
+            showToast('Ошибка обновления', 'error');
+        }
+    }).catch(() => showToast('Ошибка обновления', 'error'));
+}
+
+function deleteCurrentComplex() {
+    if (!confirm('Удалить ЖК и все связанные данные?')) return;
+    
+    fetch(`/api/complexes/${state.currentComplex}`, {
+        method: 'DELETE'
+    }).then(res => {
+        if (res.ok) {
+            showToast('ЖК удален', 'success');
+            state.currentComplex = null;
+            showTab('complexes');
+            loadComplexes();
+        } else {
+            showToast('Ошибка удаления', 'error');
+        }
+    }).catch(() => showToast('Ошибка удаления', 'error'));
+}
+
+// Categories
+async function loadCategories() {
+    try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+        state.categories = data.categories;
+        
+        const select = document.getElementById('defectCategory');
+        if (select) {
+            select.innerHTML = '<option value="">Выберите</option>';
+            state.categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                select.appendChild(opt);
+            });
+        }
+        
+        const catFilter = document.getElementById('defectCategoryFilter');
+        if (catFilter) {
+            catFilter.innerHTML = '<option value="">Все категории</option>';
+            state.categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                catFilter.appendChild(opt);
+            });
+        }
+    } catch (err) {
+        console.error('Error loading categories:', err);
+    }
+}
+
+function handleCategoryChange() {
+    const cat = document.getElementById('defectCategory')?.value;
+    const windowGroup = document.getElementById('windowGroup');
+    if (windowGroup) windowGroup.style.display = cat === 'Окна' ? 'block' : 'none';
+    if (cat) loadTemplates(cat);
+    else {
+        const templatesGroup = document.getElementById('templatesGroup');
+        if (templatesGroup) templatesGroup.style.display = 'none';
+    }
+}
+
+async function loadTemplates(category) {
+    try {
+        const res = await fetch(`/api/templates/${encodeURIComponent(category)}`);
+        const data = await res.json();
+        const group = document.getElementById('templatesGroup');
+        const list = document.getElementById('templatesList');
+        if (data.templates?.length && group && list) {
+            group.style.display = 'block';
+            list.innerHTML = data.templates.map(t => 
+                `<span class="template-chip" onclick="toggleTemplate(this, '${escapeHtml(t)}')">${escapeHtml(t)}</span>`
+            ).join('');
+        } else if (group) {
+            group.style.display = 'none';
+        }
+    } catch (err) {
+        console.error('Error loading templates:', err);
+    }
+}
+
+function toggleTemplate(el, text) {
+    el.classList.toggle('selected');
+    const ta = document.getElementById('defectDescription');
+    if (!ta) return;
+    
+    if (el.classList.contains('selected')) {
+        ta.value += (ta.value ? '\n' : '') + text + '\n';
+    } else {
+        ta.value = ta.value.split('\n').filter(l => l.trim() !== text).join('\n');
+    }
+}
+
+// Loading states
+function showLoading(container) {
+    if (!container) return;
+    container.innerHTML = `
+        <div class="loading-container">
+            <div class="spinner"></div>
+            <p>Загрузка...</p>
+        </div>
+    `;
+}
+
+function hideLoading(container) {
+    if (!container) return;
+    container.innerHTML = '';
+}
+
+// Complexes with new card design
+async function loadComplexes() {
+    const container = elements.complexesList;
+    if (!container) return;
+    
+    showLoading(container);
+    
+    try {
+        const res = await fetch('/api/complexes');
+        const complexes = await res.json();
+        
+        if (!complexes.length) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🏢</div>
+                    <h3>Нет жилых комплексов</h3>
+                    <p>Создайте первый комплекс, чтобы начать работу</p>
+                </div>
+            `;
+            if (elements.totalComplexes) elements.totalComplexes.textContent = '0';
+            return;
+        }
+        
+        container.innerHTML = complexes.map(c => {
+            const stats = {};
+            (c.by_access_status || []).forEach(s => stats[s.access_status] = s.count);
+            
+            const totalApts = c.apartments_count || 0;
+            const defectCount = stats.defects || 0;
+            const acceptedCount = stats.owner_accepted || 0;
+            const propType = c.property_type || 'квартиры';
+            const propLabel = propType === 'апартаменты' ? 'апарт.' : 'кв.';
+            
+            return `
+                <div class="complex-card" onclick="showComplexDetail(${c.id})">
+                    <div class="complex-card-header">
+                        <h3>${escapeHtml(c.name)}</h3>
+                        <span class="complex-badge">${totalApts} ${propLabel}</span>
+                    </div>
+                    <div class="complex-card-body">
+                        <div class="complex-meta">
+                            <span class="meta-item">
+                                <span class="meta-icon">🏢</span>
+                                ${c.sections.length} ${pluralize(c.sections.length, 'корпус', 'корпуса', 'корпусов')}
+                            </span>
+                        </div>
+                        <div class="complex-stats">
+                            ${defectCount ? `<span class="stat-item stat-defect">⚠️ ${defectCount} ${pluralize(defectCount, 'замечание', 'замечания', 'замечаний')}</span>` : ''}
+                            ${acceptedCount ? `<span class="stat-item stat-success">✓ ${acceptedCount} принято</span>` : ''}
+                            ${stats.available ? `<span class="stat-item stat-available">● ${stats.available} свободно</span>` : ''}
+                            ${stats.call ? `<span class="stat-item stat-call">📞 ${stats.call}</span>` : ''}
+                            ${stats.no_access ? `<span class="stat-item stat-noaccess">🔒 ${stats.no_access}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="complex-card-footer">
+                        <span class="view-link">Подробнее →</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        if (elements.totalComplexes) elements.totalComplexes.textContent = complexes.length;
+    } catch (err) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">⚠️</div>
+                <h3>Ошибка загрузки</h3>
+                <p>Попробуйте обновить страницу</p>
+                <button class="btn btn-primary" onclick="loadComplexes()">Обновить</button>
+            </div>
+        `;
+    }
+}
+
+function showCreateComplexForm() {
+    showTab('create-complex');
+    const container = document.getElementById('buildingsContainer');
+    if (container) {
+        container.innerHTML = '';
+        addBuildingRow();
+    }
+}
+
+function addBuildingRow() {
+    const container = document.getElementById('buildingsContainer');
+    if (!container) return;
+    
+    const buildingId = Date.now();
+    const row = document.createElement('div');
+    row.className = 'building-row';
+    row.dataset.buildingId = buildingId;
+    row.innerHTML = `
+        <div class="building-header">
+            <input type="number" placeholder="№ корпуса" class="building-num" min="1">
+            <button type="button" class="btn-remove-row" onclick="this.parentElement.parentElement.remove()">× Удалить корпус</button>
+        </div>
+        <div class="sections-container">
+            <button type="button" class="btn-link" onclick="addSectionRow(${buildingId})">+ Добавить секцию</button>
+        </div>
+    `;
+    container.appendChild(row);
+    addSectionRow(buildingId);
+}
+
+function addSectionRow(buildingId) {
+    const buildingRow = document.querySelector(`[data-building-id="${buildingId}"]`);
+    if (!buildingRow) return;
+    
+    const sectionsContainer = buildingRow.querySelector('.sections-container');
+    if (!sectionsContainer) return;
+    
+    const sectionId = Date.now();
+    const sectionRow = document.createElement('div');
+    sectionRow.className = 'section-row';
+    sectionRow.dataset.sectionId = sectionId;
+    sectionRow.innerHTML = `
+        <div class="section-header">
+            <span>Секция</span>
+            <button type="button" class="btn-remove-row" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+        <div class="section-row-grid">
+            <input type="number" placeholder="№ секции" class="sec-num" min="1">
+        </div>
+        <div class="floors-container" id="floors-${sectionId}">
+            <button type="button" class="btn-link" onclick="addFloorRow(${sectionId})">+ Добавить этаж</button>
+        </div>
+    `;
+    sectionsContainer.appendChild(sectionRow);
+    addFloorRow(sectionId);
+}
+
+function addFloorRow(sectionId) {
+    const floorsContainer = document.getElementById(`floors-${sectionId}`);
+    if (!floorsContainer) return;
+    
+    const floorRow = document.createElement('div');
+    floorRow.className = 'floor-row-input';
+    floorRow.innerHTML = `
+        <input type="number" placeholder="Этаж" class="floor-num" min="1">
+        <input type="number" placeholder="Квартира с" class="floor-from" min="1">
+        <input type="number" placeholder="по" class="floor-to" min="1">
+        <button type="button" class="btn-remove-row" onclick="this.parentElement.remove()">×</button>
+    `;
+    floorsContainer.appendChild(floorRow);
+}
+
+async function submitComplexForm() {
+    const nameInput = document.getElementById('complexName');
+    const name = nameInput?.value.trim();
+    const typeInput = document.getElementById('complexType');
+    const propertyType = typeInput?.value || 'квартиры';
+    
+    if (!name) {
+        showToast('Введите название ЖК', 'warning');
+        return;
+    }
+    
+    const buildings = [];
+    document.querySelectorAll('.building-row').forEach(buildingRow => {
+        const buildingNum = buildingRow.querySelector('.building-num')?.value;
+        
+        if (!buildingNum) return;
+        
+        const sections = [];
+        buildingRow.querySelectorAll('.section-row').forEach(row => {
+            const secNum = row.querySelector('.sec-num')?.value;
+            
+            if (!secNum) return;
+            
+            const floors = [];
+            row.querySelectorAll('.floor-row-input').forEach(floorRow => {
+                const floorNum = floorRow.querySelector('.floor-num')?.value;
+                const floorFrom = floorRow.querySelector('.floor-from')?.value;
+                const floorTo = floorRow.querySelector('.floor-to')?.value;
+                
+                if (floorNum && floorFrom && floorTo) {
+                    floors.push({
+                        floor: parseInt(floorNum),
+                        apartment_from: parseInt(floorFrom),
+                        apartment_to: parseInt(floorTo)
+                    });
+                }
+            });
+            
+            if (floors.length > 0) {
+                sections.push({
+                    section_number: parseInt(secNum),
+                    floors: floors
+                });
+            }
+        });
+        
+        if (sections.length > 0) {
+            buildings.push({
+                building_number: parseInt(buildingNum),
+                sections: sections
+            });
+        }
+    });
+    
+    if (buildings.length === 0) {
+        showToast('Добавьте хотя бы один корпус с секциями', 'warning');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('property_type', propertyType);
+    formData.append('buildings', JSON.stringify(buildings));
+    
+    try {
+        const res = await fetch('/api/complexes', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            const propName = propertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
+            showToast(`ЖК создан: ${data.apartments_created} ${propName}`, 'success');
+            nameInput.value = '';
+            const buildingsContainer = document.getElementById('buildingsContainer');
+            if (buildingsContainer) buildingsContainer.innerHTML = '';
+            showTab('complexes');
+            loadComplexes();
+        } else {
+            showToast('Ошибка создания', 'error');
+        }
+    } catch (err) {
+        showToast('Ошибка создания', 'error');
+    }
+}
+
+// Complex Detail
+async function showComplexDetail(id) {
+    state.currentComplex = id;
+    state.currentPropertyType = 'квартиры'; // default
+    updateHeader(true, false);
+    setPageTitle('Загрузка...', '');
+    
+    // Hide edit/delete when viewing a specific complex
+    if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'none';
+    if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'none';
+    
+    try {
+        const [complexRes, statsRes] = await Promise.all([
+            fetch(`/api/complexes/${id}`),
+            fetch(`/api/complexes/${id}/statistics`)
+        ]);
+        
+        const complex = await complexRes.json();
+        const stats = await statsRes.json();
+        
+        // Save property type
+        state.currentPropertyType = complex.property_type || 'квартиры';
+        
+        // Update placeholders based on property type
+        updatePlaceholders();
+        
+        // Set view mode based on sections
+        const viewModeSelect = document.getElementById('viewMode');
+        if (complex.sections.length <= 1) {
+            viewModeSelect.value = 'building';
+        } else {
+            viewModeSelect.value = 'section';
+        }
+        
+        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
+        const buildingsCount = complex.buildings?.length || complex.sections.length;
+        const sectionLabel = buildingsCount <= 1 ? 'корпус' : 'корпусов';
+        setPageTitle(complex.name, `${stats.total_apartments} ${propName} • ${buildingsCount} ${pluralize(buildingsCount, sectionLabel, 'корпуса', 'корпусов')}`);
+        
+        // Determine if we have multiple buildings or sections
+        const hasMultipleBuildings = complex.buildings?.length > 1;
+        const hasMultipleSections = complex.sections.length > 1;
+        
+        // Show/hide filter dropdown
+        const filterWrapper = document.getElementById('filterWrapper');
+        const filterOptions = document.getElementById('filterOptions');
+        
+        if (hasMultipleBuildings || hasMultipleSections) {
+            filterWrapper.style.display = 'block';
+            
+            if (filterOptions) {
+                // Simple list of sections with building in parentheses
+                const sectionsHtml = complex.sections
+                    .sort((a, b) => {
+                        if (a.building_number !== b.building_number) {
+                            return a.building_number - b.building_number;
+                        }
+                        return a.section_number - b.section_number;
+                    })
+                    .map(s => {
+                        const label = hasMultipleBuildings 
+                            ? `Секция ${s.section_number} (Корпус ${s.building_number})`
+                            : `Секция ${s.section_number}`;
+                        return `
+                            <label class="dropdown-item">
+                                <input type="checkbox" value="s_${s.id}" data-type="section" data-building="${s.building_number}" data-section="${s.section_number}" onchange="handleFilterChange()" checked>
+                                <span>${label}</span>
+                            </label>
+                        `;
+                    }).join('');
+                
+                filterOptions.innerHTML = `
+                    <label class="dropdown-item">
+                        <input type="checkbox" value="all" data-type="all" onchange="toggleAllFilter(this.checked)" checked>
+                        <span>Все секции</span>
+                    </label>
+                ` + sectionsHtml;
+                
+                document.getElementById('filterBtnText').textContent = 'Фильтр';
+            }
+        } else {
+            filterWrapper.style.display = 'none';
+        }
+        
+        state.currentComplexData = complex;
+        
+        showTab('complex-detail');
+        
+        // Reset checkboxes to all checked
+        const selectAllFilter = document.getElementById('selectAllFilter');
+        if (selectAllFilter) selectAllFilter.checked = true;
+        const filterCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
+        filterCheckboxes.forEach(cb => cb.checked = true);
+        
+        loadApartments();
+    } catch (err) {
+        showToast('Ошибка загрузки', 'error');
+    }
+}
+
+function parseApartmentNumbers(input) {
+    if (!input.trim()) return null;
+    
+    const numbers = new Set();
+    const parts = input.split(',');
+    
+    parts.forEach(part => {
+        part = part.trim();
+        if (part.includes('-')) {
+            const [start, end] = part.split('-').map(n => parseInt(n.trim()));
+            if (!isNaN(start) && !isNaN(end)) {
+                const min = Math.min(start, end);
+                const max = Math.max(start, end);
+                for (let i = min; i <= max; i++) {
+                    numbers.add(i);
+                }
+            }
+        } else {
+            const num = parseInt(part);
+            if (!isNaN(num)) {
+                numbers.add(num);
+            }
+        }
+    });
+    
+    return numbers.size > 0 ? Array.from(numbers) : null;
+}
+
+function toggleFilterDropdown() {
+    const dropdown = document.getElementById('filterDropdown');
+    if (dropdown) dropdown.classList.toggle('open');
+}
+
+function toggleAllFilter(checked) {
+    const checkboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = checked);
+    handleFilterChange();
+}
+
+function handleFilterChange() {
+    const checkboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
+    const values = Array.from(checkboxes).map(cb => cb.value);
+    const filterBtnText = document.getElementById('filterBtnText');
+    const selectAllCheckbox = document.getElementById('selectAllFilter');
+    
+    const allCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
+    const allCount = allCheckboxes.length;
+    
+    if (values.length === 0) {
+        filterBtnText.textContent = 'Выбрать';
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    } else if (values.length === allCount) {
+        filterBtnText.textContent = 'Все секции';
+        if (selectAllCheckbox) selectAllCheckbox.checked = true;
+    } else {
+        filterBtnText.textContent = `Выбрано: ${values.length - 1}`;
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    }
+    
+    loadApartments();
+}
+
+function toggleAllSections(checked) {
+    const checkboxes = document.querySelectorAll('#sectionOptions input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = checked);
+    handleSectionChange();
+}
+
+function handleSectionChange() {
+    const checkboxes = document.querySelectorAll('#sectionOptions input[type="checkbox"]:checked');
+    const values = Array.from(checkboxes).map(cb => cb.value);
+    const sectionBtnText = document.getElementById('sectionBtnText');
+    const selectAllCheckbox = document.getElementById('selectAllSections');
+    
+    const allCheckboxes = document.querySelectorAll('#sectionOptions input[type="checkbox"]');
+    const allCount = allCheckboxes.length;
+    
+    if (values.length === 0) {
+        sectionBtnText.textContent = 'Все секции';
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    } else if (values.length === allCount) {
+        sectionBtnText.textContent = 'Все секции';
+        if (selectAllCheckbox) selectAllCheckbox.checked = true;
+    } else {
+        sectionBtnText.textContent = `Выбрано: ${values.length}`;
+        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    }
+    
+    loadApartments();
+}
+
+function handleViewModeChange() {
+    loadApartments();
+}
+
+function updatePlaceholders() {
+    const searchInput = document.getElementById('searchApt');
+    const propType = state.currentPropertyType;
+    if (propType === 'апартаменты') {
+        if (searchInput) searchInput.placeholder = 'Номер апартамента (напр: 1,3-5,10)...';
+    } else {
+        if (searchInput) searchInput.placeholder = 'Номер квартиры (напр: 1,3-5,10)...';
+    }
+}
+
+document.addEventListener('click', (e) => {
+    // Close filter dropdown
+    const filterWrapper = document.querySelector('#filterWrapper .multi-select-wrapper');
+    if (filterWrapper && !filterWrapper.contains(e.target)) {
+        const filterDropdown = document.getElementById('filterDropdown');
+        if (filterDropdown) filterDropdown.classList.remove('open');
+    }
+});
+
+async function loadApartments() {
+    if (!state.currentComplex) return;
+    
+    const container = elements.apartmentsContainer;
+    if (!container) return;
+    
+    showLoading(container);
+    
+    try {
+        // Get selected sections from filter
+        const filterCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
+        const allFilterCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
+        
+        const allCount = allFilterCheckboxes.length;
+        const checkedCount = filterCheckboxes.length;
+        
+        let sectionIds = '';
+        
+        // If "all" is checked or nothing selected - show all
+        // Otherwise use selected section IDs
+        const selectedValues = Array.from(filterCheckboxes).map(cb => cb.value);
+        
+        if (selectedValues.includes('all') || checkedCount === 0 || checkedCount === allCount) {
+            sectionIds = '';
+        } else {
+            const sectionValues = selectedValues.filter(v => v.startsWith('s_'));
+            sectionIds = sectionValues.map(v => v.replace('s_', '')).join(',');
+        }
+        
+        const search = document.getElementById('searchApt')?.value || '';
+        const searchNumbers = parseApartmentNumbers(search);
+        
+        let url = `/api/complexes/${state.currentComplex}/apartments`;
+        const params = new URLSearchParams();
+        
+        if (sectionIds) {
+            params.append('section_ids', sectionIds);
+        }
+        
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
+        
+        const res = await fetch(url);
+        let apts = await res.json();
+        
+        if (state.accessFilter === 'defects') {
+            apts = apts.filter(a => a.total_defects > 0);
+            const catFilter = document.getElementById('defectCategoryFilter')?.value;
+            const statusFilter = document.getElementById('defectStatusFilter')?.value;
+            
+            if (catFilter || statusFilter) {
+                const defectsRes = await fetch(`/api/complexes/${state.currentComplex}/defects`);
+                const defects = await defectsRes.json();
+                const filteredIds = new Set();
+                
+                defects.forEach(d => {
+                    if (catFilter && d.category !== catFilter) return;
+                    if (statusFilter === 'new' && d.status !== 'new') return;
+                    if (statusFilter === 'in_progress' && d.status !== 'in_progress') return;
+                    if (statusFilter === 'ready' && !['ready','rejected'].includes(d.status)) return;
+                    filteredIds.add(d.apartment_id);
+                });
+                apts = apts.filter(a => filteredIds.has(a.id));
+            }
+        } else if (state.accessFilter) {
+            apts = apts.filter(a => a.access_status === state.accessFilter);
+        }
+        
+        if (searchNumbers) {
+            apts = apts.filter(a => searchNumbers.includes(a.number));
+        }
+        
+        renderApartments(apts);
+    } catch (err) {
+        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">⚠️</div>
+                <h3>Ошибка загрузки ${propName}</h3>
+                <button class="btn btn-primary" onclick="loadApartments()">Попробовать снова</button>
+            </div>
+        `;
+    }
+}
+
+function setAccessFilter(filter) {
+    state.accessFilter = filter;
+    
+    document.querySelectorAll('.pill').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.filter === filter);
+    });
+    
+    if (elements.defectFilterPanel) {
+        elements.defectFilterPanel.style.display = filter === 'defects' ? 'flex' : 'none';
+    }
+    
+    loadApartments();
+}
+
+function debouncedLoad() {
+    clearTimeout(window.loadTimer);
+    window.loadTimer = setTimeout(loadApartments, 300);
+}
+
+// Render apartments with new .apt classes and colors
+function renderApartments(apartments) {
+    const container = elements.apartmentsContainer;
+    if (!container) return;
+    
+    const viewMode = document.getElementById('viewMode')?.value || 'section';
+    const propType = state.currentPropertyType;
+    const propName = propType === 'апартаменты' ? 'квартир' : 'квартир';
+    const propShort = propType === 'апартаменты' ? 'апарт.' : 'кв.';
+    const propFull = propType === 'апартаменты' ? 'апартамент' : 'квартира';
+    
+    if (!apartments?.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">🏠</div>
+                <h3>Нет ${propName} по заданным фильтрам</h3>
+                <p>Попробуйте изменить параметры поиска</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Group by section
+    const bySection = {};
+    apartments.forEach(a => {
+        const sec = a.section_number;
+        if (!bySection[sec]) bySection[sec] = { section_id: a.section_id, building_number: a.building_number, floors: {} };
+        if (!bySection[sec].floors[a.floor]) bySection[sec].floors[a.floor] = [];
+        bySection[sec].floors[a.floor].push(a);
+    });
+    
+    const sortedSections = Object.keys(bySection).sort((a, b) => a - b);
+    
+    let html = '<div class="sections-grid">';
+    
+    // Get selected section IDs from filter
+    const filterCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
+    const allFilterCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
+    const selectedValues = Array.from(filterCheckboxes).map(cb => cb.value);
+    
+    // Check if "all" is selected
+    const allSelected = selectedValues.includes('all') || selectedValues.length === 0 || selectedValues.length === allFilterCheckboxes.length;
+    const selectedSectionIds = allSelected ? [] : selectedValues.filter(v => v.startsWith('s_')).map(v => parseInt(v.replace('s_', '')));
+    
+    // Check if we have multiple buildings from the data
+    const uniqueBuildings = new Set(apartments.map(a => a.building_number || 1));
+    const hasMultipleBuildings = uniqueBuildings.size > 1;
+    
+    if (viewMode === 'building') {
+        // Group by building -> section
+        const byBuilding = {};
+        apartments.forEach(a => {
+            const secId = a.section_id;
+            if (selectedSectionIds.length > 0 && !selectedSectionIds.includes(secId)) return;
+            
+            const bld = a.building_number || 1;
+            
+            if (!byBuilding[bld]) byBuilding[bld] = {};
+            if (!byBuilding[bld][secId]) {
+                byBuilding[bld][secId] = { 
+                    building_number: bld, 
+                    section_id: secId,
+                    section_number: a.section_number,
+                    floors: {} 
+                };
+            }
+            if (!byBuilding[bld][secId].floors[a.floor]) byBuilding[bld][secId].floors[a.floor] = [];
+            byBuilding[bld][secId].floors[a.floor].push(a);
+        });
+        
+        const sortedBuildings = Object.keys(byBuilding).sort((a, b) => a - b);
+        
+        // For each building - show sections inside one frame
+        html += sortedBuildings.map(bnum => {
+            const sections = byBuilding[bnum];
+            const sortedSectionIds = Object.keys(sections).sort((a, b) => {
+                return sections[a].section_number - sections[b].section_number;
+            });
+            
+            // Building totals
+            const allApts = [];
+            sortedSectionIds.forEach(secId => {
+                allApts.push(...Object.values(sections[secId].floors).flat());
+            });
+            const bldDefectCount = allApts.filter(a => a.active_defects_count > 0).length;
+            const bldOwnerCount = allApts.filter(a => a.access_status === 'owner_accepted').length;
+            const bldCallCount = allApts.filter(a => a.access_status === 'call').length;
+            const bldNoCount = allApts.filter(a => a.access_status === 'no_access').length;
+            
+            const title = hasMultipleBuildings ? `Корпус ${bnum}` : `Секция ${bnum}`;
+            
+            return `
+                <div class="section-item">
+                    <div class="section-header">
+                        <span class="section-title">${title}</span>
+                        <span class="section-count">${allApts.length} ${propShort}</span>
+                    </div>
+                    <div class="section-body-container">
+                        <div class="section-body">
+                            ${sortedSectionIds.map(secId => {
+                                const secData = sections[secId];
+                                const secFloors = secData.floors;
+                                const secApts = Object.values(secFloors).flat();
+                                const secDefectCount = secApts.filter(a => a.active_defects_count > 0).length;
+                                const secOwnerCount = secApts.filter(a => a.access_status === 'owner_accepted').length;
+                                const secCallCount = secApts.filter(a => a.access_status === 'call').length;
+                                const secNoCount = secApts.filter(a => a.access_status === 'no_access').length;
+                                const sortedFloors = Object.keys(secFloors).sort((a, b) => b - a);
+                                
+                                return `
+                                    <div class="section-block">
+                                        <div class="section-header" style="background:#f8f9fa;border-bottom:1px solid #eee;">
+                                            <span class="section-title">Секция ${secData.section_number}</span>
+                                            <span class="section-count">${secApts.length} ${propShort}</span>
+                                        </div>
+                                        <div class="section-body-container" style="padding:0;">
+                                            <div class="section-body">
+                                                ${sortedFloors.map(floor => {
+                                                    const floorApts = secFloors[floor].sort((a, b) => a.number - b.number);
+                                                    return renderFloorRow(floorApts, floor, propFull);
+                                                }).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <div class="section-stats">
+                            <span class="footer-stat footer-total">Всего: ${allApts.length}</span>
+                            ${bldDefectCount > 0 ? `<span class="footer-stat footer-defect">С замеч.: ${bldDefectCount}</span>` : ''}
+                            ${bldOwnerCount > 0 ? `<span class="footer-stat footer-accepted">Принято: ${bldOwnerCount}</span>` : ''}
+                            ${bldCallCount > 0 ? `<span class="footer-stat footer-call">Вызов: ${bldCallCount}</span>` : ''}
+                            ${bldNoCount > 0 ? `<span class="footer-stat footer-no">Нет доступа: ${bldNoCount}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } else {
+        // View by sections
+        const filteredSections = sortedSections.filter(sec => {
+            const secId = bySection[sec]?.section_id;
+            return selectedSectionIds.length === 0 || (secId && selectedSectionIds.includes(secId));
+        });
+        
+        html += filteredSections.map(sec => {
+            const sectionData = bySection[sec];
+            const floors = sectionData?.floors;
+            if (!floors) return '';
+            
+            const buildingNum = sectionData?.building_number || 1;
+            const allApts = Object.values(floors).flat();
+            
+            const defectCount = allApts.filter(a => a.active_defects_count > 0).length;
+            const ownerCount = allApts.filter(a => a.access_status === 'owner_accepted').length;
+            const callCount = allApts.filter(a => a.access_status === 'call').length;
+            const noCount = allApts.filter(a => a.access_status === 'no_access').length;
+            
+            const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
+            
+            const title = hasMultipleBuildings ? `Корпус ${buildingNum}, Секция ${sec}` : `Секция ${sec}`;
+            
+            return `
+                <div class="section-item">
+                    <div class="section-header">
+                        <span class="section-title">${title}</span>
+                        <span class="section-count">${allApts.length} ${propShort}</span>
+                    </div>
+                    <div class="section-body-container">
+                        <div class="section-body">
+                            ${sortedFloors.map(floor => {
+                                const floorApts = floors[floor].sort((a, b) => a.number - b.number);
+                                return renderFloorRow(floorApts, floor, propFull);
+                            }).join('')}
+                        </div>
+                        <div class="section-stats">
+                            <span class="footer-stat footer-total">Всего: ${allApts.length}</span>
+                            ${defectCount > 0 ? `<span class="footer-stat footer-defect">С замечаниями: ${defectCount}</span>` : ''}
+                            ${ownerCount > 0 ? `<span class="footer-stat footer-accepted">Принято: ${ownerCount}</span>` : ''}
+                            ${callCount > 0 ? `<span class="footer-stat footer-call">Вызов: ${callCount}</span>` : ''}
+                            ${noCount > 0 ? `<span class="footer-stat footer-no">Нет доступа: ${noCount}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    container.innerHTML = html + '</div>';
+}
+
+function renderFloorRow(floorApts, floor, propFull) {
+    return `
+        <div class="floor-row">
+            <div class="floor-label">${floor} эт</div>
+            <div class="floor-apts">
+                ${floorApts.map(a => {
+                    const deadlineClass = getDeadlineClass(a);
+                    const cls = getApartmentClass(a.access_status, a.active_defects_count);
+                    const badge = (a.active_defects_count > 0 && a.access_status !== 'owner_accepted') ? `<span class="apt-badge">${a.active_defects_count}</span>` : '';
+                    const devilBadge = deadlineClass ? `<span class="apt-devil-badge">😈</span>` : '';
+                    const tooltip = `${propFull === 'апартамент' ? 'Апартамент' : 'Квартира'} ${a.number}`;
+                    return `
+                        <div class="apt ${cls} ${deadlineClass}" 
+                             data-id="${a.id}" 
+                             title="${tooltip}"
+                             onclick="showApartmentDetail(${a.id})">
+                            ${badge}
+                            ${devilBadge}
+                            <span class="apt-num">${a.number}</span>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+// Get apartment CSS class based on status and defects
+function getApartmentClass(status, defects) {
+    // Принята - зелёная ячейка
+    if (status === 'owner_accepted') {
+        return 'apt apt-owner_accepted';
+    }
+    // Вызов - серая ячейка, зелёная окантовка
+    if (status === 'call') {
+        return 'apt apt-call';
+    }
+    // По звонку - серая ячейка, синяя окантовка
+    if (status === 'by_phone') {
+        return 'apt apt-by_phone';
+    }
+    // Сложная - серая ячейка, красная окантовка
+    if (status === 'elevated') {
+        return 'apt apt-elevated';
+    }
+    // Без замечаний - серая ячейка, зелёная окантовка
+    if (status === 'available') {
+        return 'apt apt-available';
+    }
+    // Нет доступа - синяя ячейка
+    return 'apt apt-no_access';
+}
+
+function getDeadlineClass(apt) {
+    if (!apt.earliest_deadline || apt.active_defects_count === 0) return '';
+    
+    const now = new Date();
+    const deadline = new Date(apt.earliest_deadline);
+    const daysUntil = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntil < 0) {
+        return 'apt-deadline-passed';
+    } else if (daysUntil < 15) {
+        return 'apt-deadline-urgent';
+    } else if (daysUntil < 30) {
+        return 'apt-deadline-warning';
+    }
+    return '';
+}
+
+// Apartment Detail
+async function showApartmentDetail(id) {
+    state.currentApartment = id;
+    state.currentApartmentData = null;
+    updateHeader(true, false);
+    setPageTitle('Загрузка...', '');
+    showTab('apartment-detail');
+    
+    try {
+        const [defectsRes, aptsRes] = await Promise.all([
+            fetch(`/api/apartments/${id}/defects`),
+            fetch(`/api/complexes/${state.currentComplex}/apartments`)
+        ]);
+        
+        const defects = await defectsRes.json();
+        const apts = await aptsRes.json();
+        const apt = apts.find(a => a.id === id);
+        
+        if (!apt) {
+            const propType = state.currentPropertyType;
+            const propLabel = propType === 'апартаменты' ? 'Апартаменты' : 'Квартира';
+            showToast(`${propLabel} не найден(а)`, 'error');
+            return;
+        }
+        
+        state.currentApartmentData = apt;
+        const propType = state.currentPropertyType;
+        const propLabel = propType === 'апартаменты' ? 'Апартаменты' : 'Квартира';
+        setPageTitle(`${propLabel} ${apt.number}`, `Секция ${apt.section_number} • Этаж ${apt.floor}`);
+        
+        const active = defects.filter(d => !['ready','rejected'].includes(d.status));
+        const done = defects.filter(d => ['ready','rejected'].includes(d.status));
+        
+        // Update info panel
+        const infoSection = document.getElementById('infoSection');
+        const infoFloor = document.getElementById('infoFloor');
+        const infoActive = document.getElementById('infoActive');
+        const infoReady = document.getElementById('infoReady');
+        
+        if (infoSection) infoSection.textContent = apt.section_number;
+        if (infoFloor) infoFloor.textContent = apt.floor;
+        if (infoActive) infoActive.textContent = active.length;
+        if (infoReady) infoReady.textContent = done.length;
+        
+        // Set status buttons
+        document.querySelectorAll('.status-item').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.status === apt.access_status) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Phone field
+        const phoneBlock = document.getElementById('phoneBlock');
+        const phoneInput = document.getElementById('phoneInput');
+        
+        if (phoneInput) phoneInput.value = apt.access_phone || '';
+        if (phoneBlock) {
+            phoneBlock.style.display = apt.access_status === 'by_phone' ? 'block' : 'none';
+        }
+        
+        // Comment field
+        const commentBlock = document.getElementById('commentBlock');
+        const commentInput = document.getElementById('commentInput');
+        
+        if (commentInput) commentInput.value = apt.access_comment || '';
+        if (commentBlock) {
+            commentBlock.style.display = apt.access_status === 'elevated' ? 'block' : 'none';
+        }
+        
+        renderDefects(defects);
+    } catch (err) {
+        showToast('Ошибка загрузки', 'error');
+        console.error(err);
+    }
+}
+
+// Status Functions
+function setStatus(status) {
+    document.querySelectorAll('.status-item').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.status === status) {
+            btn.classList.add('active');
+        }
+    });
+    
+    const phoneBlock = document.getElementById('phoneBlock');
+    if (phoneBlock) {
+        phoneBlock.style.display = status === 'by_phone' ? 'block' : 'none';
+    }
+    
+    const commentBlock = document.getElementById('commentBlock');
+    if (commentBlock) {
+        commentBlock.style.display = status === 'elevated' ? 'block' : 'none';
+    }
+    
+    saveStatus(status);
+}
+
+async function saveStatus(status) {
+    if (!state.currentApartment) return;
+    
+    try {
+        const res = await fetch(`/api/apartments/${state.currentApartment}/access`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `access_status=${status}`
+        });
+        
+        if (res.ok) {
+            showToast('Статус сохранен', 'success');
+            
+            // Update apartment card in list
+            const apt = document.querySelector(`.apt[data-id="${state.currentApartment}"]`);
+            if (apt && state.currentApartmentData) {
+                const defects = state.currentApartmentData.active_defects_count || 0;
+                const newClass = getApartmentClass(status, defects);
+                apt.className = `apt ${newClass}`;
+            }
+            
+            state.currentApartmentData.access_status = status;
+        } else {
+            showToast('Ошибка сохранения', 'error');
+        }
+    } catch (err) {
+        showToast('Ошибка сохранения', 'error');
+    }
+}
+
+async function savePhone() {
+    if (!state.currentApartment) return;
+    
+    const phoneInput = document.getElementById('phoneInput');
+    const phone = phoneInput?.value.trim();
+    const status = document.querySelector('.status-item.active')?.dataset.status || 'by_phone';
+    
+    try {
+        await fetch(`/api/apartments/${state.currentApartment}/access`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `access_status=${status}&access_phone=${encodeURIComponent(phone)}`
+        });
+        
+        state.currentApartmentData.access_phone = phone;
+        showToast('Телефон сохранен', 'success');
+    } catch (err) {
+        showToast('Ошибка сохранения', 'error');
+    }
+}
+
+async function deletePhone() {
+    if (!state.currentApartment) return;
+    
+    const status = document.querySelector('.status-item.active')?.dataset.status || 'by_phone';
+    
+    try {
+        await fetch(`/api/apartments/${state.currentApartment}/access`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `access_status=${status}&access_phone=`
+        });
+        
+        const phoneInput = document.getElementById('phoneInput');
+        if (phoneInput) phoneInput.value = '';
+        
+        state.currentApartmentData.access_phone = null;
+        showToast('Телефон удален', 'success');
+    } catch (err) {
+        showToast('Ошибка удаления', 'error');
+    }
+}
+
+async function saveComment() {
+    if (!state.currentApartment) return;
+    
+    const commentInput = document.getElementById('commentInput');
+    const comment = commentInput?.value.trim();
+    
+    try {
+        await fetch(`/api/apartments/${state.currentApartment}/access`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `access_status=elevated&access_comment=${encodeURIComponent(comment)}`
+        });
+        
+        state.currentApartmentData.access_comment = comment;
+        showToast('Комментарий сохранен', 'success');
+    } catch (err) {
+        showToast('Ошибка сохранения', 'error');
+    }
+}
+
+// Defects
+function renderDefects(defects) {
+    const container = elements.defectsList;
+    if (!container) return;
+    
+    if (!defects.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">✓</div>
+                <h3>Нет замечаний</h3>
+                <p>Все проверки пройдены успешно</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const badges = { 
+        'new': 'badge-new', 
+        'in_progress': 'badge-progress', 
+        'ready': 'badge-ready', 
+        'rejected': 'badge-rejected' 
+    };
+    
+    const labels = { 
+        'new': 'Новое', 
+        'in_progress': 'В работе', 
+        'ready': 'Готово', 
+        'rejected': 'Отклонено' 
+    };
+    
+    container.innerHTML = defects.map((d, index) => `
+        <div class="defect-item" style="animation: slideIn 0.3s ease ${index * 0.05}s both;">
+            <div class="defect-head">
+                <div class="defect-head-left">
+                    <span class="badge ${badges[d.status]}">${labels[d.status]}</span>
+                    <span class="badge badge-cat">${escapeHtml(d.category)}</span>
+                </div>
+                <span class="defect-date">${formatDate(d.created_at)}</span>
+            </div>
+            <div class="defect-body">
+                ${d.photos?.length ? `
+                    <div class="defect-imgs">
+                        ${d.photos.map(p => `
+                            <img src="/uploads/${escapeHtml(p.filename)}" 
+                                 onclick="showPhoto('/uploads/${escapeHtml(p.filename)}')" 
+                                 loading="lazy">
+                        `).join('')}
+                    </div>
+                ` : ''}
+                ${d.items?.length ? `
+                    <div class="items-list">
+                        ${d.items.map((item, i) => `
+                            <div class="item-row">
+                                <select onchange="updateItemStatus(${item.id}, this.value)" class="status-select">
+                                    <option value="new" ${item.status === 'new' ? 'selected' : ''}>Новое</option>
+                                    <option value="in_progress" ${item.status === 'in_progress' ? 'selected' : ''}>В работе</option>
+                                    <option value="ready" ${item.status === 'ready' ? 'selected' : ''}>Готово</option>
+                                    <option value="rejected" ${item.status === 'rejected' ? 'selected' : ''}>Отклонено</option>
+                                </select>
+                                <span class="item-text">${i + 1}. ${escapeHtml(item.text)}</span>
+                                <div class="actions">
+                                    <button class="btn-icon cmt" onclick="showComments(${item.id})" title="Комментарии">
+                                        💬 ${item.comments?.length || 0}
+                                    </button>
+                                    <button class="btn-icon del" onclick="deleteItem(${item.id})" title="Удалить">×</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : `<p class="defect-desc">${escapeHtml(d.description)}</p>`}
+                ${d.deadline ? `<p class="defect-deadline">📅 Срок: ${formatDate(d.deadline)}</p>` : ''}
+            </div>
+            <div class="defect-foot">
+                <select onchange="updateDefectStatus(${d.id}, this.value)" class="status-select">
+                    <option value="new" ${d.status === 'new' ? 'selected' : ''}>Новое</option>
+                    <option value="in_progress" ${d.status === 'in_progress' ? 'selected' : ''}>В работе</option>
+                    <option value="ready" ${d.status === 'ready' ? 'selected' : ''}>Готово</option>
+                    <option value="rejected" ${d.status === 'rejected' ? 'selected' : ''}>Отклонено</option>
+                </select>
+                <button class="btn btn-sm btn-danger" onclick="deleteDefect(${d.id})">Удалить</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function updateDefectStatus(id, status) {
+    try {
+        await fetch(`/api/defects/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `status=${status}`
+        });
+        
+        showToast('Статус обновлен', 'success');
+        showApartmentDetail(state.currentApartment);
+    } catch (err) {
+        showToast('Ошибка обновления', 'error');
+    }
+}
+
+async function deleteDefect(id) {
+    if (!confirm('Удалить замечание?')) return;
+    
+    try {
+        await fetch(`/api/defects/${id}`, { method: 'DELETE' });
+        showToast('Удалено', 'success');
+        showApartmentDetail(state.currentApartment);
+    } catch (err) {
+        showToast('Ошибка удаления', 'error');
+    }
+}
+
+// Items
+async function updateItemStatus(id, status) {
+    try {
+        await fetch(`/api/items/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `status=${status}`
+        });
+        showToast('Сохранено', 'success');
+    } catch (err) {
+        showToast('Ошибка сохранения', 'error');
+    }
+}
+
+function editItem(id, el) {
+    const text = el.textContent.split('. ')[1];
+    const input = document.createElement('input');
+    input.value = text;
+    input.className = 'item-input';
+    
+    input.onblur = async () => {
+        if (input.value.trim()) {
+            await fetch(`/api/items/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `text=${encodeURIComponent(input.value.trim())}`
+            });
+        }
+        showApartmentDetail(state.currentApartment);
+    };
+    
+    input.onkeypress = (e) => {
+        if (e.key === 'Enter') input.blur();
+    };
+    
+    el.replaceWith(input);
+    input.focus();
+}
+
+async function deleteItem(id) {
+    if (!confirm('Удалить пункт?')) return;
+    
+    try {
+        await fetch(`/api/items/${id}`, { method: 'DELETE' });
+        showApartmentDetail(state.currentApartment);
+    } catch (err) {
+        showToast('Ошибка удаления', 'error');
+    }
+}
+
+// Comments
+function showComments(itemId) {
+    state.currentItemId = itemId;
+    const modal = document.getElementById('commentsModal');
+    if (modal) {
+        modal.classList.add('active');
+        loadComments(itemId);
+    }
+}
+
+async function loadComments(itemId) {
+    try {
+        const res = await fetch(`/api/items/${itemId}/comments`);
+        const comments = await res.json();
+        
+        const commentsBody = document.getElementById('commentsBody');
+        if (commentsBody) {
+            commentsBody.innerHTML = comments.map(c => `
+                <div class="comment-item">
+                    <div class="comment-author">
+                        ${escapeHtml(c.author)} 
+                        <span class="comment-date">${formatDate(c.created_at)}</span>
+                    </div>
+                    <div class="comment-text">${escapeHtml(c.text)}</div>
+                </div>
+            `).join('') || '<p class="empty-comments">Нет комментариев</p>';
+        }
+    } catch (err) {
+        console.error('Error loading comments:', err);
+    }
+}
+
+async function submitComment() {
+    const input = document.getElementById('commentInput');
+    const text = input?.value.trim();
+    
+    if (!text || !state.currentItemId) return;
+    
+    try {
+        await fetch(`/api/items/${state.currentItemId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `text=${encodeURIComponent(text)}`
+        });
+        
+        input.value = '';
+        loadComments(state.currentItemId);
+    } catch (err) {
+        showToast('Ошибка отправки', 'error');
+    }
+}
+
+function closeComments() {
+    const modal = document.getElementById('commentsModal');
+    if (modal) modal.classList.remove('active');
+}
+
+// Add Defect Form
+function showAddDefectForm() {
+    showTab('add-defect');
+    const form = document.getElementById('addDefectForm');
+    if (form) form.reset();
+    
+    const windowGroup = document.getElementById('windowGroup');
+    const templatesGroup = document.getElementById('templatesGroup');
+    const previewGrid = document.getElementById('previewGrid');
+    
+    if (windowGroup) windowGroup.style.display = 'none';
+    if (templatesGroup) templatesGroup.style.display = 'none';
+    if (previewGrid) previewGrid.innerHTML = '';
+}
+
+function handleFileSelect(e) {
+    const files = e.target.files;
+    const grid = document.getElementById('previewGrid');
+    
+    if (!grid) return;
+    grid.innerHTML = '';
+    
+    Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const div = document.createElement('div');
+            div.className = 'preview-item';
+            div.innerHTML = `
+                <img src="${e.target.result}">
+                <button class="preview-remove" onclick="this.parentElement.remove()">×</button>
+            `;
+            grid.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+async function handleAddDefect(e) {
+    e.preventDefault();
+    
+    const category = document.getElementById('defectCategory')?.value;
+    const description = document.getElementById('defectDescription')?.value.trim();
+    
+    if (!category || !description) {
+        showToast('Заполните все обязательные поля', 'warning');
+        return;
+    }
+    
+    const windowNumber = document.getElementById('windowNumber')?.value;
+    const deadline = document.getElementById('defectDeadline')?.value;
+    
+    try {
+        const formData = new FormData();
+        formData.append('category', category);
+        formData.append('description', description);
+        
+        if (windowNumber) formData.append('window_number', windowNumber);
+        if (deadline) formData.append('deadline', deadline);
+        
+        const photos = document.getElementById('defectPhotos')?.files;
+        if (photos) {
+            for (let i = 0; i < photos.length; i++) {
+                formData.append('photos', photos[i]);
+            }
+        }
+        
+        const res = await fetch(`/api/apartments/${state.currentApartment}/defects`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (res.ok) {
+            showToast('Замечание добавлено', 'success');
+            showApartmentDetail(state.currentApartment);
+        } else {
+            showToast('Ошибка добавления', 'error');
+        }
+    } catch (err) {
+        showToast('Ошибка добавления', 'error');
+    }
+}
+
+// Photo Modal
+function showPhoto(src) {
+    const modalImg = document.getElementById('modalImg');
+    const photoModal = document.getElementById('photoModal');
+    
+    if (modalImg) modalImg.src = src;
+    if (photoModal) photoModal.classList.add('active');
+}
+
+function closeModal() {
+    const photoModal = document.getElementById('photoModal');
+    if (photoModal) photoModal.classList.remove('active');
+}
+
+// CSV Export
+async function exportToCSV(complexId) {
+    try {
+        showToast('Генерация отчета...', 'info');
+        
+        const res = await fetch(`/api/complexes/${complexId}/apartments`);
+        const apts = await res.json();
+        
+        const propType = state.currentPropertyType;
+        const propLabel = propType === 'апартаменты' ? 'Апартамент' : 'Квартира';
+        let csv = `${propLabel};Секция;Этаж;Статус доступа;Замечаний\n`;
+        
+        apts.forEach(a => {
+            const status = {
+                available: 'Без замечаний',
+                tech_accepted: 'Тех Надзор',
+                owner_accepted: 'Собственник',
+                by_phone: 'По звонку',
+                no_access: 'Нет доступа'
+            }[a.access_status] || '';
+            
+            csv += `${a.number};${a.section_number};${a.floor};"${status}";${a.active_defects_count}\n`;
+        });
+        
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        
+        a.href = url;
+        a.download = `report_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast('Отчет готов', 'success');
+    } catch (err) {
+        showToast('Ошибка экспорта', 'error');
+    }
+}
+
+// Toast Notifications
+function showToast(message, type = 'info') {
+    const toast = elements.toast || document.getElementById('toast');
+    if (!toast) return;
+    
+    // Remove existing classes
+    toast.className = 'toast';
+    
+    // Add type class
+    toast.classList.add(`toast-${type}`);
+    toast.classList.add('show');
+    toast.textContent = message;
+    
+    // Clear existing timeout
+    if (toast.timeoutId) {
+        clearTimeout(toast.timeoutId);
+    }
+    
+    // Hide after 3 seconds
+    toast.timeoutId = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
+// Legacy toast function for backwards compatibility
+function toast(msg, error = false) {
+    showToast(msg, error ? 'error' : 'info');
+}
+
+// Utils
+function formatDate(str) {
+    if (!str) return '';
+    return new Date(str).toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+}
+
+function isOverdue(deadline, status) {
+    if (['ready', 'rejected'].includes(status)) return false;
+    return new Date(deadline) < new Date();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function getStatusClass(status) {
+    const map = {
+        'available': 'ok',
+        'tech_accepted': 'tech',
+        'owner_accepted': 'owner',
+        'by_phone': 'phone',
+        'no_access': 'no'
+    };
+    return map[status] || '';
+}
+
+// Deprecated: use getApartmentClass instead
+function getStatusCssClass(status, defects) {
+    return getApartmentClass(status, defects);
+}
+
+function pluralize(n, one, few, many) {
+    if (n % 10 === 1 && n % 100 !== 11) return one;
+    if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return few;
+    return many;
+}
+
+// Handle Create Complex
+function handleCreateComplex(e) {
+    e.preventDefault();
+    submitComplexForm();
+}
+
+// Building View (legacy, now handled by renderApartments)
+function renderBuildingView(apartments) {
+    renderApartments(apartments);
+}
+
+// Print Defects
+async function printDefects() {
+    if (!state.currentApartment) return;
+    
+    try {
+        const res = await fetch(`/api/apartments/${state.currentApartment}/defects`);
+        const defects = await res.json();
+        
+        if (!defects.length) {
+            showToast('Нет замечаний для печати', 'warning');
+            return;
+        }
+        
+        const apt = state.currentApartmentData;
+        const propType = state.currentPropertyType;
+        const propLabel = propType === 'апартаменты' ? 'Апартамент' : 'Квартира';
+        const statusLabels = {
+            'new': 'Новое',
+            'in_progress': 'В работе',
+            'ready': 'Готово',
+            'rejected': 'Отклонено'
+        };
+        
+        let html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Замечания - ${propLabel} ${apt.number}</title>
+                <style>
+                    body{font-family:Arial,sans-serif;padding:20px;font-size:12px}
+                    h1{font-size:18px;margin-bottom:5px}
+                    .meta{color:#666;margin-bottom:20px}
+                    .defect{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #ddd}
+                    .defect:last-child{border-bottom:none}
+                    .defect-header{display:flex;gap:10px;margin-bottom:8px}
+                    .badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:bold}
+                    .badge-new{background:#fee2e2;color:#991b1b}
+                    .badge-progress{background:#fef3c7;color:#92400e}
+                    .badge-ready{background:#dcfce7;color:#166534}
+                    .badge-rejected{background:#f3f4f6;color:#374151}
+                    .cat{background:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:10px}
+                    .desc{line-height:1.5}
+                    .items{margin-top:8px;padding-left:20px}
+                    .item{display:flex;gap:10px;padding:4px 0}
+                    .item-status{width:80px;color:#666}
+                    .date{color:#999;font-size:10px;margin-top:4px}
+                    @media print{body{padding:0}.defect{page-break-inside:avoid}}
+                </style>
+            </head>
+            <body>
+                <h1>Замечания - ${propLabel} ${apt.number}</h1>
+                <p class="meta">Секция ${apt.section_number} | Этаж ${apt.floor} | ${defects.length} ${pluralize(defects.length, 'замечание', 'замечания', 'замечаний')}</p>
+        `;
+        
+        defects.forEach(d => {
+            html += `
+                <div class="defect">
+                    <div class="defect-header">
+                        <span class="badge badge-${d.status}">${statusLabels[d.status] || d.status}</span>
+                        <span class="cat">${escapeHtml(d.category)}</span>
+                    </div>
+                    <p class="desc">${escapeHtml(d.description)}</p>
+            `;
+            
+            if (d.items?.length) {
+                html += '<div class="items">';
+                d.items.forEach(item => {
+                    html += `<div class="item"><span class="item-status">${statusLabels[item.status] || item.status}</span><span>${escapeHtml(item.text)}</span></div>`;
+                });
+                html += '</div>';
+            }
+            
+            if (d.deadline) {
+                html += `<p class="date">Срок: ${formatDate(d.deadline)}</p>`;
+            }
+            
+            html += '</div>';
+        });
+        
+        html += '</body></html>';
+        
+        const win = window.open('', '_blank');
+        win.document.write(html);
+        win.document.close();
+        win.print();
+    } catch (err) {
+        showToast('Ошибка печати', 'error');
+    }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    // Escape to close modals
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal.active').forEach(modal => {
+            modal.classList.remove('active');
+        });
+    }
+    
+    // Backspace to go back (when not in input)
+    if (e.key === 'Backspace' && 
+        !e.target.matches('input, textarea, select') && 
+        (state.currentApartment || state.currentComplex)) {
+        e.preventDefault();
+        goBack();
+    }
+});
+
+console.log('app.js loaded - v2.0 optimized');

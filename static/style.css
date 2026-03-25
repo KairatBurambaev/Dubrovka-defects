@@ -1,0 +1,2522 @@
+:root {
+  --primary: #4f46e5;
+  --primary-dark: #4338ca;
+  --primary-light: #6366f1;
+  --primary-subtle: #e0e7ff;
+  --success: #10b981;
+  --success-subtle: #d1fae5;
+  --warning: #f59e0b;
+  --warning-subtle: #fef3c7;
+  --danger: #ef4444;
+  --danger-subtle: #fee2e2;
+  --info: #0ea5e9;
+  --info-subtle: #e0f2fe;
+  --dark: #0f172a;
+  --dark-2: #1e293b;
+  --dark-3: #334155;
+  --gray: #6b7280;
+  --gray-light: #9ca3af;
+  --gray-lighter: #d1d5db;
+  --gray-lightest: #f3f4f6;
+  --white: #ffffff;
+  --bg: #f9fafb;
+  --card: #ffffff;
+  --text: #111827;
+  --text-secondary: #6b7280;
+  --border: #e5e7eb;
+  --shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection { background: var(--primary-subtle); color: var(--primary-dark); }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ========== LAYOUT ========== */
+.app {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+}
+  flex-direction: column;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-header {
+  padding: 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  letter-spacing: -0.02em;
+}
+
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--primary), #8b5cf6);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+}
+
+.logo-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar-nav {
+  padding: 16px 12px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.nav-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 8px 12px 12px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin: 4px 0;
+  border-radius: var(--radius-md);
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--white);
+}
+
+.nav-link.active {
+  background: linear-gradient(135deg, var(--primary), #6366f1);
+  color: var(--white);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+}
+
+.nav-link .icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-link .icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* Mobile menu toggle */
+.menu-toggle {
+  display: none;
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 200;
+  width: 44px;
+  height: 44px;
+  background: var(--dark);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--white);
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-toggle svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ========== HEADER ========== */
+.header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  box-shadow: var(--shadow);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.header-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ========== BUTTONS ========== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: var(--white);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: var(--gray-lightest);
+  color: var(--text);
+}
+
+.btn-secondary:hover {
+  background: var(--gray-lighter);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--gray-lightest);
+  color: var(--text);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, var(--danger), #f87171);
+  color: var(--white);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626, var(--danger));
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.btn-icon-only {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+
+/* ========== CARDS GRID ========== */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 16px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  border: 1px solid var(--border);
+  transition: var(--transition);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary), #8b5cf6);
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--primary-light);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.card-badge {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 100px;
+}
+
+.card-badge.success {
+  background: var(--success-subtle);
+  color: #059669;
+}
+
+.card-badge.warning {
+  background: var(--warning-subtle);
+  color: #d97706;
+}
+
+.card-stats {
+  display: flex;
+  gap: 32px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.card-stat {
+  text-align: center;
+}
+
+.card-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--text), var(--text-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card-stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+/* ========== TABS/PANELS ========== */
+.tab-panel {
+  display: none;
+  flex: 1;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+/* ========== LOADING CONTAINER ========== */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.loading-container p {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+/* ========== TOOLBAR ========== */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.multi-select-wrapper {
+  position: relative;
+}
+
+.select-btn {
+  min-width: 160px;
+  padding: 10px 14px;
+  font-size: 13px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: inherit;
+}
+
+.select-btn:hover {
+  border-color: var(--primary-light);
+}
+
+.dropdown-arrow {
+  font-size: 10px;
+  color: var(--gray-light);
+}
+
+.multi-select-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 180px;
+  max-height: 250px;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  margin-top: 4px;
+}
+
+.multi-select-dropdown.open {
+  display: block;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: var(--transition);
+}
+
+.dropdown-item:hover {
+  background: var(--gray-lightest);
+}
+
+.dropdown-item input[type="checkbox"] {
+  accent-color: var(--primary);
+  width: 16px;
+  height: 16px;
+}
+
+/* ========== FILTERS ========== */
+.pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.pill:hover {
+  border-color: var(--primary-light);
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.pill.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--white);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+
+.building-row {
+  background: var(--gray-lightest);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.building-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.building-header .building-num {
+  width: 100px;
+  padding: 10px 14px;
+  font-size: 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.sections-container {
+  padding-left: 12px;
+}
+
+.section-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.section-row-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.section-row-grid input {
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-width: 80px;
+}
+
+.floors-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 12px;
+}
+
+.floor-row-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--gray-lightest);
+  border-radius: var(--radius-sm);
+}
+
+.floor-row-input input {
+  padding: 6px 10px;
+  font-size: 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  width: 80px;
+}
+
+.btn-remove-row {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+}
+
+.btn-remove-row:hover {
+  color: var(--danger-dark);
+}
+
+.pill-green.active { background: var(--success); border-color: var(--success); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3); }
+.pill-pink.active { background: var(--danger); border-color: var(--danger); box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3); }
+.pill-blue.active { background: var(--info); border-color: var(--info); box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3); }
+.pill-amber.active { background: var(--warning); border-color: var(--warning); box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3); }
+
+/* ========== INPUTS & SELECTS ========== */
+.input, .select {
+  padding: 12px 16px;
+  font-size: 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--text);
+  transition: var(--transition);
+  font-family: inherit;
+}
+
+.input:focus, .select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+  outline: none;
+}
+
+.input::placeholder { color: var(--gray-light); }
+
+.search-apt {
+  min-width: 280px;
+}
+
+.select {
+  min-width: 180px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+/* ========== SECTIONS GRID (APARTMENTS) ========== */
+.sections-grid {
+  padding: 16px;
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.section-block {
+  background: #ffffff;
+  border-radius: 20px;
+  border: none;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.08);
+  flex: 1 1 calc(50% - 8px);
+  min-width: 320px;
+}
+
+.section-header {
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.section-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.section-stats span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.apartments-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+  padding: 16px;
+}
+
+.apartment-card {
+  padding: 12px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  transition: var(--transition);
+  cursor: pointer;
+  position: relative;
+  text-align: center;
+}
+
+.apartment-card:hover {
+  border-color: var(--primary-light);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.apartment-card.status-available { border-left: 4px solid var(--success); }
+.apartment-card.status-owner_accepted { border-left: 4px solid var(--success); }
+.apartment-card.status-call { border-left: 4px solid var(--danger); }
+.apartment-card.status-no_access { border-left: 4px solid var(--info); }
+.apartment-card.status-defects { border-left: 4px solid var(--warning); }
+
+.apt-number {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.apt-info {
+  font-size: 10px;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.apt-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 100px;
+  font-size: 9px;
+  font-weight: 600;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.apt-status.available, .apt-status.owner_accepted {
+  background: var(--success-subtle);
+  color: #059669;
+}
+
+.apt-status.call {
+  background: var(--danger-subtle);
+  color: #dc2626;
+}
+
+.apt-status.no_access {
+  background: var(--info-subtle);
+  color: #0284c7;
+}
+
+.apt-status.defects {
+  background: var(--warning-subtle);
+  color: #d97706;
+}
+
+.apt-defects-badge {
+  background: var(--danger);
+  color: var(--white);
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+/* ========== DETAIL GRID ========== */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 16px;
+  padding: 16px;
+}
+
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.detail-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ========== PANELS ========== */
+.panel {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.panel-header {
+  padding: 20px 24px;
+  background: linear-gradient(90deg, var(--gray-lightest), var(--white));
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.panel-body {
+  padding: 24px;
+}
+
+/* ========== STATUS GRID ========== */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  padding: 24px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--gray-lightest);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.status-item:hover {
+  border-color: var(--primary-light);
+  background: var(--primary-subtle);
+}
+
+.status-item.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border-color: var(--primary);
+  color: var(--white);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-green { background: var(--success); }
+.dot-pink { background: var(--danger); }
+.dot-blue { background: var(--info); }
+.dot-amber { background: var(--warning); }
+
+/* ========== PHONE PANEL ========== */
+.phone-panel {
+  padding: 24px;
+  background: var(--gray-lightest);
+  border-top: 1px solid var(--border);
+}
+
+.phone-panel label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.phone-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.phone-row .input {
+  flex: 1;
+  min-width: 220px;
+}
+
+/* ========== DEFECTS LIST ========== */
+#defectsList {
+  padding: 20px 24px;
+}
+
+.defect-item {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+  transition: var(--transition);
+}
+
+.defect-item:hover {
+  background: var(--gray-lightest);
+}
+
+.defect-item:last-child { border-bottom: none; }
+
+.defect-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--warning-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.defect-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: var(--warning);
+}
+
+.defect-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.defect-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.defect-category {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.defect-status {
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.defect-status.new {
+  background: var(--danger-subtle);
+  color: #dc2626;
+}
+
+.defect-status.in_progress {
+  background: var(--primary-subtle);
+  color: var(--primary-dark);
+}
+
+.defect-status.ready {
+  background: var(--success-subtle);
+  color: #059669;
+}
+
+.defect-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.defect-meta {
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  color: var(--gray-light);
+  font-weight: 500;
+}
+
+.defect-photos {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.defect-photo {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  cursor: pointer;
+  transition: var(--transition);
+  border: 2px solid var(--border);
+}
+
+.defect-photo:hover {
+  transform: scale(1.08);
+  border-color: var(--primary);
+}
+
+/* ========== INFO ITEMS ========== */
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-item:last-child { border-bottom: none; }
+
+.info-item span {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.info-item strong {
+  font-size: 16px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.info-item strong.red { color: var(--danger); }
+.info-item strong.green { color: var(--success); }
+
+/* ========== FORMS ========== */
+.form {
+  padding: 32px;
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  max-width: 640px;
+  box-shadow: var(--shadow-lg);
+}
+
+.form-field {
+  margin-bottom: 24px;
+}
+
+.form-field label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+}
+
+.form-field textarea {
+  min-height: 120px;
+  resize: vertical;
+  border-radius: var(--radius-md);
+}
+
+.form-field input[type="date"] {
+  border-radius: var(--radius-md);
+}
+
+.form-section {
+  margin-bottom: 24px;
+}
+
+.form-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  transition: var(--transition);
+}
+
+.btn-link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+.form-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+/* ========== UPLOAD ZONE ========== */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  color: var(--text-secondary);
+  font-size: 14px;
+  background: var(--gray-lightest);
+}
+
+.upload-zone:hover {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+  color: var(--primary);
+}
+
+.upload-zone.dragover {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.preview-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 2px solid var(--border);
+}
+
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  background: var(--danger);
+  color: var(--white);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.9;
+}
+
+.preview-remove:hover {
+  opacity: 1;
+}
+
+/* ========== MODALS ========== */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal.active { display: flex; }
+
+.modal-content {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+  position: relative;
+  box-shadow: var(--shadow-xl);
+}
+
+.modal-content img {
+  max-width: 100%;
+  max-height: 80vh;
+  display: block;
+  border-radius: var(--radius-lg);
+}
+
+.modal-sm { max-width: 440px; }
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.modal-close {
+  width: 36px;
+  height: 36px;
+  background: var(--gray-lightest);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  color: var(--text-secondary);
+}
+
+.modal-close:hover { 
+  background: var(--gray-lighter);
+  color: var(--text);
+}
+
+.modal-body { padding: 24px; }
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.modal-footer input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+}
+
+.modal-footer input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+/* ========== TOAST ========== */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  background: var(--dark);
+  color: var(--white);
+  padding: 16px 24px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  font-size: 14px;
+  font-weight: 600;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2000;
+}
+
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.toast.success { 
+  background: linear-gradient(135deg, var(--success), #34d399); 
+}
+.toast.error { 
+  background: linear-gradient(135deg, var(--danger), #f87171); 
+}
+.toast.warning { 
+  background: linear-gradient(135deg, var(--warning), #fbbf24); 
+}
+
+/* ========== LOADING ========== */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+}
+
+/* ========== EMPTY STATE ========== */
+.empty-state {
+  text-align: center;
+  padding: 80px 32px;
+  color: var(--text-secondary);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state svg {
+  width: 80px;
+  height: 80px;
+  fill: var(--gray-lighter);
+  margin-bottom: 20px;
+}
+
+.empty-state h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+
+.empty-state p {
+  font-size: 14px;
+}
+
+/* ========== CHIPS ========== */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  padding: 8px 16px;
+  background: var(--gray-lightest);
+  border: 1.5px solid var(--border);
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.chip:hover {
+  border-color: var(--primary-light);
+  background: var(--primary-subtle);
+}
+
+.chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--white);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+
+/* ========== FILTER PANEL ========== */
+.filter-panel {
+  display: flex;
+  gap: 16px;
+  padding: 16px 32px;
+  background: var(--gray-lightest);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+/* ========== SECTION ITEMS ========== */
+.section-item {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.section-header {
+  padding: 20px 24px;
+  background: linear-gradient(90deg, var(--gray-lightest), var(--white));
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.section-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.section-body {
+  padding: 12px;
+}
+
+.section-body-container {
+  display: flex;
+  padding: 12px;
+  gap: 16px;
+}
+
+.section-body {
+  flex: 1;
+}
+
+.section-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 140px;
+  padding: 12px;
+  background: linear-gradient(180deg, #fafbfc 0%, #f5f6f8 100%);
+  border-radius: 8px;
+}
+
+.floor-row {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 8px;
+}
+
+.floor-row:last-child {
+  margin-bottom: 0;
+}
+
+.floor-label {
+  width: 44px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f7;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #86868b;
+  flex-shrink: 0;
+  margin-right: 10px;
+  border: 2px solid #000000;
+}
+
+.floor-apts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+}
+
+/* ========== VARIANT: MINIMAL ========== */
+/* Uncomment to use
+.apt {
+  width: 36px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+}
+.apt:hover { background: #f3f4f6; }
+.apt.apt-available { background: #ffffff; border-color: #e5e7eb; color: #9ca3af; }
+.apt.apt-owner_accepted { background: #ecfdf5; border-color: #10b981; color: #059669; }
+.apt.apt-call { background: #f3e8ff; border-color: #9333ea; color: #7e22ce; }
+.apt.apt-no_access { background: #eff6ff; border-color: #3b82f6; color: #2563eb; }
+.apt.apt-defects { background: #fffbeb; border-color: #f59e0b; color: #d97706; }
+.apt-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 16px;
+  height: 16px;
+  background: #ef4444;
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 600;
+}
+.section-block { background: #ffffff; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: none; }
+.section-header { padding: 14px 18px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+.section-footer { padding: 12px 18px; background: #f9fafb; border-top: 1px solid #e5e7eb; }
+.footer-stat { font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 6px; border: 1px solid; }
+*/
+
+/* ========== VARIANT: NEON ========== */
+/* Uncomment to use
+.apt {
+  width: 44px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border: 2px solid transparent;
+  background: #1a1a2e;
+  color: #eee;
+}
+.apt:hover { transform: translateY(-2px); box-shadow: 0 0 20px rgba(255,255,255,0.1); }
+.apt.apt-available { background: #1a1a2e; border-color: #4a4a5a; color: #888; }
+.apt.apt-owner_accepted { background: linear-gradient(135deg, #0f3d0f, #1a5c1a); border-color: #22c55e; color: #4ade80; box-shadow: 0 0 15px rgba(34,197,94,0.3); }
+.apt.apt-call { background: linear-gradient(135deg, #3d1a5c, #5c1a8c); border-color: #a855f7; color: #d8b4fe; box-shadow: 0 0 15px rgba(168,85,247,0.3); }
+.apt.apt-no_access { background: linear-gradient(135deg, #1a3a5c, #1a5c8c); border-color: #3b82f6; color: #93c5fd; box-shadow: 0 0 15px rgba(59,130,246,0.3); }
+.apt.apt-defects { background: linear-gradient(135deg, #5c3d1a, #8c5c1a); border-color: #f59e0b; color: #fcd34d; box-shadow: 0 0 15px rgba(245,158,11,0.3); }
+.apt-badge { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; background: #ff4444; color: #fff; border-radius: 50%; font-size: 10px; font-weight: 700; box-shadow: 0 0 10px rgba(255,68,68,0.5); }
+.section-block { background: #0f0f23; border-radius: 16px; border: 1px solid #2a2a4a; box-shadow: 0 0 30px rgba(0,0,0,0.3); }
+.section-header { padding: 14px 18px; background: #1a1a2e; border-bottom: 1px solid #2a2a4a; color: #fff; }
+.section-footer { padding: 12px 18px; background: #1a1a2e; border-top: 1px solid #2a2a4a; }
+.footer-total { background: #2a2a4a; color: #888; }
+.floor-label { background: #1a1a2e; color: #888; }
+*/
+
+/* ========== VARIANT: GLASS ========== */
+/* Uncomment to use
+.apt {
+  width: 44px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px);
+  color: #fff;
+}
+.apt:hover { transform: scale(1.08); }
+.apt.apt-available { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+.apt.apt-owner_accepted { background: rgba(52, 199, 89, 0.6); border-color: rgba(52, 199, 89, 0.8); }
+.apt.apt-call { background: rgba(168, 85, 247, 0.6); border-color: rgba(168, 85, 247, 0.8); }
+.apt.apt-no_access { background: rgba(0, 122, 255, 0.6); border-color: rgba(0, 122, 255, 0.8); }
+.apt.apt-defects { background: rgba(255, 159, 10, 0.6); border-color: rgba(255, 159, 10, 0.8); }
+.apt-badge { position: absolute; top: -8px; right: -8px; width: 20px; height: 20px; background: rgba(255,59,48,0.9); color: #fff; border-radius: 50%; font-size: 10px; font-weight: 700; backdrop-filter: blur(4px); }
+.section-block { background: rgba(30, 30, 40, 0.8); backdrop-filter: blur(20px); border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); }
+.section-header { background: rgba(40, 40, 50, 0.6); border-bottom: 1px solid rgba(255,255,255,0.08); color: #fff; }
+.section-footer { background: rgba(40, 40, 50, 0.6); border-top: 1px solid rgba(255,255,255,0.08); }
+.footer-total { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+.floor-label { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
+*/
+
+/* ========== VARIANT: ROUNDED ========== */
+/* Uncomment to use
+.apt {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.apt:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+.apt.apt-available { background: #f1f5f9; color: #94a3b8; }
+.apt.apt-owner_accepted { background: #22c55e; color: #fff; box-shadow: 0 4px 12px rgba(34,197,94,0.4); }
+.apt.apt-call { background: #a855f7; color: #fff; box-shadow: 0 4px 12px rgba(168,85,247,0.4); }
+.apt.apt-no_access { background: #3b82f6; color: #fff; box-shadow: 0 4px 12px rgba(59,130,246,0.4); }
+.apt.apt-defects { background: #f59e0b; color: #fff; box-shadow: 0 4px 12px rgba(245,158,11,0.4); }
+.apt-badge { position: absolute; top: -4px; right: -4px; width: 20px; height: 20px; background: #ef4444; color: #fff; border-radius: 50%; font-size: 10px; font-weight: 700; border: 2px solid #fff; }
+.floor-label { border-radius: 50%; }
+.section-block { background: #ffffff; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+.section-header { border-radius: 24px 24px 0 0; }
+.section-footer { border-radius: 0 0 24px 24px; }
+*/
+
+/* ========== VARIANT: COMPACT GRID ========== */
+/* Uncomment to use
+.apt {
+  width: 32px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  position: relative;
+  border: none;
+  background: #e5e7eb;
+  color: #6b7280;
+}
+.apt:hover { background: #d1d5db; }
+.apt.apt-available { background: #f3f4f6; color: #9ca3af; }
+.apt.apt-owner_accepted { background: #10b981; color: #fff; }
+.apt.apt-call { background: #8b5cf6; color: #fff; }
+.apt.apt-no_access { background: #6366f1; color: #fff; }
+.apt.apt-defects { background: #f59e0b; color: #fff; }
+.apt-badge { position: absolute; top: -4px; right: -4px; width: 14px; height: 14px; background: #ef4444; color: #fff; border-radius: 50%; font-size: 8px; font-weight: 700; }
+.floor-label { width: 24px; height: 24px; font-size: 9px; }
+.floor-apts { gap: 2px; }
+.section-block { border-radius: 8px; }
+.section-header { padding: 10px 14px; }
+.section-footer { padding: 8px 14px; gap: 8px; }
+.footer-stat { font-size: 10px; padding: 3px 8px; }
+*/
+
+/* ========== VARIANT: BORDER ONLY ========== */
+/* Uncomment to use
+.apt {
+  width: 40px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border: 2px solid #e5e7eb;
+  background: transparent;
+  color: #9ca3af;
+}
+.apt:hover { border-color: #9ca3af; color: #4b5563; }
+.apt.apt-available { border-color: #e5e7eb; color: #9ca3af; }
+.apt.apt-owner_accepted { border-color: #22c55e; background: #22c55e; color: #fff; }
+.apt.apt-call { border-color: #a855f7; background: #a855f7; color: #fff; }
+.apt.apt-no_access { border-color: #3b82f6; background: #3b82f6; color: #fff; }
+.apt.apt-defects { border-color: #f59e0b; background: #f59e0b; color: #fff; }
+.apt-badge { position: absolute; top: -8px; right: -8px; width: 18px; height: 18px; background: #ef4444; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; border: 2px solid #fff; }
+.section-block { border: 2px solid #e5e7eb; border-radius: 16px; box-shadow: none; }
+.section-header { border-bottom: 1px solid #e5e7eb; }
+.section-footer { border-top: 1px solid #e5e7eb; }
+.footer-stat { border-radius: 4px; }
+*/
+
+/* ========== VARIANT: APPLE STYLE (DEFAULT) ========== */
+.apt {
+  width: 44px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border: none;
+  background: #f5f5f7;
+  color: #1d1d1f;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.apt:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.apt.apt-available {
+  background: #f5f5f7;
+  color: #86868b;
+}
+
+.apt.apt-owner_accepted {
+  background: linear-gradient(135deg, #34c759, #30d158);
+  color: #ffffff;
+}
+
+.apt.apt-call {
+  background: linear-gradient(135deg, #af52de, #bf5af2);
+  color: #ffffff;
+}
+
+.apt.apt-no_access {
+  background: linear-gradient(135deg, #007aff, #0a84ff);
+  color: #ffffff;
+}
+
+.apt.apt-defects {
+  background: linear-gradient(135deg, #ff9f0a, #ffb340);
+  color: #ffffff;
+}
+
+.apt-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(135deg, #ff3b30, #ff6961);
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(255,59,48,0.4);
+}
+
+/* ========== VARIANT: MINIMAL ========== */
+/* Uncomment to use:
+.apt {
+  width: 36px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+}
+
+.apt:hover {
+  background: #f3f4f6;
+}
+
+.apt.apt-available {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+}
+
+.apt.apt-owner_accepted {
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #059669;
+}
+
+.apt.apt-call {
+  background: #f3e8ff;
+  border-color: #9333ea;
+  color: #7e22ce;
+}
+
+.apt.apt-no_access {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+.apt.apt-defects {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #d97706;
+}
+
+.apt-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 16px;
+  height: 16px;
+  background: #ef4444;
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+*/
+
+/* ========== VARIANT: NEON ========== */
+/* Uncomment to use:
+.apt {
+  width: 44px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border: 2px solid transparent;
+  background: #1a1a2e;
+  color: #eee;
+}
+
+.apt:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(255,255,255,0.1);
+}
+
+.apt.apt-available {
+  background: #1a1a2e;
+  border-color: #4a4a5a;
+  color: #888;
+}
+
+.apt.apt-owner_accepted {
+  background: linear-gradient(135deg, #0f3d0f, #1a5c1a);
+  border-color: #22c55e;
+  color: #4ade80;
+  box-shadow: 0 0 15px rgba(34,197,94,0.3);
+}
+
+.apt.apt-call {
+  background: linear-gradient(135deg, #3d1a5c, #5c1a8c);
+  border-color: #a855f7;
+  color: #d8b4fe;
+  box-shadow: 0 0 15px rgba(168,85,247,0.3);
+}
+
+.apt.apt-no_access {
+  background: linear-gradient(135deg, #1a3a5c, #1a5c8c);
+  border-color: #3b82f6;
+  color: #93c5fd;
+  box-shadow: 0 0 15px rgba(59,130,246,0.3);
+}
+
+.apt.apt-defects {
+  background: linear-gradient(135deg, #5c3d1a, #8c5c1a);
+  border-color: #f59e0b;
+  color: #fcd34d;
+  box-shadow: 0 0 15px rgba(245,158,11,0.3);
+}
+
+.apt-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  background: #ff4444;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px rgba(255,68,68,0.5);
+}
+*/
+
+.apt-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(135deg, #ff3b30, #ff6961);
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(255,59,48,0.4);
+  justify-content: center;
+}
+
+.apt-num {
+  font-size: 12px;
+}
+
+.section-footer {
+  padding: 14px 20px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #fafafa;
+}
+
+.footer-stat {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 20px;
+}
+
+.footer-total {
+  background: #f5f5f7;
+  color: #86868b;
+}
+
+.footer-defect {
+  background: linear-gradient(135deg, #ff9f0a, #ffb340);
+  color: #ffffff;
+}
+
+.footer-accepted {
+  background: linear-gradient(135deg, #34c759, #30d158);
+  color: #ffffff;
+}
+
+.footer-call {
+  background: linear-gradient(135deg, #af52de, #bf5af2);
+  color: #ffffff;
+}
+
+.footer-no {
+  background: linear-gradient(135deg, #007aff, #0a84ff);
+  color: #ffffff;
+}
+
+/* ========== COMPLEX CARDS ========== */
+
+/* ========== COMPLEX CARDS ========== */
+.complex-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  transition: var(--transition);
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+}
+
+.complex-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary-light);
+}
+
+.complex-card-header {
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.complex-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.complex-badge {
+  padding: 6px 12px;
+  background: var(--primary-subtle);
+  color: var(--primary-dark);
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.complex-card-body {
+  padding: 0 16px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.complex-meta {
+  margin-bottom: 8px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.meta-icon {
+  font-size: 14px;
+}
+
+.complex-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stat-item {
+  padding: 4px 8px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.stat-defect {
+  background: var(--danger-subtle);
+  color: #dc2626;
+}
+
+.stat-success {
+  background: var(--success-subtle);
+  color: #059669;
+}
+
+.stat-available {
+  background: var(--info-subtle);
+  color: #0284c7;
+}
+
+.stat-call {
+  background: var(--warning-subtle);
+  color: #d97706;
+}
+
+.stat-noaccess {
+  background: var(--gray-lightest);
+  color: var(--gray);
+}
+
+.complex-card-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.view-link {
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.complex-card:hover .view-link {
+  text-decoration: underline;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 1024px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .detail-sidebar {
+    order: -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .main {
+    margin-left: 0;
+  }
+  
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .header {
+    padding: 0 16px 0 72px;
+    height: 64px;
+  }
+  
+  h1 {
+    font-size: 18px;
+  }
+  
+  .toolbar {
+    padding: 16px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .toolbar-left, .toolbar-right {
+    width: 100%;
+  }
+  
+  .pills {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .pill {
+    flex-shrink: 0;
+  }
+  
+  .cards-grid {
+    padding: 16px;
+    grid-template-columns: 1fr;
+  }
+  
+  .sections-grid {
+    padding: 16px;
+    flex-direction: column;
+  }
+  
+  .section-block {
+    flex: 1 1 100%;
+    min-width: unset;
+  }
+  
+  .apartments-list {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 16px;
+  }
+  
+  .form {
+    padding: 20px;
+  }
+  
+  .detail-grid {
+    padding: 16px;
+  }
+  
+  .status-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .toast {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+  
+  .header-right {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .apartments-list {
+    grid-template-columns: 1fr;
+  }
+  
+  .card-stats {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .phone-row {
+    flex-direction: column;
+  }
+  
+  .phone-row .input {
+    width: 100%;
+  }
+  
+  .detail-grid {
+    gap: 16px;
+  }
+}
+
+/* Overlay for mobile */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 99;
+}
+
+@media (max-width: 768px) {
+  .sidebar-overlay.active {
+    display: block;
+  }
+}
+
+/* Additional improvements */
+.section-header {
+  position: relative;
+}
+
+.section-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--primary), transparent);
+  opacity: 0.3;
+}
+
+.panel-header {
+  position: relative;
+}
+
+.panel-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--primary), transparent);
+  opacity: 0.2;
+}
+
+/* Smooth scrolling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-lighter) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--gray-lighter);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-light);
+}
+
+/* ========== SOFT PASTEL THEME (EYE-FRIENDLY) ========== */
+
+body {
+  background: linear-gradient(180deg, #fafbfc 0%, #f3f4f6 100%);
+}
+
+.apt {
+  width: 37px;
+  height: 35px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  background: #eef0f2;
+  color: #9ca3af;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  transition: all 0.15s ease;
+}
+
+.apt:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.apt.apt-available {
+  background: #e5e7eb;
+  border: 2.5px solid #374151;
+  color: #111827;
+}
+
+.apt.apt-owner_accepted {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  border: 2.5px solid #374151;
+  color: #ffffff;
+}
+
+.apt.apt-call {
+  background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
+  border: 2.5px solid #374151;
+  color: #111827;
+}
+
+.apt.apt-by_phone {
+  background: #93c5fd;
+  border: 2.5px solid #374151;
+  color: #111827;
+}
+
+.apt.apt-elevated {
+  background: linear-gradient(135deg, #ff8a80 0%, #d32f2f 100%);
+  border: 2.5px solid #374151;
+  color: #ffffff;
+}
+
+.apt.apt-no_access {
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  border: 2.5px solid #374151;
+  color: #ffffff;
+}
+
+.apt.apt-rejected {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+}
+
+.apt.apt-defects {
+  background: linear-gradient(135deg, #fde047 0%, #eab308 100%);
+  color: #111827;
+  box-shadow: 0 2px 6px rgba(234, 179, 8, 0.25);
+}
+
+.apt-deadline-warning {
+  border-color: #eab308 !important;
+}
+
+.apt-deadline-urgent {
+  border-color: #ef4444 !important;
+}
+
+.apt-deadline-passed {
+  border-color: #000000 !important;
+}
+
+.apt-devil-badge {
+  position: absolute;
+  top: -8px;
+  left: -6px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.apt-badge {
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  font-weight: 700;
+  top: -6px;
+  right: -6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  background: linear-gradient(135deg, #fde047 0%, #eab308 100%);
+  border: 1px solid #111827;
+  color: #111827;
+}
+
+.section-block {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  border: 1px solid #f0f1f3;
+}
+
+.section-header {
+  padding: 14px 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  border-bottom: 1px solid #f0f1f3;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  letter-spacing: -0.01em;
+}
+
+.section-count {
+  font-size: 10px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.floor-label {
+  width: 42px;
+  height: 29px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+  color: #374151;
+  border: 2px solid #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.section-footer {
+  display: none;
+}
+
+.footer-stat {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.footer-total {
+  background: #e5e7eb;
+  color: #374151;
+  border: 2px solid #000000;
+}
+
+.footer-accepted {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #ffffff;
+  border: 2px solid #000000;
+}
+
+.footer-call {
+  background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
+  color: #111827;
+  border: 2px solid #000000;
+}
+
+.footer-no {
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  color: #ffffff;
+  border: 2px solid #000000;
+}
+
+.footer-defect {
+  background: linear-gradient(135deg, #fde047 0%, #eab308 100%);
+  color: #111827;
+  border: 2px solid #000000;
+}

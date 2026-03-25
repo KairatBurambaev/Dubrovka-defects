@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Приемка квартир</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=1008">
+    <script src="/static/app.js?v=1030"></script>
+</head>
+<body>
+    <div class="app">
+        <main class="main">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <button class="btn btn-icon-only btn-ghost" id="backBtn" onclick="goBack()" style="display:none;" title="Назад">←</button>
+                    <div>
+                        <h1 id="pageTitle">Жилые комплексы</h1>
+                        <div class="header-sub" id="pageSubtitle">Всего комплексов: <strong id="totalComplexes">0</strong></div>
+                    </div>
+                </div>
+                <div class="header-right" id="headerActions">
+                    <button class="btn btn-primary" id="addComplexBtn" onclick="showCreateComplexForm()">+ Добавить</button>
+                    <button class="btn btn-ghost" id="adminBtn" onclick="toggleAdminMode()">⚙️ Админ</button>
+                    <button class="btn btn-ghost" id="editComplexBtn" onclick="showEditComplexForm()" style="display:none;">✎ Редактировать</button>
+                    <button class="btn btn-danger" id="deleteComplexBtn" onclick="deleteCurrentComplex()" style="display:none;">🗑 Удалить</button>
+                </div>
+            </header>
+
+            <!-- Complexes -->
+            <section id="tab-complexes" class="tab-panel active">
+                <div id="complexesList" class="cards-grid"></div>
+            </section>
+
+            <!-- Create Complex -->
+            <section id="tab-create-complex" class="tab-panel">
+                <div class="form">
+                    <div class="form-field">
+                        <label>Название комплекса</label>
+                        <input type="text" id="complexName" placeholder="Например: ЖК Дубровка">
+                    </div>
+                    <div class="form-field">
+                        <label>Тип недвижимости</label>
+                        <select id="complexType" class="select">
+                            <option value="квартиры">Квартиры</option>
+                            <option value="апартаменты">Апартаменты</option>
+                        </select>
+                    </div>
+                    <div class="form-section">
+                        <div class="form-section-header">
+                            <span>Корпуса и секции</span>
+                            <button type="button" class="btn-link" onclick="addBuildingRow()">+ Добавить корпус</button>
+                        </div>
+                        <div id="buildingsContainer"></div>
+                    </div>
+                    <div class="form-footer">
+                        <button type="button" class="btn" onclick="showTab('complexes')">Отмена</button>
+                        <button type="button" class="btn btn-primary" onclick="submitComplexForm()">Создать комплекс</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Complex Detail -->
+            <section id="tab-complex-detail" class="tab-panel">
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <select id="viewMode" class="select" onchange="handleViewModeChange()">
+                            <option value="building">По корпусам</option>
+                            <option value="section">По секциям</option>
+                        </select>
+                        <div class="multi-select-wrapper" id="filterWrapper" style="display:none;">
+                            <button type="button" class="select-btn" id="filterBtn" onclick="toggleFilterDropdown()">
+                                <span id="filterBtnText">Выбрать</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </button>
+                            <div class="multi-select-dropdown" id="filterDropdown">
+                                <label class="dropdown-item">
+                                    <input type="checkbox" id="selectAllFilter" onchange="toggleAllFilter(this.checked)">
+                                    <span>Все</span>
+                                </label>
+                                <div id="filterOptions"></div>
+                            </div>
+                        </div>
+                        <input type="text" id="searchApt" class="input search-apt" placeholder="Номер (напр: 1,3-5,10)..." oninput="debouncedLoad()">
+                    </div>
+                    <div class="toolbar-right">
+                        <div class="pills" id="statusPills">
+                            <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
+                            <button class="pill pill-green" data-filter="available" onclick="setAccessFilter('available')">Без замечаний</button>
+                            <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
+                            <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
+                            <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
+                            <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="defectFilterPanel" class="filter-panel" style="display:none;">
+                    <select id="defectCategoryFilter" onchange="loadApartments()" class="select">
+                        <option value="">Все категории</option>
+                    </select>
+                    <select id="defectStatusFilter" onchange="loadApartments()" class="select">
+                        <option value="">Любой статус</option>
+                        <option value="new">Новые</option>
+                        <option value="in_progress">В работе</option>
+                        <option value="ready">Готовые</option>
+                    </select>
+                </div>
+
+                <div id="apartmentsContainer" class="sections-grid"></div>
+            </section>
+
+            <!-- Apartment Detail -->
+            <section id="tab-apartment-detail" class="tab-panel">
+                <div class="detail-grid">
+                    <div class="detail-content">
+                        <div class="panel">
+                            <div class="panel-header">
+                                <span class="panel-title">Статус приемки</span>
+                            </div>
+                            <div class="status-grid">
+                                <button class="status-item" data-status="owner_accepted" onclick="setStatus('owner_accepted')">
+                                    <span class="status-dot dot-green"></span>
+                                    <span>Принята</span>
+                                </button>
+                                <button class="status-item" data-status="call" onclick="setStatus('call')">
+                                    <span class="status-dot dot-green"></span>
+                                    <span>Вызов</span>
+                                </button>
+                                <button class="status-item" data-status="by_phone" onclick="setStatus('by_phone')">
+                                    <span class="status-dot dot-blue"></span>
+                                    <span>По звонку</span>
+                                </button>
+                                <button class="status-item" data-status="no_access" onclick="setStatus('no_access')">
+                                    <span class="status-dot dot-gray"></span>
+                                    <span>Нет доступа</span>
+                                </button>
+                                <button class="status-item" data-status="elevated" onclick="setStatus('elevated')">
+                                    <span class="status-dot dot-red"></span>
+                                    <span>Сложная</span>
+                                </button>
+                            </div>
+                            <div id="phoneBlock" class="phone-panel" style="display:none;">
+                                <label>Телефон</label>
+                                <div class="phone-row">
+                                    <input type="tel" id="phoneInput" class="input" placeholder="+7 (999) 123-45-67">
+                                    <button class="btn btn-primary" onclick="savePhone()">Сохранить</button>
+                                    <button class="btn btn-danger" onclick="deletePhone()">Удалить</button>
+                                </div>
+                            </div>
+                            <div id="commentBlock" class="phone-panel" style="display:none;">
+                                <label>Комментарий</label>
+                                <div class="phone-row">
+                                    <input type="text" id="commentInput" class="input" placeholder="Причина повышенной сложности">
+                                    <button class="btn btn-primary" onclick="saveComment()">Сохранить</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="panel">
+                            <div class="panel-header">
+                                <span class="panel-title">Замечания</span>
+                                <button class="btn btn-sm" onclick="printDefects()">Печать</button>
+                            </div>
+                            <div id="defectsList"></div>
+                        </div>
+                    </div>
+
+                    <div class="detail-sidebar">
+                        <div class="panel panel-sm">
+                            <div class="info-item">
+                                <span>Секция</span>
+                                <strong id="infoSection">-</strong>
+                            </div>
+                            <div class="info-item">
+                                <span>Этаж</span>
+                                <strong id="infoFloor">-</strong>
+                            </div>
+                            <div class="info-item">
+                                <span>Активных</span>
+                                <strong class="red" id="infoActive">-</strong>
+                            </div>
+                            <div class="info-item">
+                                <span>Готовых</span>
+                                <strong class="green" id="infoReady">-</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Add Defect -->
+            <section id="tab-add-defect" class="tab-panel">
+                <form id="addDefectForm" class="form">
+                    <div class="form-field">
+                        <label>Категория</label>
+                        <select id="defectCategory" required><option value="">Выберите</option></select>
+                    </div>
+                    <div class="form-field" id="windowGroup" style="display:none;">
+                        <label>Номер окна</label>
+                        <input type="number" id="windowNumber" min="1">
+                    </div>
+                    <div class="form-field" id="templatesGroup" style="display:none;">
+                        <label>Шаблоны</label>
+                        <div id="templatesList" class="chips"></div>
+                    </div>
+                    <div class="form-field">
+                        <label>Описание</label>
+                        <textarea id="defectDescription" rows="4" required></textarea>
+                    </div>
+                    <div class="form-field">
+                        <label>Срок</label>
+                        <input type="date" id="defectDeadline">
+                    </div>
+                    <div class="form-field">
+                        <label>Фото</label>
+                        <div class="upload-zone" id="fileUploadArea">
+                            <input type="file" id="defectPhotos" multiple accept="image/*" hidden>
+                            Перетащите фото или нажмите для выбора
+                        </div>
+                        <div id="previewGrid" class="previews"></div>
+                    </div>
+                    <div class="form-footer">
+                        <button type="button" class="btn" onclick="backToApartment()">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                    </div>
+                </form>
+            </section>
+        </main>
+    </div>
+
+    <div id="photoModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <img id="modalImg" src="" alt="">
+        </div>
+    </div>
+
+    <div id="commentsModal" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>Комментарии</h3>
+                <button class="modal-close" onclick="closeComments()">×</button>
+            </div>
+            <div class="modal-body" id="commentsBody"></div>
+            <div class="modal-footer">
+                <input type="text" id="commentInput" placeholder="Комментарий...">
+                <button class="btn btn-primary btn-sm" onclick="submitComment()">→</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+</body>
+</html>
