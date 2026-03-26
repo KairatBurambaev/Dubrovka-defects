@@ -226,7 +226,7 @@ body {
 }
 
 .page-home .header {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .page-home .cards-grid {
@@ -712,22 +712,24 @@ h1 {
   flex-direction: row;
   gap: 16px;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
 }
 
 .section-block {
-  background: #ffffff;
-  border-radius: 20px;
-  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  border: 2px solid #0d9488;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.15);
   flex: 1 1 calc(50% - 8px);
   min-width: 320px;
 }
 
 .section-header {
   padding: 16px 20px;
-  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
-  border-bottom: 1px solid #f0f0f0;
+  background: rgba(13, 148, 136, 0.1);
+  border-bottom: 2px solid #0d9488;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -736,7 +738,7 @@ h1 {
 .section-title {
   font-size: 14px;
   font-weight: 700;
-  color: var(--text);
+  color: #0d9488;
   letter-spacing: -0.01em;
 }
 
@@ -744,7 +746,7 @@ h1 {
   display: flex;
   gap: 12px;
   font-size: 11px;
-  color: var(--text-secondary);
+  color: #0d9488;
 }
 
 .section-stats span {

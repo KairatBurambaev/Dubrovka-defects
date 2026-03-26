@@ -124,14 +124,8 @@ function showTab(tab) {
         document.body.classList.remove('page-home');
     }
     
-    if (tab === 'create-complex') {
-        updateHeader(false, false);
-        setPageTitle('Новый ЖК', '');
-    } else if (tab === 'add-defect') {
-        updateHeader(false, false);
-    } else if (tab === 'apartment-detail') {
-        updateHeader(true, false);
-    } else if (tab === 'complex-detail') {
+    if (tab === 'complex-detail') {
+        document.body.classList.add('page-home');
         updateHeader(true, false);
     }
 }
