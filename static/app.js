@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadComplexes();
     setupForms();
     setupEventListeners();
+    document.body.classList.add('page-home');
 });
 
 // Cache DOM elements
@@ -111,6 +112,7 @@ function showTab(tab) {
     state.currentTab = tab;
     
     if (tab === 'complexes') {
+        document.body.classList.add('page-home');
         updateHeader(false, true);
         if (adminMode) {
             if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'inline-flex';
@@ -118,7 +120,11 @@ function showTab(tab) {
         }
         const count = document.querySelectorAll('.complex-card').length || 0;
         setPageTitle('Жилые комплексы', `Всего комплексов: ${count}`);
-    } else if (tab === 'create-complex') {
+    } else {
+        document.body.classList.remove('page-home');
+    }
+    
+    if (tab === 'create-complex') {
         updateHeader(false, false);
         setPageTitle('Новый ЖК', '');
     } else if (tab === 'add-defect') {

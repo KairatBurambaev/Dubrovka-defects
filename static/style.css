@@ -19,7 +19,7 @@
   --gray-lighter: #d1d5db;
   --gray-lightest: #f3f4f6;
   --white: #ffffff;
-  --bg: #f9fafb;
+  --bg: #99f6e4;
   --card: #ffffff;
   --text: #111827;
   --text-secondary: #6b7280;
@@ -201,6 +201,41 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.header-logo-center {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50%;
+  height: auto;
+  object-fit: contain;
+  z-index: 0;
+}
+
+.page-home .header-logo-center {
+  display: block;
+}
+
+.page-home body,
+.page-home .app,
+.page-home .main {
+  background: #ffffff;
+}
+
+.page-home .header {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.page-home .cards-grid {
+  position: relative;
+  z-index: 1;
+}
+
+.page-home .header-left > div {
+  display: block;
 }
 
 .header-right {
@@ -2047,32 +2082,33 @@ h1 {
 
 /* ========== COMPLEX CARDS ========== */
 .complex-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #0d9488;
+  border-radius: 16px;
   cursor: pointer;
   position: relative;
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.15);
+  transition: all 0.25s ease;
 }
 
 .complex-card:hover {
+  box-shadow: 0 4px 20px rgba(13, 148, 136, 0.25);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-  border-color: #d1d5db;
 }
 
 .complex-card-name {
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0d9488;
   margin-bottom: 16px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .complex-card-stats {
   display: flex;
-  gap: 12px;
+  gap: 16px;
 }
 
 .complex-stat {
@@ -2080,11 +2116,24 @@ h1 {
   flex-direction: column;
   align-items: flex-start;
   flex: 1;
+  padding: 8px 12px;
+  background: rgba(13, 148, 136, 0.08);
+  border-radius: 8px;
 }
 
 .complex-stat-value {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f766e;
+  line-height: 1.2;
+}
+
+.complex-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #115e59;
+  margin-top: 2px;
+}
   color: #111827;
   line-height: 1.2;
 }
