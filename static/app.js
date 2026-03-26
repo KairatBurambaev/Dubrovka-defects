@@ -356,10 +356,14 @@ async function loadComplexes() {
             const totalApts = c.apartments_count || 0;
             const defectCount = stats.defects || c.defects_count || 0;
             const propType = c.property_type || 'квартиры';
-            const propLabel = propType === 'апартаменты' ? 'апартаментов' : 'квартир';
+            const propLabel = propType === 'апартаменты' ? 'апарт.' : 'кв.';
             
             const uniqueBuildings = new Set(c.sections.map(s => s.building_number || 1));
             const buildingsCount = uniqueBuildings.size;
+            
+            const commDate = c.commissioning_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.commissioning_date}</div><div class="complex-stat-label">Ввод в эксплуат.</div></div>` : '';
+            const war3 = c.warranty_3_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.warranty_3_date}</div><div class="complex-stat-label">Гарантия инжен.</div></div>` : '';
+            const war5 = c.warranty_5_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.warranty_5_date}</div><div class="complex-stat-label">Гарантия общ.</div></div>` : '';
             
             return `
                 <div class="complex-card" onclick="showComplexDetail(${c.id})">
@@ -367,7 +371,7 @@ async function loadComplexes() {
                     <div class="complex-card-stats">
                         <div class="complex-stat">
                             <div class="complex-stat-value">${buildingsCount}</div>
-                            <div class="complex-stat-label">корпусов</div>
+                            <div class="complex-stat-label">корпус</div>
                         </div>
                         <div class="complex-stat">
                             <div class="complex-stat-value">${totalApts}</div>
@@ -375,8 +379,11 @@ async function loadComplexes() {
                         </div>
                         <div class="complex-stat">
                             <div class="complex-stat-value">${defectCount}</div>
-                            <div class="complex-stat-label">замечаний</div>
+                            <div class="complex-stat-label">на исправ.</div>
                         </div>
+                        ${commDate}
+                        ${war3}
+                        ${war5}
                     </div>
                 </div>
             `;
@@ -536,9 +543,16 @@ async function submitComplexForm() {
         return;
     }
     
+    const commissioningDate = document.getElementById('commissioningDate')?.value || '';
+    const warranty3Date = document.getElementById('warranty3Date')?.value || '';
+    const warranty5Date = document.getElementById('warranty5Date')?.value || '';
+    
     const formData = new FormData();
     formData.append('name', name);
     formData.append('property_type', propertyType);
+    formData.append('commissioning_date', commissioningDate);
+    formData.append('warranty_3_date', warranty3Date);
+    formData.append('warranty_5_date', warranty5Date);
     formData.append('buildings', JSON.stringify(buildings));
     
     try {

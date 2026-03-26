@@ -273,6 +273,9 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             property_type TEXT DEFAULT 'квартиры',
+            commissioning_date TEXT DEFAULT '',
+            warranty_3_date TEXT DEFAULT '',
+            warranty_5_date TEXT DEFAULT '',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         
@@ -450,7 +453,7 @@ async def index():
 @app.get("/api/complexes")
 async def get_complexes():
     conn = get_db()
-    rows = conn.execute("SELECT id, name, property_type, created_at FROM complexes ORDER BY created_at DESC").fetchall()
+    rows = conn.execute("SELECT id, name, property_type, commissioning_date, warranty_3_date, warranty_5_date, created_at FROM complexes ORDER BY created_at DESC").fetchall()
     complexes = []
     
     for row in rows:
@@ -488,6 +491,9 @@ async def get_complexes():
 async def create_complex(
     name: str = Form(...),
     property_type: str = Form("квартиры"),
+    commissioning_date: str = Form(""),
+    warranty_3_date: str = Form(""),
+    warranty_5_date: str = Form(""),
     sections: Optional[str] = Form(None),
     buildings: Optional[str] = Form(None)
 ):
@@ -526,7 +532,7 @@ async def create_complex(
     conn = get_db()
     
     # Создаем ЖК
-    cursor = conn.execute("INSERT INTO complexes (name, property_type) VALUES (?, ?)", (name, property_type))
+    cursor = conn.execute("INSERT INTO complexes (name, property_type, commissioning_date, warranty_3_date, warranty_5_date) VALUES (?, ?, ?, ?, ?)", (name, property_type, commissioning_date, warranty_3_date, warranty_5_date))
     complex_id = cursor.lastrowid
     
     total_apartments = 0
