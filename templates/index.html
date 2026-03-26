@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9025">
-    <script src="/static/app.js?v=9025"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9037">
+    <script src="/static/app.js?v=9037"></script>
 </head>
 <body>
     <div class="app">
@@ -18,12 +18,12 @@
                 <div class="header-left">
                     <button class="btn btn-icon-only btn-ghost" id="backBtn" onclick="goBack()" style="display:none;" title="Назад">←</button>
                     <div>
-                        <h1 id="pageTitle">Жилые комплексы</h1>
+                        <h1 id="pageTitle" style="cursor:pointer;" onclick="checkPassword()">Жилые комплексы</h1>
                         <div class="header-sub" id="pageSubtitle">Всего комплексов: <strong id="totalComplexes">0</strong></div>
                     </div>
                 </div>
                 <div class="header-right" id="headerActions">
-                    <button class="btn btn-primary" id="addComplexBtn" onclick="showCreateComplexForm()">+ Добавить</button>
+                    <button class="btn btn-primary" id="addComplexBtn" onclick="showCreateComplexForm()" style="display:none;">+ Добавить</button>
                     <button class="btn btn-ghost" id="editComplexBtn" onclick="showEditComplexForm()" style="display:none;">Редактировать</button>
                     <button class="btn btn-danger" id="deleteComplexBtn" onclick="deleteCurrentComplex()" style="display:none;">Удалить</button>
                 </div>
@@ -134,7 +134,36 @@
                     </select>
                 </div>
 
-                <div id="apartmentsContainer" class="sections-grid"></div>
+                <div class="complex-detail-content">
+                    <div class="complex-detail-main">
+                        <div id="apartmentsContainer" class="sections-grid"></div>
+                    </div>
+                    <div class="complex-detail-sidebar">
+                        <div class="stats-panel">
+                            <div class="stats-title">Статистика</div>
+                            <div class="stat-item">
+                                <span class="stat-label">Без замечаний</span>
+                                <span class="stat-value" id="statAvailable">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Принято</span>
+                                <span class="stat-value" id="statAccepted">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Вызов</span>
+                                <span class="stat-value" id="statCall">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Нет доступа</span>
+                                <span class="stat-value" id="statNoAccess">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">С замеч.</span>
+                                <span class="stat-value" id="statDefects">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- Apartment Detail -->

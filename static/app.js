@@ -40,7 +40,6 @@ function cacheElements() {
     elements.apartmentsContainer = document.getElementById('apartmentsContainer');
     elements.defectsList = document.getElementById('defectsList');
     elements.statsPanel = document.getElementById('statsPanel');
-    elements.statTotal = document.getElementById('statTotal');
     elements.statAvailable = document.getElementById('statAvailable');
     elements.statAccepted = document.getElementById('statAccepted');
     elements.statCall = document.getElementById('statCall');
@@ -122,11 +121,6 @@ function showTab(tab) {
         setPageTitle('Жилые комплексы', `Всего комплексов: ${count}`);
     } else {
         document.body.classList.remove('page-home');
-    }
-    
-    if (tab === 'complex-detail') {
-        document.body.classList.add('page-home');
-        updateHeader(true, false);
     }
 }
 
@@ -398,6 +392,15 @@ async function loadComplexes() {
                 <button class="btn btn-primary" onclick="loadComplexes()">Обновить</button>
             </div>
         `;
+    }
+}
+
+function checkPassword() {
+    const pwd = prompt('Введите пароль:');
+    if (pwd === '124') {
+        showCreateComplexForm();
+    } else if (pwd !== null) {
+        showToast('Неверный пароль');
     }
 }
 
@@ -881,9 +884,8 @@ function debouncedLoad() {
 // Update stats panel with current filter/counts
 function updateStatsPanel(apartments) {
     try {
-        if (!elements.statsPanel || !elements.statTotal) return;
+        if (!elements.statAvailable) return;
         
-        const total = apartments?.length || 0;
         let available = 0, accepted = 0, call = 0, noAccess = 0, defects = 0;
         
         if (apartments) {
@@ -896,12 +898,11 @@ function updateStatsPanel(apartments) {
             });
         }
         
-        elements.statTotal.textContent = total;
-        elements.statAvailable.textContent = available;
-        elements.statAccepted.textContent = accepted;
-        elements.statCall.textContent = call;
-        elements.statNoAccess.textContent = noAccess;
-        elements.statDefects.textContent = defects;
+        if (elements.statAvailable) elements.statAvailable.textContent = available;
+        if (elements.statAccepted) elements.statAccepted.textContent = accepted;
+        if (elements.statCall) elements.statCall.textContent = call;
+        if (elements.statNoAccess) elements.statNoAccess.textContent = noAccess;
+        if (elements.statDefects) elements.statDefects.textContent = defects;
     } catch (e) {
         console.error('Stats panel error:', e);
     }
@@ -1034,13 +1035,6 @@ function renderApartments(apartments) {
                                 `;
                             }).join('')}
                         </div>
-                        <div class="section-stats">
-                            <span class="footer-stat footer-total">Всего: ${allApts.length}</span>
-                            ${bldDefectCount > 0 ? `<span class="footer-stat footer-defect">С замеч.: ${bldDefectCount}</span>` : ''}
-                            ${bldOwnerCount > 0 ? `<span class="footer-stat footer-accepted">Принято: ${bldOwnerCount}</span>` : ''}
-                            ${bldCallCount > 0 ? `<span class="footer-stat footer-call">Вызов: ${bldCallCount}</span>` : ''}
-                            ${bldNoCount > 0 ? `<span class="footer-stat footer-no">Нет доступа: ${bldNoCount}</span>` : ''}
-                        </div>
                     </div>
                 </div>
             `;
@@ -1081,13 +1075,6 @@ function renderApartments(apartments) {
                                 const floorApts = floors[floor].sort((a, b) => a.number - b.number);
                                 return renderFloorRow(floorApts, floor, propFull);
                             }).join('')}
-                        </div>
-                        <div class="section-stats">
-                            <span class="footer-stat footer-total">Всего: ${allApts.length}</span>
-                            ${defectCount > 0 ? `<span class="footer-stat footer-defect">С замечаниями: ${defectCount}</span>` : ''}
-                            ${ownerCount > 0 ? `<span class="footer-stat footer-accepted">Принято: ${ownerCount}</span>` : ''}
-                            ${callCount > 0 ? `<span class="footer-stat footer-call">Вызов: ${callCount}</span>` : ''}
-                            ${noCount > 0 ? `<span class="footer-stat footer-no">Нет доступа: ${noCount}</span>` : ''}
                         </div>
                     </div>
                 </div>
