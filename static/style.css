@@ -239,6 +239,51 @@ body {
   display: block;
 }
 
+.clickable-title {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.clickable-title:hover {
+  opacity: 0.7;
+}
+
+/* Hover effects for buttons */
+.btn:hover {
+  opacity: 0.85;
+  background-color: rgba(0,0,0,0.1);
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  background-color: rgba(0,0,0,0.15);
+}
+
+/* Dropdown border darken on hover */
+.select-btn:hover {
+  border-color: #000000;
+}
+
+.multi-select-dropdown {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  padding: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.multi-select-dropdown:hover {
+  border-color: #000000;
+}
+
+.dropdown-item input[type="checkbox"] {
+  accent-color: #000000;
+  width: 16px;
+  height: 16px;
+}
+
 /* ========== APARTMENTS ========== */
 .apartment-card {
   padding: 10px 6px;
@@ -2120,13 +2165,55 @@ h1 {
   border-radius: 8px;
   cursor: pointer;
   position: relative;
-  padding: 10px;
+  padding: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   transition: all 0.2s ease;
-  aspect-ratio: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.complex-card:hover {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  border-color: #000000;
+}
+
+.complex-card-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  min-width: 120px;
+}
+
+.complex-card-stats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.complex-stat {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.complex-stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.complex-stat-label {
+  font-size: 8px;
+  font-weight: 500;
+  color: #6b7280;
 }
 
 .complex-card:hover {

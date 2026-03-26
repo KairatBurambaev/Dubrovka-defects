@@ -110,6 +110,17 @@ function showTab(tab) {
     
     state.currentTab = tab;
     
+    const pageTitle = document.getElementById('pageTitle');
+    if (pageTitle) {
+        if (tab === 'complexes') {
+            pageTitle.style.cursor = 'pointer';
+            pageTitle.onclick = checkPassword;
+        } else {
+            pageTitle.style.cursor = 'default';
+            pageTitle.onclick = null;
+        }
+    }
+    
     if (tab === 'complexes') {
         document.body.classList.add('page-home');
         updateHeader(false, true);
@@ -379,7 +390,7 @@ async function loadComplexes() {
                         </div>
                         <div class="complex-stat">
                             <div class="complex-stat-value">${defectCount}</div>
-                            <div class="complex-stat-label">на исправ.</div>
+                            <div class="complex-stat-label">кв. в работе</div>
                         </div>
                         ${commDate}
                         ${war3}
@@ -723,13 +734,23 @@ function toggleAllFilter(checked) {
 function handleFilterChange() {
     const checkboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
     const checkedBoxes = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
-    const values = Array.from(checkedBoxes).map(cb => cb.value);
     const filterBtnText = document.getElementById('filterBtnText');
     
-    const allCount = checkboxes.length;
+    // If all are checked and user clicked one, deselect all and select only that one
+    if (checkedBoxes.length === checkboxes.length) {
+        const lastClicked = Array.from(checkboxes).find(cb => cb.checked);
+        checkboxes.forEach(cb => cb.checked = false);
+        if (lastClicked) lastClicked.checked = true;
+    }
     
-    if (values.length === 0 || values.length === allCount) {
+    // Re-check after potential changes
+    const updatedChecked = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
+    const values = Array.from(updatedChecked).map(cb => cb.value);
+    
+    if (values.length === 0) {
         checkboxes.forEach(cb => cb.checked = true);
+        filterBtnText.textContent = 'Все секции';
+    } else if (values.length === checkboxes.length) {
         filterBtnText.textContent = 'Все секции';
     } else {
         filterBtnText.textContent = `Выбрано: ${values.length}`;
