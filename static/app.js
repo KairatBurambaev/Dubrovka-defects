@@ -38,6 +38,13 @@ function cacheElements() {
     elements.totalComplexes = document.getElementById('totalComplexes');
     elements.apartmentsContainer = document.getElementById('apartmentsContainer');
     elements.defectsList = document.getElementById('defectsList');
+    elements.statsPanel = document.getElementById('statsPanel');
+    elements.statTotal = document.getElementById('statTotal');
+    elements.statAvailable = document.getElementById('statAvailable');
+    elements.statAccepted = document.getElementById('statAccepted');
+    elements.statCall = document.getElementById('statCall');
+    elements.statNoAccess = document.getElementById('statNoAccess');
+    elements.statDefects = document.getElementById('statDefects');
     elements.defectFilterPanel = document.getElementById('defectFilterPanel');
     elements.tabPanels = document.querySelectorAll('.tab-panel');
 }
@@ -163,7 +170,7 @@ function toggleSidebar(show) {
 function updateHeader(showBack, showAdd) {
     if (elements.backBtn) elements.backBtn.style.display = showBack ? 'inline-flex' : 'none';
     if (elements.addComplexBtn) {
-        elements.addComplexBtn.style.display = (showAdd && adminMode) ? 'inline-flex' : 'none';
+        elements.addComplexBtn.style.display = showAdd ? 'inline-flex' : 'none';
     }
     if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'none';
     if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'none';
@@ -334,6 +341,7 @@ async function loadComplexes() {
     try {
         const res = await fetch('/api/complexes');
         const complexes = await res.json();
+        console.log('Complexes loaded:', complexes.length);
         
         if (!complexes.length) {
             container.innerHTML = `
@@ -352,34 +360,29 @@ async function loadComplexes() {
             (c.by_access_status || []).forEach(s => stats[s.access_status] = s.count);
             
             const totalApts = c.apartments_count || 0;
-            const defectCount = stats.defects || 0;
-            const acceptedCount = stats.owner_accepted || 0;
+            const defectCount = stats.defects || c.defects_count || 0;
             const propType = c.property_type || 'квартиры';
-            const propLabel = propType === 'апартаменты' ? 'апарт.' : 'кв.';
+            const propLabel = propType === 'апартаменты' ? 'апартаментов' : 'квартир';
+            
+            const uniqueBuildings = new Set(c.sections.map(s => s.building_number || 1));
+            const buildingsCount = uniqueBuildings.size;
             
             return `
                 <div class="complex-card" onclick="showComplexDetail(${c.id})">
-                    <div class="complex-card-header">
-                        <h3>${escapeHtml(c.name)}</h3>
-                        <span class="complex-badge">${totalApts} ${propLabel}</span>
-                    </div>
-                    <div class="complex-card-body">
-                        <div class="complex-meta">
-                            <span class="meta-item">
-                                <span class="meta-icon">🏢</span>
-                                ${c.sections.length} ${pluralize(c.sections.length, 'корпус', 'корпуса', 'корпусов')}
-                            </span>
+                    <div class="complex-card-name">${escapeHtml(c.name)}</div>
+                    <div class="complex-card-stats">
+                        <div class="complex-stat">
+                            <div class="complex-stat-value">${buildingsCount}</div>
+                            <div class="complex-stat-label">корпусов</div>
                         </div>
-                        <div class="complex-stats">
-                            ${defectCount ? `<span class="stat-item stat-defect">⚠️ ${defectCount} ${pluralize(defectCount, 'замечание', 'замечания', 'замечаний')}</span>` : ''}
-                            ${acceptedCount ? `<span class="stat-item stat-success">✓ ${acceptedCount} принято</span>` : ''}
-                            ${stats.available ? `<span class="stat-item stat-available">● ${stats.available} свободно</span>` : ''}
-                            ${stats.call ? `<span class="stat-item stat-call">📞 ${stats.call}</span>` : ''}
-                            ${stats.no_access ? `<span class="stat-item stat-noaccess">🔒 ${stats.no_access}</span>` : ''}
+                        <div class="complex-stat">
+                            <div class="complex-stat-value">${totalApts}</div>
+                            <div class="complex-stat-label">${propLabel}</div>
                         </div>
-                    </div>
-                    <div class="complex-card-footer">
-                        <span class="view-link">Подробнее →</span>
+                        <div class="complex-stat">
+                            <div class="complex-stat-value">${defectCount}</div>
+                            <div class="complex-stat-label">замечаний</div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -511,7 +514,8 @@ async function submitComplexForm() {
             if (floors.length > 0) {
                 sections.push({
                     section_number: parseInt(secNum),
-                    floors: floors
+                    floors: floors,
+                    building_number: parseInt(buildingNum)
                 });
             }
         });
@@ -583,21 +587,32 @@ async function showComplexDetail(id) {
         // Update placeholders based on property type
         updatePlaceholders();
         
-        // Set view mode based on sections
-        const viewModeSelect = document.getElementById('viewMode');
-        if (complex.sections.length <= 1) {
-            viewModeSelect.value = 'building';
-        } else {
-            viewModeSelect.value = 'section';
+        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
+        const uniqueBuildings = new Set(complex.sections.map(s => s.building_number || 1));
+        const buildingsCount = uniqueBuildings.size;
+        
+        let buildingSubtitle = '';
+        if (buildingsCount > 1) {
+            const buildingSections = {};
+            complex.sections.forEach(s => {
+                const b = s.building_number || 1;
+                if (!buildingSections[b]) buildingSections[b] = [];
+                buildingSections[b].push(s.section_number);
+            });
+            buildingSubtitle = Object.entries(buildingSections)
+                .sort((a, b) => a[0] - b[0])
+                .map(([b, secs]) => `${b} корпус (секция ${secs.join(', ')})`)
+                .join(' • ');
         }
         
-        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
-        const buildingsCount = complex.buildings?.length || complex.sections.length;
-        const sectionLabel = buildingsCount <= 1 ? 'корпус' : 'корпусов';
-        setPageTitle(complex.name, `${stats.total_apartments} ${propName} • ${buildingsCount} ${pluralize(buildingsCount, sectionLabel, 'корпуса', 'корпусов')}`);
+        const titleText = buildingsCount > 1 
+            ? `${stats.total_apartments} ${propName} • ${buildingSubtitle}`
+            : `${stats.total_apartments} ${propName}`;
+        
+        setPageTitle(complex.name, titleText);
         
         // Determine if we have multiple buildings or sections
-        const hasMultipleBuildings = complex.buildings?.length > 1;
+        const hasMultipleBuildings = uniqueBuildings.size > 1;
         const hasMultipleSections = complex.sections.length > 1;
         
         // Show/hide filter dropdown
@@ -617,25 +632,17 @@ async function showComplexDetail(id) {
                         return a.section_number - b.section_number;
                     })
                     .map(s => {
-                        const label = hasMultipleBuildings 
-                            ? `Секция ${s.section_number} (Корпус ${s.building_number})`
-                            : `Секция ${s.section_number}`;
                         return `
                             <label class="dropdown-item">
                                 <input type="checkbox" value="s_${s.id}" data-type="section" data-building="${s.building_number}" data-section="${s.section_number}" onchange="handleFilterChange()" checked>
-                                <span>${label}</span>
+                                <span>Секция ${s.section_number}</span>
                             </label>
                         `;
                     }).join('');
                 
-                filterOptions.innerHTML = `
-                    <label class="dropdown-item">
-                        <input type="checkbox" value="all" data-type="all" onchange="toggleAllFilter(this.checked)" checked>
-                        <span>Все секции</span>
-                    </label>
-                ` + sectionsHtml;
+                filterOptions.innerHTML = sectionsHtml;
                 
-                document.getElementById('filterBtnText').textContent = 'Фильтр';
+                document.getElementById('filterBtnText').textContent = 'Все секции';
             }
         } else {
             filterWrapper.style.display = 'none';
@@ -697,23 +704,18 @@ function toggleAllFilter(checked) {
 }
 
 function handleFilterChange() {
-    const checkboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
-    const values = Array.from(checkboxes).map(cb => cb.value);
+    const checkboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
+    const checkedBoxes = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
+    const values = Array.from(checkedBoxes).map(cb => cb.value);
     const filterBtnText = document.getElementById('filterBtnText');
-    const selectAllCheckbox = document.getElementById('selectAllFilter');
     
-    const allCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
-    const allCount = allCheckboxes.length;
+    const allCount = checkboxes.length;
     
-    if (values.length === 0) {
-        filterBtnText.textContent = 'Выбрать';
-        if (selectAllCheckbox) selectAllCheckbox.checked = false;
-    } else if (values.length === allCount) {
+    if (values.length === 0 || values.length === allCount) {
+        checkboxes.forEach(cb => cb.checked = true);
         filterBtnText.textContent = 'Все секции';
-        if (selectAllCheckbox) selectAllCheckbox.checked = true;
     } else {
-        filterBtnText.textContent = `Выбрано: ${values.length - 1}`;
-        if (selectAllCheckbox) selectAllCheckbox.checked = false;
+        filterBtnText.textContent = `Выбрано: ${values.length}`;
     }
     
     loadApartments();
@@ -876,6 +878,35 @@ function debouncedLoad() {
     window.loadTimer = setTimeout(loadApartments, 300);
 }
 
+// Update stats panel with current filter/counts
+function updateStatsPanel(apartments) {
+    try {
+        if (!elements.statsPanel || !elements.statTotal) return;
+        
+        const total = apartments?.length || 0;
+        let available = 0, accepted = 0, call = 0, noAccess = 0, defects = 0;
+        
+        if (apartments) {
+            apartments.forEach(a => {
+                if (a.access_status === 'available') available++;
+                else if (a.access_status === 'owner_accepted') accepted++;
+                else if (a.access_status === 'call') call++;
+                else if (a.access_status === 'no_access') noAccess++;
+                if (a.active_defects_count > 0) defects++;
+            });
+        }
+        
+        elements.statTotal.textContent = total;
+        elements.statAvailable.textContent = available;
+        elements.statAccepted.textContent = accepted;
+        elements.statCall.textContent = call;
+        elements.statNoAccess.textContent = noAccess;
+        elements.statDefects.textContent = defects;
+    } catch (e) {
+        console.error('Stats panel error:', e);
+    }
+}
+
 // Render apartments with new .apt classes and colors
 function renderApartments(apartments) {
     const container = elements.apartmentsContainer;
@@ -965,7 +996,7 @@ function renderApartments(apartments) {
             const bldCallCount = allApts.filter(a => a.access_status === 'call').length;
             const bldNoCount = allApts.filter(a => a.access_status === 'no_access').length;
             
-            const title = hasMultipleBuildings ? `Корпус ${bnum}` : `Секция ${bnum}`;
+            const title = `Корпус ${bnum}`;
             
             return `
                 <div class="section-item">
@@ -1036,7 +1067,7 @@ function renderApartments(apartments) {
             
             const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
             
-            const title = hasMultipleBuildings ? `Корпус ${buildingNum}, Секция ${sec}` : `Секция ${sec}`;
+            const title = uniqueBuildings.size > 1 ? `Корпус ${buildingNum} • Секция ${sec}` : `Секция ${sec}`;
             
             return `
                 <div class="section-item">
@@ -1065,6 +1096,11 @@ function renderApartments(apartments) {
     }
     
     container.innerHTML = html + '</div>';
+    try {
+        updateStatsPanel(apartments);
+    } catch (e) {
+        console.error('Stats update error:', e);
+    }
 }
 
 function renderFloorRow(floorApts, floor, propFull) {
@@ -1076,17 +1112,15 @@ function renderFloorRow(floorApts, floor, propFull) {
                     const deadlineClass = getDeadlineClass(a);
                     const cls = getApartmentClass(a.access_status, a.active_defects_count);
                     const badge = (a.active_defects_count > 0 && a.access_status !== 'owner_accepted') ? `<span class="apt-badge">${a.active_defects_count}</span>` : '';
-                    const devilBadge = deadlineClass ? `<span class="apt-devil-badge">😈</span>` : '';
                     const tooltip = `${propFull === 'апартамент' ? 'Апартамент' : 'Квартира'} ${a.number}`;
                     return `
                         <div class="apt ${cls} ${deadlineClass}" 
                              data-id="${a.id}" 
                              title="${tooltip}"
                              onclick="showApartmentDetail(${a.id})">
+                            ${a.number}
                             ${badge}
-                            ${devilBadge}
-                            <span class="apt-num">${a.number}</span>
-                        </div>
+                            </div>
                     `;
                 }).join('')}
             </div>
@@ -1100,19 +1134,23 @@ function getApartmentClass(status, defects) {
     if (status === 'owner_accepted') {
         return 'apt apt-owner_accepted';
     }
-    // Вызов - серая ячейка, зелёная окантовка
+    // Пригласить - светло-зеленая ячейка
     if (status === 'call') {
         return 'apt apt-call';
     }
-    // По звонку - серая ячейка, синяя окантовка
+    // Доступ по звонку - голубая ячейка
     if (status === 'by_phone') {
         return 'apt apt-by_phone';
     }
-    // Сложная - серая ячейка, красная окантовка
-    if (status === 'elevated') {
-        return 'apt apt-elevated';
+    // В работе - желтая ячейка
+    if (status === 'in_progress') {
+        return 'apt apt-in_progress';
     }
-    // Без замечаний - серая ячейка, зелёная окантовка
+    // Особое внимание - красная ячейка
+    if (status === 'complex') {
+        return 'apt apt-complex';
+    }
+    // Без замечаний - серая ячейка
     if (status === 'available') {
         return 'apt apt-available';
     }
@@ -1165,21 +1203,24 @@ async function showApartmentDetail(id) {
         state.currentApartmentData = apt;
         const propType = state.currentPropertyType;
         const propLabel = propType === 'апартаменты' ? 'Апартаменты' : 'Квартира';
-        setPageTitle(`${propLabel} ${apt.number}`, `Секция ${apt.section_number} • Этаж ${apt.floor}`);
+        
+        const complexSections = state.currentComplexData?.sections || [];
+        const hasMultipleBuildings = new Set(complexSections.map(s => s.building_number || 1)).size > 1;
+        
+        const sectionSubtitle = hasMultipleBuildings
+            ? `Корпус ${apt.building_number}<br>Секция ${apt.section_number}, Этаж ${apt.floor}`
+            : `Секция ${apt.section_number}, Этаж ${apt.floor}`;
+        
+        if (elements.pageTitle) {
+            elements.pageTitle.innerHTML = `${propLabel} ${apt.number}<br><span style="font-size:14px;font-weight:400;">${hasMultipleBuildings ? `Корпус ${apt.building_number} • ` : ''}Секция ${apt.section_number} • Этаж ${apt.floor}</span>`;
+        }
         
         const active = defects.filter(d => !['ready','rejected'].includes(d.status));
         const done = defects.filter(d => ['ready','rejected'].includes(d.status));
         
-        // Update info panel
-        const infoSection = document.getElementById('infoSection');
-        const infoFloor = document.getElementById('infoFloor');
-        const infoActive = document.getElementById('infoActive');
-        const infoReady = document.getElementById('infoReady');
-        
-        if (infoSection) infoSection.textContent = apt.section_number;
-        if (infoFloor) infoFloor.textContent = apt.floor;
-        if (infoActive) infoActive.textContent = active.length;
-        if (infoReady) infoReady.textContent = done.length;
+        if (elements.pageSubtitle) {
+            elements.pageSubtitle.innerHTML = `Активных: <strong class="red">${active.length}</strong> | Готовых: <strong class="green">${done.length}</strong>`;
+        }
         
         // Set status buttons
         document.querySelectorAll('.status-item').forEach(btn => {
@@ -1821,7 +1862,7 @@ async function printDefects() {
             </head>
             <body>
                 <h1>Замечания - ${propLabel} ${apt.number}</h1>
-                <p class="meta">Секция ${apt.section_number} | Этаж ${apt.floor} | ${defects.length} ${pluralize(defects.length, 'замечание', 'замечания', 'замечаний')}</p>
+                <p class="meta">${apt.building_number > 1 ? `Корпус ${apt.building_number}, Секция ${apt.section_number}` : `Секция ${apt.section_number}`} | Этаж ${apt.floor} | ${defects.length} ${pluralize(defects.length, 'замечание', 'замечания', 'замечаний')}</p>
         `;
         
         defects.forEach(d => {

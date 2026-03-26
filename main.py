@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import uuid
+import json
 from pathlib import Path
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -114,6 +115,157 @@ def get_db():
     return conn
 
 
+def has_column(conn, table_name, column_name):
+    rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return any(row[1] == column_name for row in rows)
+
+
+def migrate_sections_to_sections_only(conn):
+    if not has_column(conn, "sections", "building_number"):
+        return
+
+    sections = conn.execute(
+        """
+        SELECT id, complex_id, apartment_from, apartment_to, floors
+        FROM sections
+        ORDER BY complex_id, building_number, section_number, id
+        """
+    ).fetchall()
+
+    if not sections:
+        conn.execute("ALTER TABLE sections RENAME TO sections_old")
+        conn.execute(
+            """
+            CREATE TABLE sections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                complex_id INTEGER NOT NULL,
+                section_number INTEGER NOT NULL,
+                apartment_from INTEGER NOT NULL,
+                apartment_to INTEGER NOT NULL,
+                floors INTEGER DEFAULT 5,
+                FOREIGN KEY (complex_id) REFERENCES complexes(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute("DROP TABLE sections_old")
+        conn.commit()
+        return
+
+    renumbered = []
+    current_complex_id = None
+    next_section_number = 0
+    for row in sections:
+        if row["complex_id"] != current_complex_id:
+            current_complex_id = row["complex_id"]
+            next_section_number = 1
+        else:
+            next_section_number += 1
+
+        renumbered.append({
+            "id": row["id"],
+            "complex_id": row["complex_id"],
+            "section_number": next_section_number,
+            "apartment_from": row["apartment_from"],
+            "apartment_to": row["apartment_to"],
+            "floors": row["floors"],
+        })
+
+    conn.execute("ALTER TABLE sections RENAME TO sections_old")
+    conn.execute(
+        """
+        CREATE TABLE sections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            complex_id INTEGER NOT NULL,
+            section_number INTEGER NOT NULL,
+            apartment_from INTEGER NOT NULL,
+            apartment_to INTEGER NOT NULL,
+            floors INTEGER DEFAULT 5,
+            FOREIGN KEY (complex_id) REFERENCES complexes(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    for row in renumbered:
+        conn.execute(
+            """
+            INSERT INTO sections (id, complex_id, section_number, apartment_from, apartment_to, floors)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row["id"],
+                row["complex_id"],
+                row["section_number"],
+                row["apartment_from"],
+                row["apartment_to"],
+                row["floors"],
+            )
+        )
+
+    conn.execute("DROP TABLE sections_old")
+    conn.commit()
+
+
+def normalize_sections_payload(sections_data):
+    if not isinstance(sections_data, list) or not sections_data:
+        raise HTTPException(status_code=400, detail="Добавьте хотя бы одну секцию")
+
+    normalized_sections = []
+    seen_sections = set()
+
+    for sec in sections_data:
+        if not isinstance(sec, dict):
+            raise HTTPException(status_code=400, detail="Некорректные данные секции")
+
+        try:
+            section_number = int(sec.get("section_number"))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Укажите корректный номер секции")
+
+        if section_number < 1:
+            raise HTTPException(status_code=400, detail="Номер секции должен быть больше нуля")
+        if section_number in seen_sections:
+            raise HTTPException(status_code=400, detail=f"Секция {section_number} указана дважды")
+
+        floors_data = sec.get("floors")
+        if not isinstance(floors_data, list) or not floors_data:
+            raise HTTPException(status_code=400, detail=f"Добавьте этажи в секцию {section_number}")
+
+        seen_sections.add(section_number)
+        normalized_floors = []
+
+        for floor_info in floors_data:
+            if not isinstance(floor_info, dict):
+                raise HTTPException(status_code=400, detail=f"Некорректные данные этажа в секции {section_number}")
+
+            try:
+                floor_num = int(floor_info.get("floor"))
+                apt_from = int(floor_info.get("apartment_from"))
+                apt_to = int(floor_info.get("apartment_to"))
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"Заполните этаж и диапазон квартир в секции {section_number}")
+
+            if floor_num < 1:
+                raise HTTPException(status_code=400, detail="Номер этажа должен быть больше нуля")
+            if apt_from < 1 or apt_to < 1:
+                raise HTTPException(status_code=400, detail="Номера квартир должны быть больше нуля")
+            if apt_from > apt_to:
+                raise HTTPException(status_code=400, detail=f"В секции {section_number} диапазон квартир задан неверно")
+
+            normalized_floors.append({
+                "floor": floor_num,
+                "apartment_from": apt_from,
+                "apartment_to": apt_to,
+            })
+
+        normalized_sections.append({
+            "section_number": section_number,
+            "floors": normalized_floors,
+            "building_number": sec.get("building_number", 1),
+        })
+
+    return normalized_sections
+
+
 def init_db():
     conn = get_db()
     conn.executescript("""
@@ -131,6 +283,7 @@ def init_db():
             apartment_from INTEGER NOT NULL,
             apartment_to INTEGER NOT NULL,
             floors INTEGER DEFAULT 5,
+            building_number INTEGER DEFAULT 1,
             FOREIGN KEY (complex_id) REFERENCES complexes(id) ON DELETE CASCADE
         );
         
@@ -207,19 +360,14 @@ def init_db():
     except:
         pass  # Колонка уже существует
     
-    # Миграция: добавляем колонку building_number если её нет
+    migrate_sections_to_sections_only(conn)
+    
+    # Миграция: добавляем building_number если её нет
     try:
         conn.execute("ALTER TABLE sections ADD COLUMN building_number INTEGER DEFAULT 1")
         conn.commit()
     except:
         pass  # Колонка уже существует
-    
-    # Миграция: устанавливаем building_number = 1 для всех существующих записей
-    try:
-        conn.execute("UPDATE sections SET building_number = 1 WHERE building_number IS NULL")
-        conn.commit()
-    except:
-        pass
     
     # Миграция: добавляем колонку window_number если её нет
     try:
@@ -316,6 +464,12 @@ async def get_complexes():
             "SELECT COUNT(*) FROM apartments WHERE complex_id = ?",
             (c["id"],)
         ).fetchone()[0]
+        c["defects_count"] = conn.execute("""
+            SELECT COUNT(*)
+            FROM defects d
+            JOIN apartments a ON d.apartment_id = a.id
+            WHERE a.complex_id = ? AND d.status NOT IN ('ready', 'rejected')
+        """, (c["id"],)).fetchone()[0]
         
         access_stats = conn.execute("""
             SELECT access_status, COUNT(*) as count 
@@ -334,10 +488,40 @@ async def get_complexes():
 async def create_complex(
     name: str = Form(...),
     property_type: str = Form("квартиры"),
-    buildings: str = Form(...)  # JSON string: [{"building_number":1,"sections":[{"section_number":1,"floors":[{"floor":1,"apartment_from":1,"apartment_to":4}]}]}]
+    sections: Optional[str] = Form(None),
+    buildings: Optional[str] = Form(None)
 ):
-    import json
-    buildings_data = json.loads(buildings)
+    if property_type not in {"квартиры", "апартаменты"}:
+        raise HTTPException(status_code=400, detail="Некорректный тип недвижимости")
+
+    raw_payload = sections if sections is not None else buildings
+    if raw_payload is None:
+        raise HTTPException(status_code=400, detail="Добавьте хотя бы одну секцию")
+
+    try:
+        payload = json.loads(raw_payload)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Некорректная структура объекта") from exc
+
+    if sections is not None:
+        normalized_sections = normalize_sections_payload(payload)
+    else:
+        if not isinstance(payload, list) or not payload:
+            raise HTTPException(status_code=400, detail="Добавьте хотя бы одну секцию")
+
+        merged_sections = []
+        for building in payload:
+            if not isinstance(building, dict):
+                raise HTTPException(status_code=400, detail="Некорректные данные секции")
+            building_sections = building.get("sections")
+            if not isinstance(building_sections, list):
+                raise HTTPException(status_code=400, detail="Некорректная структура секций")
+            building_number = building.get("building_number", 1)
+            for sec in building_sections:
+                sec["building_number"] = building_number
+            merged_sections.extend(building_sections)
+
+        normalized_sections = normalize_sections_payload(merged_sections)
     
     conn = get_db()
     
@@ -347,48 +531,46 @@ async def create_complex(
     
     total_apartments = 0
     
-    # Создаем секции и квартиры для каждого корпуса
-    for building in buildings_data:
-        for sec in building.get("sections", []):
-            floors_data = sec.get("floors", [])
-            
-            if not floors_data:
-                continue
-            
-            # Находим минимальный и максимальный этаж
-            floor_nums = [f.get("floor", 1) for f in floors_data]
-            min_floor = min(floor_nums)
-            max_floor = max(floor_nums)
-            
-            # Находим мин и макс номера квартир
-            all_from = [f.get("apartment_from", 1) for f in floors_data]
-            all_to = [f.get("apartment_to", 1) for f in floors_data]
-            min_apt = min(all_from)
-            max_apt = max(all_to)
-            
-            cursor = conn.execute("""
-                INSERT INTO sections (complex_id, section_number, apartment_from, apartment_to, floors, building_number)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (complex_id, sec["section_number"], min_apt, max_apt, max_floor, building["building_number"]))
-            section_id = cursor.lastrowid
-            
-            # Генерируем квартиры для каждого этажа
-            for floor_info in floors_data:
-                floor_num = floor_info.get("floor", 1)
-                apt_from = floor_info.get("apartment_from", 1)
-                apt_to = floor_info.get("apartment_to", 1)
-                
-                for apt_num in range(apt_from, apt_to + 1):
-                    conn.execute("""
-                        INSERT INTO apartments (complex_id, section_id, number, floor)
-                        VALUES (?, ?, ?, ?)
-                    """, (complex_id, section_id, apt_num, floor_num))
-                    total_apartments += 1
+    for sec in normalized_sections:
+        floors_data = sec.get("floors", [])
+
+        floor_nums = [f.get("floor", 1) for f in floors_data]
+        min_floor = min(floor_nums)
+        max_floor = max(floor_nums)
+
+        all_from = [f.get("apartment_from", 1) for f in floors_data]
+        all_to = [f.get("apartment_to", 1) for f in floors_data]
+        min_apt = min(all_from)
+        max_apt = max(all_to)
+
+        cursor = conn.execute(
+            """
+            INSERT INTO sections (complex_id, section_number, apartment_from, apartment_to, floors, building_number)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (complex_id, sec["section_number"], min_apt, max_apt, max_floor, sec.get("building_number", 1))
+        )
+        section_id = cursor.lastrowid
+
+        for floor_info in floors_data:
+            floor_num = floor_info.get("floor", 1)
+            apt_from = floor_info.get("apartment_from", 1)
+            apt_to = floor_info.get("apartment_to", 1)
+
+            for apt_num in range(apt_from, apt_to + 1):
+                conn.execute(
+                    """
+                    INSERT INTO apartments (complex_id, section_id, number, floor)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (complex_id, section_id, apt_num, floor_num)
+                )
+                total_apartments += 1
     
     conn.commit()
     conn.close()
     
-    return {"id": complex_id, "message": "ЖК создан", "apartments_created": total_apartments}
+    return {"id": complex_id, "message": "Объект создан", "apartments_created": total_apartments}
 
 
 @app.get("/api/complexes/{complex_id}")
@@ -403,17 +585,10 @@ async def get_complex(complex_id: int):
     
     # Секции
     sections = conn.execute(
-        "SELECT * FROM sections WHERE complex_id = ? ORDER BY building_number, section_number",
+        "SELECT *, building_number FROM sections WHERE complex_id = ? ORDER BY building_number, section_number",
         (complex_id,)
     ).fetchall()
     complex_data["sections"] = [dict(s) for s in sections]
-    
-    # Корпуса (уникальные building_number)
-    buildings = conn.execute(
-        "SELECT DISTINCT building_number FROM sections WHERE complex_id = ? ORDER BY building_number",
-        (complex_id,)
-    ).fetchall()
-    complex_data["buildings"] = [{"building_number": b[0]} for b in buildings]
     
     # Статистика
     complex_data["total_apartments"] = conn.execute(
@@ -480,7 +655,6 @@ async def update_complex(complex_id: int, name: str = Form(...)):
 @app.get("/api/complexes/{complex_id}/apartments")
 async def get_apartments(
     complex_id: int,
-    building_ids: Optional[str] = None,
     section_ids: Optional[str] = None,
     section_id: Optional[int] = None,
     floor: Optional[int] = None,
@@ -506,14 +680,6 @@ async def get_apartments(
         WHERE a.complex_id = ?
     """
     params = [complex_id]
-    
-    # Handle multiple building_ids (comma-separated)
-    if building_ids:
-        building_id_list = [int(x.strip()) for x in building_ids.split(',') if x.strip().lstrip('-').isdigit()]
-        if building_id_list:
-            placeholders = ','.join('?' * len(building_id_list))
-            query += f" AND s.building_number IN ({placeholders})"
-            params.extend(building_id_list)  # type: ignore
     
     # Handle multiple section_ids (comma-separated)
     if section_ids:
@@ -552,7 +718,7 @@ async def get_apartments(
 async def get_sections(complex_id: int):
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM sections WHERE complex_id = ? ORDER BY section_number",
+        "SELECT *, building_number FROM sections WHERE complex_id = ? ORDER BY building_number, section_number",
         (complex_id,)
     ).fetchall()
     sections = []
@@ -708,6 +874,15 @@ async def create_defect(
 @app.post("/api/defects/{defect_id}/items")
 async def add_defect_item(defect_id: int, text: str = Form(...)):
     conn = get_db()
+
+    if not text.strip():
+        conn.close()
+        raise HTTPException(status_code=400, detail="Текст пункта не может быть пустым")
+
+    defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    if not defect:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Замечание не найдено")
     
     # Получаем максимальный sort_order
     max_order = conn.execute(
@@ -717,7 +892,7 @@ async def add_defect_item(defect_id: int, text: str = Form(...)):
     
     cursor = conn.execute(
         "INSERT INTO defect_items (defect_id, text, sort_order) VALUES (?, ?, ?)",
-        (defect_id, text, max_order + 1)
+        (defect_id, text.strip(), max_order + 1)
     )
     item_id = cursor.lastrowid
     
@@ -733,6 +908,11 @@ async def update_item_status(item_id: int, status: str = Form(...)):
         raise HTTPException(status_code=400, detail="Неверный статус")
     
     conn = get_db()
+    item = conn.execute("SELECT id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
+    if not item:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Пункт не найден")
+
     conn.execute(
         "UPDATE defect_items SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (status, item_id)
@@ -745,10 +925,19 @@ async def update_item_status(item_id: int, status: str = Form(...)):
 
 @app.put("/api/defects/items/{item_id}/text")
 async def update_item_text(item_id: int, text: str = Form(...)):
+    cleaned_text = text.strip()
+    if not cleaned_text:
+        raise HTTPException(status_code=400, detail="Текст пункта не может быть пустым")
+
     conn = get_db()
+    item = conn.execute("SELECT id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
+    if not item:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Пункт не найден")
+
     conn.execute(
         "UPDATE defect_items SET text = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        (text, item_id)
+        (cleaned_text, item_id)
     )
     conn.commit()
     conn.close()
@@ -759,6 +948,11 @@ async def update_item_text(item_id: int, text: str = Form(...)):
 @app.delete("/api/defects/items/{item_id}")
 async def delete_item(item_id: int):
     conn = get_db()
+    item = conn.execute("SELECT id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
+    if not item:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Пункт не найден")
+
     conn.execute("DELETE FROM defect_items WHERE id = ?", (item_id,))
     conn.commit()
     conn.close()
@@ -768,10 +962,19 @@ async def delete_item(item_id: int):
 
 @app.post("/api/defects/items/{item_id}/comments")
 async def add_item_comment(item_id: int, text: str = Form(...), author: str = Form("Пользователь")):
+    cleaned_text = text.strip()
+    if not cleaned_text:
+        raise HTTPException(status_code=400, detail="Комментарий не может быть пустым")
+
     conn = get_db()
+    item = conn.execute("SELECT id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
+    if not item:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Пункт не найден")
+
     cursor = conn.execute(
         "INSERT INTO item_comments (item_id, author, text) VALUES (?, ?, ?)",
-        (item_id, author, text)
+        (item_id, author, cleaned_text)
     )
     comment_id = cursor.lastrowid
     conn.commit()
@@ -850,7 +1053,8 @@ async def delete_defect(defect_id: int):
 async def update_apartment_access(
     apartment_id: int, 
     access_status: str = Form(...),
-    access_phone: str = Form(None)
+    access_phone: str = Form(None),
+    access_comment: str = Form(None)
 ):
     # Новые статусы доступа
     valid_statuses = ['available', 'owner_accepted', 'call', 'no_access', 'by_phone', 'elevated']
@@ -858,23 +1062,38 @@ async def update_apartment_access(
         raise HTTPException(status_code=400, detail="Неверный статус доступа")
     
     conn = get_db()
-    cur = conn.execute("SELECT access_phone FROM apartments WHERE id = ?", (apartment_id,))
+    cur = conn.execute("SELECT access_phone, access_comment FROM apartments WHERE id = ?", (apartment_id,))
     row = cur.fetchone()
-    existing_phone = row[0] if row else None
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Квартира не найдена")
+
+    existing_phone = row[0]
+    existing_comment = row[1]
     
     if access_phone is not None:
         new_phone = access_phone if access_phone else None
     else:
         new_phone = existing_phone
+
+    if access_comment is not None:
+        new_comment = access_comment if access_comment else None
+    else:
+        new_comment = existing_comment
     
     conn.execute(
-        "UPDATE apartments SET access_status = ?, access_phone = ? WHERE id = ?", 
-        (access_status, new_phone, apartment_id)
+        "UPDATE apartments SET access_status = ?, access_phone = ?, access_comment = ? WHERE id = ?", 
+        (access_status, new_phone, new_comment, apartment_id)
     )
     conn.commit()
     conn.close()
     
     return {"message": "Статус доступа обновлен"}
+
+
+@app.get("/api/health")
+async def healthcheck():
+    return {"status": "ok"}
 
 
 # === OTHER ENDPOINTS ===

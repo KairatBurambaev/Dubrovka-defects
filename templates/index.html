@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=1008">
-    <script src="/static/app.js?v=1030"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9013">
+    <script src="/static/app.js?v=9013"></script>
 </head>
 <body>
     <div class="app">
@@ -24,9 +24,8 @@
                 </div>
                 <div class="header-right" id="headerActions">
                     <button class="btn btn-primary" id="addComplexBtn" onclick="showCreateComplexForm()">+ Добавить</button>
-                    <button class="btn btn-ghost" id="adminBtn" onclick="toggleAdminMode()">⚙️ Админ</button>
-                    <button class="btn btn-ghost" id="editComplexBtn" onclick="showEditComplexForm()" style="display:none;">✎ Редактировать</button>
-                    <button class="btn btn-danger" id="deleteComplexBtn" onclick="deleteCurrentComplex()" style="display:none;">🗑 Удалить</button>
+                    <button class="btn btn-ghost" id="editComplexBtn" onclick="showEditComplexForm()" style="display:none;">Редактировать</button>
+                    <button class="btn btn-danger" id="deleteComplexBtn" onclick="deleteCurrentComplex()" style="display:none;">Удалить</button>
                 </div>
             </header>
 
@@ -61,26 +60,48 @@
                         <button type="button" class="btn btn-primary" onclick="submitComplexForm()">Создать комплекс</button>
                     </div>
                 </div>
+
+                <div id="statsPanel" class="stats-panel">
+                    <div class="stats-title">Статистика</div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">Всего</span>
+                            <span class="stat-value" id="statTotal">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Без замечаний</span>
+                            <span class="stat-value" id="statAvailable">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Принято</span>
+                            <span class="stat-value" id="statAccepted">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Вызов</span>
+                            <span class="stat-value" id="statCall">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Нет доступа</span>
+                            <span class="stat-value" id="statNoAccess">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">С замеч.</span>
+                            <span class="stat-value" id="statDefects">0</span>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <!-- Complex Detail -->
             <section id="tab-complex-detail" class="tab-panel">
                 <div class="toolbar">
                     <div class="toolbar-left">
-                        <select id="viewMode" class="select" onchange="handleViewModeChange()">
-                            <option value="building">По корпусам</option>
-                            <option value="section">По секциям</option>
-                        </select>
                         <div class="multi-select-wrapper" id="filterWrapper" style="display:none;">
                             <button type="button" class="select-btn" id="filterBtn" onclick="toggleFilterDropdown()">
                                 <span id="filterBtnText">Выбрать</span>
                                 <span class="dropdown-arrow">▼</span>
                             </button>
                             <div class="multi-select-dropdown" id="filterDropdown">
-                                <label class="dropdown-item">
-                                    <input type="checkbox" id="selectAllFilter" onchange="toggleAllFilter(this.checked)">
-                                    <span>Все</span>
-                                </label>
                                 <div id="filterOptions"></div>
                             </div>
                         </div>
@@ -119,28 +140,26 @@
                     <div class="detail-content">
                         <div class="panel">
                             <div class="panel-header">
-                                <span class="panel-title">Статус приемки</span>
+                                <span class="panel-title">Статус</span>
                             </div>
                             <div class="status-grid">
                                 <button class="status-item" data-status="owner_accepted" onclick="setStatus('owner_accepted')">
-                                    <span class="status-dot dot-green"></span>
                                     <span>Принята</span>
                                 </button>
                                 <button class="status-item" data-status="call" onclick="setStatus('call')">
-                                    <span class="status-dot dot-green"></span>
-                                    <span>Вызов</span>
+                                    <span>Пригласить</span>
+                                </button>
+                                <button class="status-item" data-status="in_progress" onclick="setStatus('in_progress')">
+                                    <span>В работе</span>
                                 </button>
                                 <button class="status-item" data-status="by_phone" onclick="setStatus('by_phone')">
-                                    <span class="status-dot dot-blue"></span>
-                                    <span>По звонку</span>
+                                    <span>Доступ по звонку</span>
                                 </button>
                                 <button class="status-item" data-status="no_access" onclick="setStatus('no_access')">
-                                    <span class="status-dot dot-gray"></span>
                                     <span>Нет доступа</span>
                                 </button>
-                                <button class="status-item" data-status="elevated" onclick="setStatus('elevated')">
-                                    <span class="status-dot dot-red"></span>
-                                    <span>Сложная</span>
+                                <button class="status-item" data-status="complex" onclick="setStatus('complex')">
+                                    <span>Особое внимание</span>
                                 </button>
                             </div>
                             <div id="phoneBlock" class="phone-panel" style="display:none;">
@@ -169,26 +188,7 @@
                         </div>
                     </div>
 
-                    <div class="detail-sidebar">
-                        <div class="panel panel-sm">
-                            <div class="info-item">
-                                <span>Секция</span>
-                                <strong id="infoSection">-</strong>
-                            </div>
-                            <div class="info-item">
-                                <span>Этаж</span>
-                                <strong id="infoFloor">-</strong>
-                            </div>
-                            <div class="info-item">
-                                <span>Активных</span>
-                                <strong class="red" id="infoActive">-</strong>
-                            </div>
-                            <div class="info-item">
-                                <span>Готовых</span>
-                                <strong class="green" id="infoReady">-</strong>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="detail-main">
                 </div>
             </section>
 
