@@ -16,20 +16,43 @@
             <!-- Header -->
             <header class="header">
                 <div class="header-left">
-                    <button class="btn btn-icon-only btn-ghost" id="backBtn" onclick="goBack()" style="display:none;" title="Назад">←</button>
                     <div>
-                        <h1 id="pageTitle" class="clickable-title" onclick="checkPassword()">Жилые комплексы</h1>
-                        <div class="header-sub" id="pageSubtitle">Всего комплексов: <strong id="totalComplexes">0</strong></div>
+                        <h1 id="pageTitle" class="clickable-title title-stack" onclick="checkPassword()">
+                            <span class="title-line title-primary">Перспектива</span>
+                            <span class="title-line title-secondary">− инжиниринг −</span>
+                        </h1>
                     </div>
                 </div>
-                <div class="header-right" id="headerActions">
-                    <button class="btn btn-ghost" id="editComplexBtn" onclick="showEditComplexForm()" style="display:none;">Редактировать</button>
-                    <button class="btn btn-danger" id="deleteComplexBtn" onclick="deleteCurrentComplex()" style="display:none;">Удалить</button>
+                <div class="header-right">
+                    <div class="header-toolbar" id="headerToolbar" style="display:none;">
+                        <div class="multi-select-wrapper" id="filterWrapper">
+                            <button type="button" class="select-btn" id="filterBtn" onclick="toggleFilterDropdown()">
+                                <span id="filterBtnText">Выбрать</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </button>
+                            <div class="multi-select-dropdown" id="filterDropdown">
+                                <div id="filterOptions"></div>
+                            </div>
+                        </div>
+                        <input type="text" id="searchApt" class="input search-apt" placeholder="Номер (напр: 1,3-5,10)..." oninput="debouncedLoad()">
+                        <div class="pills" id="statusPills">
+                            <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
+                            <button class="pill pill-green" data-filter="available" onclick="setAccessFilter('available')">Без замечаний</button>
+                            <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
+                            <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
+                            <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
+                            <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-icon-only btn-ghost hamburger-btn" id="hamburgerBtn" onclick="toggleHamburgerMenu()" title="Назад">
+                        <span class="hamburger-icon">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </span>
+                    </button>
                 </div>
             </header>
-
-            <!-- Center Logo -->
-            <img src="/static/logo.jpg" alt="Логотип" class="header-logo-center">
 
             <!-- Complexes -->
             <section id="tab-complexes" class="tab-panel active">
@@ -108,32 +131,7 @@
 
             <!-- Complex Detail -->
             <section id="tab-complex-detail" class="tab-panel">
-                <div class="toolbar">
-                    <div class="toolbar-left">
-                        <div class="multi-select-wrapper" id="filterWrapper" style="display:none;">
-                            <button type="button" class="select-btn" id="filterBtn" onclick="toggleFilterDropdown()">
-                                <span id="filterBtnText">Выбрать</span>
-                                <span class="dropdown-arrow">▼</span>
-                            </button>
-                            <div class="multi-select-dropdown" id="filterDropdown">
-                                <div id="filterOptions"></div>
-                            </div>
-                        </div>
-                        <input type="text" id="searchApt" class="input search-apt" placeholder="Номер (напр: 1,3-5,10)..." oninput="debouncedLoad()">
-                    </div>
-                    <div class="toolbar-right">
-                        <div class="pills" id="statusPills">
-                            <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
-                            <button class="pill pill-green" data-filter="available" onclick="setAccessFilter('available')">Без замечаний</button>
-                            <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
-                            <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
-                            <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
-                            <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="defectFilterPanel" class="filter-panel" style="display:none;">
+                <div class="complex-detail-toolbar">
                     <select id="defectCategoryFilter" onchange="loadApartments()" class="select">
                         <option value="">Все категории</option>
                     </select>
@@ -292,6 +290,22 @@
             <div class="modal-footer">
                 <input type="text" id="commentInput" placeholder="Комментарий...">
                 <button class="btn btn-primary btn-sm" onclick="submitComment()">→</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hamburger Menu -->
+    <div id="hamburgerMenu" class="hamburger-menu">
+        <div class="hamburger-overlay" onclick="toggleHamburgerMenu()"></div>
+        <div class="hamburger-dropdown">
+            <div class="hamburger-header">
+                <span>Меню</span>
+                <button class="modal-close" onclick="toggleHamburgerMenu()">×</button>
+            </div>
+            <div class="hamburger-content">
+                <a href="/" class="hamburger-item" onclick="location.reload()">
+                    <span>🏠</span> Главная
+                </a>
             </div>
         </div>
     </div>

@@ -154,10 +154,20 @@ function goBack() {
     if (state.currentApartment) {
         backToComplex();
     } else if (state.currentComplex) {
+        state.currentComplex = null;
         showTab('complexes');
         const count = document.querySelectorAll('.complex-card').length || 0;
         setPageTitle('Жилые комплексы', `Всего комплексов: ${count}`);
+        const headerToolbar = document.getElementById('headerToolbar');
+        if (headerToolbar) headerToolbar.style.display = 'none';
     }
+}
+
+function toggleHamburgerMenu() {
+    goBack();
+    const headerToolbar = document.getElementById('headerToolbar');
+    if (headerToolbar) headerToolbar.style.display = 'none';
+    document.body.classList.add('page-home');
 }
 
 function toggleSidebar(show) {
@@ -372,8 +382,8 @@ async function loadComplexes() {
             const uniqueBuildings = new Set(c.sections.map(s => s.building_number || 1));
             const buildingsCount = uniqueBuildings.size;
             
-            const commDate = c.commissioning_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.commissioning_date}</div><div class="complex-stat-label">Ввод в эксплуат.</div></div>` : '';
-            const war3 = c.warranty_3_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.warranty_3_date}</div><div class="complex-stat-label">Гарантия инжен.</div></div>` : '';
+            const commDate = c.commissioning_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.commissioning_date}</div><div class="complex-stat-label">Ввод</div></div>` : '';
+            const war3 = c.warranty_3_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.warranty_3_date}</div><div class="complex-stat-label">Гарантия инж.</div></div>` : '';
             const war5 = c.warranty_5_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.warranty_5_date}</div><div class="complex-stat-label">Гарантия общ.</div></div>` : '';
             
             return `
@@ -382,7 +392,7 @@ async function loadComplexes() {
                     <div class="complex-card-stats">
                         <div class="complex-stat">
                             <div class="complex-stat-value">${buildingsCount}</div>
-                            <div class="complex-stat-label">корпус</div>
+                            <div class="complex-stat-label">корпусов</div>
                         </div>
                         <div class="complex-stat">
                             <div class="complex-stat-value">${totalApts}</div>
@@ -390,7 +400,7 @@ async function loadComplexes() {
                         </div>
                         <div class="complex-stat">
                             <div class="complex-stat-value">${defectCount}</div>
-                            <div class="complex-stat-label">кв. в работе</div>
+                            <div class="complex-stat-label">дефектов</div>
                         </div>
                         ${commDate}
                         ${war3}
@@ -645,9 +655,10 @@ async function showComplexDetail(id) {
         
         // Show/hide filter dropdown
         const filterWrapper = document.getElementById('filterWrapper');
-        const filterOptions = document.getElementById('filterOptions');
+        const headerToolbar = document.getElementById('headerToolbar');
         
         if (hasMultipleBuildings || hasMultipleSections) {
+            headerToolbar.style.display = 'flex';
             filterWrapper.style.display = 'block';
             
             if (filterOptions) {
