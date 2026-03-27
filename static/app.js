@@ -121,6 +121,8 @@ function showTab(tab) {
         }
     }
     
+    const titleSecondary = document.getElementById('titleSecondary');
+    
     if (tab === 'complexes') {
         document.body.classList.add('page-home');
         updateHeader(false, true);
@@ -128,15 +130,22 @@ function showTab(tab) {
             if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'inline-flex';
             if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'inline-flex';
         }
-        const count = document.querySelectorAll('.complex-card').length || 0;
-        setPageTitle('Жилые комплексы', `Всего комплексов: ${count}`);
+        setPageTitle('Перспектива', '');
+        // Hide section filter on main page
+        const sectionFilterWrapper = document.getElementById('sectionFilterWrapper');
+        if (sectionFilterWrapper) sectionFilterWrapper.style.display = 'none';
+        // Show инжиниринг only on main page
+        if (titleSecondary) titleSecondary.style.display = 'block';
     } else {
         document.body.classList.remove('page-home');
+        // Hide инжиниринг on other pages
+        if (titleSecondary) titleSecondary.style.display = 'none';
     }
 }
 
 function setPageTitle(title, subtitle) {
-    if (elements.pageTitle) elements.pageTitle.textContent = title || '';
+    const jkName = document.getElementById('jkName');
+    if (jkName) jkName.textContent = title || 'Перспектива';
     if (elements.pageSubtitle) elements.pageSubtitle.textContent = subtitle || '';
 }
 
@@ -156,8 +165,6 @@ function goBack() {
     } else if (state.currentComplex) {
         state.currentComplex = null;
         showTab('complexes');
-        const count = document.querySelectorAll('.complex-card').length || 0;
-        setPageTitle('Жилые комплексы', `Всего комплексов: ${count}`);
         const headerToolbar = document.getElementById('headerToolbar');
         if (headerToolbar) headerToolbar.style.display = 'none';
     }
@@ -361,7 +368,7 @@ async function loadComplexes() {
         if (!complexes.length) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">🏢</div>
+                    <div class="empty-icon">[Building]</div>
                     <h3>Нет жилых комплексов</h3>
                     <p>Создайте первый комплекс, чтобы начать работу</p>
                 </div>
@@ -434,7 +441,7 @@ async function loadComplexes() {
     } catch (err) {
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-icon">⚠️</div>
+                <div class="empty-icon">[!]</div>
                 <h3>Ошибка загрузки</h3>
                 <p>Попробуйте обновить страницу</p>
                 <button class="btn btn-primary" onclick="loadComplexes()">Обновить</button>
@@ -671,6 +678,10 @@ async function showComplexDetail(id) {
             : `${stats.total_apartments} ${propName}`;
         
         setPageTitle(complex.name, titleText);
+        
+        // Hide инжиниринг on complex detail page
+        const titleSecondary = document.getElementById('titleSecondary');
+        if (titleSecondary) titleSecondary.style.display = 'none';
         
         // Show toolbar with search and filters
         const headerToolbar = document.getElementById('headerToolbar');
@@ -945,7 +956,7 @@ async function loadApartments() {
         const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-icon">⚠️</div>
+                <div class="empty-icon">[!]</div>
                 <h3>Ошибка загрузки ${propName}</h3>
                 <button class="btn btn-primary" onclick="loadApartments()">Попробовать снова</button>
             </div>
@@ -1017,7 +1028,7 @@ function renderApartments(apartments) {
     if (!apartments?.length) {
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-icon">🏠</div>
+                <div class="empty-icon">[Дом]</div>
                 <h3>Нет ${propName} по заданным фильтрам</h3>
                 <p>Попробуйте изменить параметры поиска</p>
             </div>
@@ -1513,7 +1524,7 @@ function renderDefects(defects) {
                                 <span class="item-text">${i + 1}. ${escapeHtml(item.text)}</span>
                                 <div class="actions">
                                     <button class="btn-icon cmt" onclick="showComments(${item.id})" title="Комментарии">
-                                        💬 ${item.comments?.length || 0}
+                                        [Ком] ${item.comments?.length || 0}
                                     </button>
                                     <button class="btn-icon del" onclick="deleteItem(${item.id})" title="Удалить">×</button>
                                 </div>

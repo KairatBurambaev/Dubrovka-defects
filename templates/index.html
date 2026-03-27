@@ -20,33 +20,13 @@
                         <div id="pageTitle" class="clickable-title title-stack" onclick="checkPassword()">
                             <span class="title-line title-primary">
                                 <span id="jkName">Перспектива</span>
-                                <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
-                                    <button type="button" class="section-filter-btn" id="filterBtn" onclick="toggleFilterDropdown(event)">
-                                        <span id="filterBtnText">Все секции</span>
-                                        <span class="dropdown-arrow">▼</span>
-                                    </button>
-                                    <div class="multi-select-dropdown" id="filterDropdown">
-                                        <div id="filterOptions"></div>
-                                    </div>
-                                </span>
                             </span>
-                            <span class="title-line title-secondary">− инжиниринг −</span>
+                            <span class="title-line title-secondary" id="titleSecondary">− инжиниринг −</span>
                         </div>
                         <div class="header-sub" id="pageSubtitle"></div>
                     </div>
                 </div>
                 <div class="header-right">
-                    <div class="header-toolbar" id="headerToolbar" style="display:none;">
-                        <input type="text" id="searchApt" class="input search-apt" placeholder="Номер (напр: 1,3-5,10)..." oninput="debouncedLoad()">
-                        <div class="pills" id="statusPills">
-                            <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
-                            <button class="pill pill-green" data-filter="available" onclick="setAccessFilter('available')">Без замечаний</button>
-                            <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
-                            <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
-                            <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
-                            <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
-                        </div>
-                    </div>
                     <button class="btn btn-icon-only btn-ghost hamburger-btn" id="hamburgerBtn" onclick="toggleHamburgerMenu()" title="Назад">
                         <span class="hamburger-icon">
                             <span></span>
@@ -56,6 +36,28 @@
                     </button>
                 </div>
             </header>
+
+            <!-- Sticky Toolbar -->
+            <div class="sticky-toolbar" id="headerToolbar" style="display:none;">
+                <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
+                    <button type="button" class="section-filter-btn" id="filterBtn" onclick="toggleFilterDropdown(event)">
+                        <span id="filterBtnText">Все секции</span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="multi-select-dropdown" id="filterDropdown">
+                        <div id="filterOptions"></div>
+                    </div>
+                </span>
+                <input type="text" id="searchApt" class="input search-apt" placeholder="Номер (напр: 1,3-5,10)..." oninput="debouncedLoad()">
+                <div class="pills" id="statusPills">
+                    <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
+                    <button class="pill pill-green" data-filter="available" onclick="setAccessFilter('available')">Без замечаний</button>
+                    <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
+                    <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
+                    <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
+                    <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
+                </div>
+            </div>
 
             <!-- Complexes -->
             <section id="tab-complexes" class="tab-panel active">
