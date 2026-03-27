@@ -738,8 +738,6 @@ function toggleAllFilter(checked) {
     items.forEach(item => item.classList.toggle('selected', checked));
     handleFilterChange();
 }
-    handleFilterChange();
-}
 
 function handleFilterChange() {
     const items = document.querySelectorAll('.filter-item');
@@ -777,15 +775,6 @@ function toggleSectionFilter(sectionId) {
     }
     
     handleFilterChange();
-}
-        filterBtnText.textContent = 'Все секции';
-    } else if (values.length === checkboxes.length) {
-        filterBtnText.textContent = 'Все секции';
-    } else {
-        filterBtnText.textContent = `Выбрано: ${values.length}`;
-    }
-    
-    loadApartments();
 }
 
 function toggleAllSections(checked) {
