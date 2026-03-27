@@ -601,23 +601,26 @@ async function submitComplexForm() {
 
 // Complex Detail
 async function showComplexDetail(id) {
+    console.log('=== showComplexDetail START ===', id);
     state.currentComplex = id;
-    state.currentPropertyType = 'квартиры'; // default
+    state.currentPropertyType = 'квартиры';
     updateHeader(true, false);
     setPageTitle('Загрузка...', '');
     
-    // Hide edit/delete when viewing a specific complex
     if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'none';
     if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'none';
     
     try {
-        const [complexRes, statsRes] = await Promise.all([
-            fetch(`/api/complexes/${id}`),
-            fetch(`/api/complexes/${id}/statistics`)
-        ]);
+        const complexRes = await fetch(`/api/complexes/${id}`);
+        const statsRes = await fetch(`/api/complexes/${id}/statistics`);
+        
+        if (!complexRes.ok) throw new Error('Complex fetch failed: ' + complexRes.status);
+        if (!statsRes.ok) throw new Error('Stats fetch failed: ' + statsRes.status);
         
         const complex = await complexRes.json();
         const stats = await statsRes.json();
+        
+        console.log('Data loaded:', complex.name, stats);
         
         // Save property type
         state.currentPropertyType = complex.property_type || 'квартиры';
@@ -661,7 +664,7 @@ async function showComplexDetail(id) {
         const sectionFilterWrapper = document.getElementById('sectionFilterWrapper');
         const filterOptions = document.getElementById('filterOptions');
         
-        if (hasMultipleBuildings || hasMultipleSections) {
+        if ((hasMultipleBuildings || hasMultipleSections) && sectionFilterWrapper) {
             sectionFilterWrapper.style.display = 'inline-block';
             
             if (filterOptions) {
@@ -685,16 +688,21 @@ async function showComplexDetail(id) {
                 
                 document.getElementById('filterBtnText').textContent = 'Все секции';
             }
-        } else {
+        } else if (sectionFilterWrapper) {
             sectionFilterWrapper.style.display = 'none';
         }
         
         state.currentComplexData = complex;
         
+        console.log('Calling showTab complex-detail');
         showTab('complex-detail');
+        console.log('showTab done');
         
+        console.log('Calling loadApartments');
         loadApartments();
+        console.log('loadApartments called');
     } catch (err) {
+        console.error('Error in showComplexDetail:', err);
         showToast('Ошибка загрузки', 'error');
     }
 }
@@ -830,10 +838,18 @@ document.addEventListener('click', (e) => {
 });
 
 async function loadApartments() {
-    if (!state.currentComplex) return;
+    console.log('=== loadApartments START ===', state.currentComplex);
+    if (!state.currentComplex) {
+        console.log('No current complex');
+        return;
+    }
     
     const container = elements.apartmentsContainer;
-    if (!container) return;
+    console.log('Container:', container);
+    if (!container) {
+        console.log('No container found');
+        return;
+    }
     
     showLoading(container);
     
@@ -841,6 +857,8 @@ async function loadApartments() {
         // Get selected sections from filter
         const selectedItems = document.querySelectorAll('.filter-item.selected');
         const allItems = document.querySelectorAll('.filter-item');
+        
+        console.log('Filter items:', selectedItems.length, '/', allItems.length);
         
         const allCount = allItems.length;
         const selectedCount = selectedItems.length;
@@ -869,8 +887,11 @@ async function loadApartments() {
             url += '?' + params.toString();
         }
         
+        console.log('Fetching apartments from:', url);
         const res = await fetch(url);
+        console.log('Fetch response:', res.status, res.ok);
         let apts = await res.json();
+        console.log('Loaded apartments:', apts.length);
         
         if (state.accessFilter === 'defects') {
             apts = apts.filter(a => a.total_defects > 0);
@@ -960,8 +981,12 @@ function updateStatsPanel(apartments) {
 
 // Render apartments with new .apt classes and colors
 function renderApartments(apartments) {
+    console.log('=== renderApartments START ===', apartments?.length);
     const container = elements.apartmentsContainer;
-    if (!container) return;
+    if (!container) {
+        console.log('renderApartments: No container');
+        return;
+    }
     
     const viewMode = document.getElementById('viewMode')?.value || 'section';
     const propType = state.currentPropertyType;
@@ -993,14 +1018,13 @@ function renderApartments(apartments) {
     
     let html = '<div class="sections-grid">';
     
-    // Get selected section IDs from filter
-    const filterCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
-    const allFilterCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
-    const selectedValues = Array.from(filterCheckboxes).map(cb => cb.value);
+    // Get selected sections from filter
+    const selectedItems = document.querySelectorAll('.filter-item.selected');
+    const allItems = document.querySelectorAll('.filter-item');
     
-    // Check if "all" is selected
-    const allSelected = selectedValues.includes('all') || selectedValues.length === 0 || selectedValues.length === allFilterCheckboxes.length;
-    const selectedSectionIds = allSelected ? [] : selectedValues.filter(v => v.startsWith('s_')).map(v => parseInt(v.replace('s_', '')));
+    const selectedValues = Array.from(selectedItems).map(item => item.dataset.section);
+    const allSelected = selectedItems.length === 0 || selectedItems.length === allItems.length;
+    const selectedSectionIds = allSelected ? [] : selectedValues.map(v => parseInt(v));
     
     // Check if we have multiple buildings from the data
     const uniqueBuildings = new Set(apartments.map(a => a.building_number || 1));
