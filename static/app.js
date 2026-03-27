@@ -386,6 +386,22 @@ async function loadComplexes() {
             const war3 = c.warranty_3_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.warranty_3_date}</div><div class="complex-stat-label">Гарантия инж.</div></div>` : '';
             const war5 = c.warranty_5_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.warranty_5_date}</div><div class="complex-stat-label">Гарантия общ.</div></div>` : '';
             
+            // Calculate not accepted and no access from by_access_status
+            const notAcceptedCount = (c.by_access_status || []).reduce((sum, status) => {
+                // Not accepted = everything except owner_accepted
+                if (status.access_status !== 'owner_accepted') {
+                    return sum + status.count;
+                }
+                return sum;
+            }, 0);
+            
+            const noAccessCount = (c.by_access_status || []).reduce((sum, status) => {
+                if (status.access_status === 'no_access') {
+                    return sum + status.count;
+                }
+                return sum;
+            }, 0);
+            
             return `
                 <div class="complex-card" onclick="showComplexDetail(${c.id})">
                     <div class="complex-card-name">${escapeHtml(c.name)}</div>
@@ -399,8 +415,12 @@ async function loadComplexes() {
                             <div class="complex-stat-label">${propLabel}</div>
                         </div>
                         <div class="complex-stat">
-                            <div class="complex-stat-value">${defectCount}</div>
-                            <div class="complex-stat-label">дефектов</div>
+                            <div class="complex-stat-value">${notAcceptedCount}</div>
+                            <div class="complex-stat-label">не принято</div>
+                        </div>
+                        <div class="complex-stat">
+                            <div class="complex-stat-value">${noAccessCount}</div>
+                            <div class="complex-stat-label">нет доступа</div>
                         </div>
                         ${commDate}
                         ${war3}
