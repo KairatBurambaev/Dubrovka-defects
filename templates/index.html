@@ -17,23 +17,26 @@
             <header class="header">
                 <div class="header-left">
                     <div>
-                        <h1 id="pageTitle" class="clickable-title title-stack" onclick="checkPassword()">
-                            <span class="title-line title-primary">Перспектива</span>
+                        <div id="pageTitle" class="clickable-title title-stack" onclick="checkPassword()">
+                            <span class="title-line title-primary">
+                                <span id="jkName">Перспектива</span>
+                                <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
+                                    <button type="button" class="section-filter-btn" id="filterBtn" onclick="toggleFilterDropdown(event)">
+                                        <span id="filterBtnText">Все секции</span>
+                                        <span class="dropdown-arrow">▼</span>
+                                    </button>
+                                    <div class="multi-select-dropdown" id="filterDropdown">
+                                        <div id="filterOptions"></div>
+                                    </div>
+                                </span>
+                            </span>
                             <span class="title-line title-secondary">− инжиниринг −</span>
-                        </h1>
+                        </div>
+                        <div class="header-sub" id="pageSubtitle">Всего комплексов: <strong id="totalComplexes">0</strong></div>
                     </div>
                 </div>
                 <div class="header-right">
                     <div class="header-toolbar" id="headerToolbar" style="display:none;">
-                        <div class="multi-select-wrapper" id="filterWrapper">
-                            <button type="button" class="select-btn" id="filterBtn" onclick="toggleFilterDropdown()">
-                                <span id="filterBtnText">Выбрать</span>
-                                <span class="dropdown-arrow">▼</span>
-                            </button>
-                            <div class="multi-select-dropdown" id="filterDropdown">
-                                <div id="filterOptions"></div>
-                            </div>
-                        </div>
                         <input type="text" id="searchApt" class="input search-apt" placeholder="Номер (напр: 1,3-5,10)..." oninput="debouncedLoad()">
                         <div class="pills" id="statusPills">
                             <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
@@ -148,12 +151,15 @@
                         <div id="apartmentsContainer" class="sections-grid"></div>
                     </div>
                     <div class="complex-detail-sidebar">
-                        <div class="stats-panel">
+                        <div id="statsPanel" class="stats-panel">
                             <div class="stats-title">Статистика</div>
-                            <div class="stat-item">
-                                <span class="stat-label">Без замечаний</span>
-                                <span class="stat-value" id="statAvailable">0</span>
-                            </div>
+                            <div class="stat-item"><span class="stat-label">Доступно</span><span class="stat-value" id="statAvailable2">0</span></div>
+                            <div class="stat-item"><span class="stat-label">Принято</span><span class="stat-value" id="statAccepted2">0</span></div>
+                            <div class="stat-item"><span class="stat-label">Вызов</span><span class="stat-value" id="statCall2">0</span></div>
+                            <div class="stat-item"><span class="stat-label">Нет доступа</span><span class="stat-value" id="statNoAccess2">0</span></div>
+                            <div class="stat-item"><span class="stat-label">Дефекты</span><span class="stat-value" id="statDefects2">0</span></div>
+                        </div>
+                    </div>
                             <div class="stat-item">
                                 <span class="stat-label">Принято</span>
                                 <span class="stat-value" id="statAccepted">0</span>
@@ -214,7 +220,7 @@
                             <div id="commentBlock" class="phone-panel" style="display:none;">
                                 <label>Комментарий</label>
                                 <div class="phone-row">
-                                    <input type="text" id="commentInput" class="input" placeholder="Причина повышенной сложности">
+                                    <input type="text" id="complexCommentInput" class="input" placeholder="Причина повышенной сложности">
                                     <button class="btn btn-primary" onclick="saveComment()">Сохранить</button>
                                 </div>
                             </div>

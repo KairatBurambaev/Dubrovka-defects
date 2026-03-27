@@ -649,17 +649,20 @@ async function showComplexDetail(id) {
         
         setPageTitle(complex.name, titleText);
         
+        // Show toolbar with search and filters
+        const headerToolbar = document.getElementById('headerToolbar');
+        if (headerToolbar) headerToolbar.style.display = 'flex';
+        
         // Determine if we have multiple buildings or sections
         const hasMultipleBuildings = uniqueBuildings.size > 1;
         const hasMultipleSections = complex.sections.length > 1;
         
         // Show/hide filter dropdown
-        const filterWrapper = document.getElementById('filterWrapper');
-        const headerToolbar = document.getElementById('headerToolbar');
+        const sectionFilterWrapper = document.getElementById('sectionFilterWrapper');
+        const filterOptions = document.getElementById('filterOptions');
         
         if (hasMultipleBuildings || hasMultipleSections) {
-            headerToolbar.style.display = 'flex';
-            filterWrapper.style.display = 'block';
+            sectionFilterWrapper.style.display = 'inline-block';
             
             if (filterOptions) {
                 // Simple list of sections with building in parentheses
@@ -672,10 +675,9 @@ async function showComplexDetail(id) {
                     })
                     .map(s => {
                         return `
-                            <label class="dropdown-item">
-                                <input type="checkbox" value="s_${s.id}" data-type="section" data-building="${s.building_number}" data-section="${s.section_number}" onchange="handleFilterChange()" checked>
+                            <div class="filter-item" data-section="${s.id}" onclick="toggleSectionFilter(${s.id})">
                                 <span>Секция ${s.section_number}</span>
-                            </label>
+                            </div>
                         `;
                     }).join('');
                 
@@ -684,18 +686,12 @@ async function showComplexDetail(id) {
                 document.getElementById('filterBtnText').textContent = 'Все секции';
             }
         } else {
-            filterWrapper.style.display = 'none';
+            sectionFilterWrapper.style.display = 'none';
         }
         
         state.currentComplexData = complex;
         
         showTab('complex-detail');
-        
-        // Reset checkboxes to all checked
-        const selectAllFilter = document.getElementById('selectAllFilter');
-        if (selectAllFilter) selectAllFilter.checked = true;
-        const filterCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
-        filterCheckboxes.forEach(cb => cb.checked = true);
         
         loadApartments();
     } catch (err) {
@@ -731,35 +727,57 @@ function parseApartmentNumbers(input) {
     return numbers.size > 0 ? Array.from(numbers) : null;
 }
 
-function toggleFilterDropdown() {
+function toggleFilterDropdown(event) {
+    if (event) event.stopPropagation();
     const dropdown = document.getElementById('filterDropdown');
     if (dropdown) dropdown.classList.toggle('open');
 }
 
 function toggleAllFilter(checked) {
-    const checkboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
-    checkboxes.forEach(cb => cb.checked = checked);
+    const items = document.querySelectorAll('.filter-item');
+    items.forEach(item => item.classList.toggle('selected', checked));
+    handleFilterChange();
+}
     handleFilterChange();
 }
 
 function handleFilterChange() {
-    const checkboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
-    const checkedBoxes = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
+    const items = document.querySelectorAll('.filter-item');
+    const selectedItems = document.querySelectorAll('.filter-item.selected');
     const filterBtnText = document.getElementById('filterBtnText');
+    const selectedCount = selectedItems.length;
+    const totalCount = items.length;
     
-    // If all are checked and user clicked one, deselect all and select only that one
-    if (checkedBoxes.length === checkboxes.length) {
-        const lastClicked = Array.from(checkboxes).find(cb => cb.checked);
-        checkboxes.forEach(cb => cb.checked = false);
-        if (lastClicked) lastClicked.checked = true;
+    if (selectedCount === 0 || selectedCount === totalCount) {
+        items.forEach(item => item.classList.remove('selected'));
+        filterBtnText.textContent = 'Все секции';
+    } else {
+        filterBtnText.textContent = `Выбрано: ${selectedCount}`;
     }
     
-    // Re-check after potential changes
-    const updatedChecked = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
-    const values = Array.from(updatedChecked).map(cb => cb.value);
+    loadApartments();
+}
+
+function toggleSectionFilter(sectionId) {
+    const items = document.querySelectorAll('.filter-item');
+    const selectedItems = document.querySelectorAll('.filter-item.selected');
+    const item = document.querySelector(`.filter-item[data-section="${sectionId}"]`);
     
-    if (values.length === 0) {
-        checkboxes.forEach(cb => cb.checked = true);
+    const wasAllSelected = selectedItems.length === items.length || selectedItems.length === 0;
+    
+    if (wasAllSelected) {
+        items.forEach(i => i.classList.remove('selected'));
+        item.classList.add('selected');
+    } else {
+        if (selectedItems.length === 1 && selectedItems[0] === item) {
+            items.forEach(i => i.classList.add('selected'));
+        } else {
+            item.classList.toggle('selected');
+        }
+    }
+    
+    handleFilterChange();
+}
         filterBtnText.textContent = 'Все секции';
     } else if (values.length === checkboxes.length) {
         filterBtnText.textContent = 'Все секции';
@@ -815,8 +833,8 @@ function updatePlaceholders() {
 
 document.addEventListener('click', (e) => {
     // Close filter dropdown
-    const filterWrapper = document.querySelector('#filterWrapper .multi-select-wrapper');
-    if (filterWrapper && !filterWrapper.contains(e.target)) {
+    const sectionFilterWrapper = document.getElementById('sectionFilterWrapper');
+    if (sectionFilterWrapper && !sectionFilterWrapper.contains(e.target)) {
         const filterDropdown = document.getElementById('filterDropdown');
         if (filterDropdown) filterDropdown.classList.remove('open');
     }
@@ -832,23 +850,20 @@ async function loadApartments() {
     
     try {
         // Get selected sections from filter
-        const filterCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]:checked');
-        const allFilterCheckboxes = document.querySelectorAll('#filterOptions input[type="checkbox"]');
+        const selectedItems = document.querySelectorAll('.filter-item.selected');
+        const allItems = document.querySelectorAll('.filter-item');
         
-        const allCount = allFilterCheckboxes.length;
-        const checkedCount = filterCheckboxes.length;
+        const allCount = allItems.length;
+        const selectedCount = selectedItems.length;
         
         let sectionIds = '';
         
-        // If "all" is checked or nothing selected - show all
-        // Otherwise use selected section IDs
-        const selectedValues = Array.from(filterCheckboxes).map(cb => cb.value);
-        
-        if (selectedValues.includes('all') || checkedCount === 0 || checkedCount === allCount) {
+        // If all selected or nothing selected - show all
+        if (selectedCount === 0 || selectedCount === allCount) {
             sectionIds = '';
         } else {
-            const sectionValues = selectedValues.filter(v => v.startsWith('s_'));
-            sectionIds = sectionValues.map(v => v.replace('s_', '')).join(',');
+            const selectedValues = Array.from(selectedItems).map(item => item.dataset.section);
+            sectionIds = selectedValues.join(',');
         }
         
         const search = document.getElementById('searchApt')?.value || '';
