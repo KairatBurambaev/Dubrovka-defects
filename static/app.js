@@ -2,6 +2,8 @@
 const state = {
     currentTab: 'complexes',
     currentComplex: null,
+    currentComplexData: null,
+    currentComplexStats: null,
     currentPropertyType: 'квартиры',
     currentApartment: null,
     currentApartmentData: null,
@@ -152,7 +154,30 @@ function setPageTitle(title, subtitle) {
 function backToComplex() {
     state.currentApartment = null;
     state.currentApartmentData = null;
-    if (state.currentComplex) showComplexDetail(state.currentComplex);
+    
+    // Show filters, hide status buttons
+    const complexToolbar = document.getElementById('complexToolbar');
+    const toolbarFilters = document.getElementById('toolbarFilters');
+    const toolbarStatus = document.getElementById('toolbarStatus');
+    if (complexToolbar) complexToolbar.style.display = 'flex';
+    if (toolbarFilters) toolbarFilters.style.display = 'flex';
+    if (toolbarStatus) toolbarStatus.style.display = 'none';
+    
+    // Restore complex title in header
+    if (state.currentComplexData) {
+        const complex = state.currentComplexData;
+        const stats = state.currentComplexStats;
+        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
+        
+        const titleText = stats?.total_apartments 
+            ? `${stats.total_apartments} ${propName}`
+            : '';
+        
+        setPageTitle(complex.name, titleText);
+    }
+    
+    showTab('complex-detail');
+    loadApartments();
 }
 
 function backToApartment() {
@@ -165,16 +190,13 @@ function goBack() {
     } else if (state.currentComplex) {
         state.currentComplex = null;
         showTab('complexes');
-        const headerToolbar = document.getElementById('headerToolbar');
-        if (headerToolbar) headerToolbar.style.display = 'none';
+        const complexToolbar = document.getElementById('complexToolbar');
+        if (complexToolbar) complexToolbar.style.display = 'none';
     }
 }
 
 function toggleHamburgerMenu() {
     goBack();
-    const headerToolbar = document.getElementById('headerToolbar');
-    if (headerToolbar) headerToolbar.style.display = 'none';
-    document.body.classList.add('page-home');
 }
 
 function toggleSidebar(show) {
@@ -603,14 +625,19 @@ async function submitComplexForm() {
     formData.append('warranty_5_date', warranty5Date);
     formData.append('buildings', JSON.stringify(buildings));
     
+    console.log('Creating complex:', { name, propertyType, buildings });
+    
     try {
         const res = await fetch('/api/complexes', {
             method: 'POST',
             body: formData
         });
         
+        console.log('Response status:', res.status);
+        
         if (res.ok) {
             const data = await res.json();
+            console.log('Success:', data);
             const propName = propertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
             showToast(`ЖК создан: ${data.apartments_created} ${propName}`, 'success');
             nameInput.value = '';
@@ -619,10 +646,13 @@ async function submitComplexForm() {
             showTab('complexes');
             loadComplexes();
         } else {
-            showToast('Ошибка создания', 'error');
+            const errorText = await res.text();
+            console.error('Error response:', errorText);
+            showToast('Ошибка: ' + errorText, 'error');
         }
     } catch (err) {
-        showToast('Ошибка создания', 'error');
+        console.error('Fetch error:', err);
+        showToast('Ошибка: ' + err.message, 'error');
     }
 }
 
@@ -684,8 +714,12 @@ async function showComplexDetail(id) {
         if (titleSecondary) titleSecondary.style.display = 'none';
         
         // Show toolbar with search and filters
-        const headerToolbar = document.getElementById('headerToolbar');
-        if (headerToolbar) headerToolbar.style.display = 'flex';
+        const complexToolbar = document.getElementById('complexToolbar');
+        const toolbarFilters = document.getElementById('toolbarFilters');
+        const toolbarStatus = document.getElementById('toolbarStatus');
+        if (complexToolbar) complexToolbar.style.display = 'flex';
+        if (toolbarFilters) toolbarFilters.style.display = 'flex';
+        if (toolbarStatus) toolbarStatus.style.display = 'none';
         
         // Determine if we have multiple buildings or sections
         const hasMultipleBuildings = uniqueBuildings.size > 1;
@@ -724,6 +758,7 @@ async function showComplexDetail(id) {
         }
         
         state.currentComplexData = complex;
+        state.currentComplexStats = stats;
         
         console.log('Calling showTab complex-detail');
         showTab('complex-detail');
@@ -769,7 +804,9 @@ function parseApartmentNumbers(input) {
 function toggleFilterDropdown(event) {
     if (event) event.stopPropagation();
     const dropdown = document.getElementById('filterDropdown');
+    const wrapper = document.getElementById('sectionFilterWrapper');
     if (dropdown) dropdown.classList.toggle('open');
+    if (wrapper) wrapper.classList.toggle('active');
 }
 
 function toggleAllFilter(checked) {
@@ -914,9 +951,10 @@ async function loadApartments() {
             params.append('section_ids', sectionIds);
         }
         
-        if (params.toString()) {
-            url += '?' + params.toString();
-        }
+        // Add cache-busting timestamp
+        params.append('_', Date.now());
+        
+        url += '?' + params.toString();
         
         console.log('Fetching apartments from:', url);
         const res = await fetch(url);
@@ -1275,6 +1313,14 @@ async function showApartmentDetail(id) {
     setPageTitle('Загрузка...', '');
     showTab('apartment-detail');
     
+    // Switch to apartment status toolbar
+    const complexToolbar = document.getElementById('complexToolbar');
+    const toolbarFilters = document.getElementById('toolbarFilters');
+    const toolbarStatus = document.getElementById('toolbarStatus');
+    if (complexToolbar) complexToolbar.style.display = 'flex';
+    if (toolbarFilters) toolbarFilters.style.display = 'none';
+    if (toolbarStatus) toolbarStatus.style.display = 'flex';
+    
     try {
         const [defectsRes, aptsRes] = await Promise.all([
             fetch(`/api/apartments/${id}/defects`),
@@ -1299,20 +1345,15 @@ async function showApartmentDetail(id) {
         const complexSections = state.currentComplexData?.sections || [];
         const hasMultipleBuildings = new Set(complexSections.map(s => s.building_number || 1)).size > 1;
         
-        const sectionSubtitle = hasMultipleBuildings
-            ? `Корпус ${apt.building_number}<br>Секция ${apt.section_number}, Этаж ${apt.floor}`
-            : `Секция ${apt.section_number}, Этаж ${apt.floor}`;
-        
-        if (elements.pageTitle) {
-            elements.pageTitle.innerHTML = `${propLabel} ${apt.number}<br><span style="font-size:14px;font-weight:400;">${hasMultipleBuildings ? `Корпус ${apt.building_number} • ` : ''}Секция ${apt.section_number} • Этаж ${apt.floor}</span>`;
-        }
+        const aptSubtitle = hasMultipleBuildings
+            ? `Корпус ${apt.building_number} • Секция ${apt.section_number} • Этаж ${apt.floor}`
+            : `Секция ${apt.section_number} • Этаж ${apt.floor}`;
         
         const active = defects.filter(d => !['ready','rejected'].includes(d.status));
         const done = defects.filter(d => ['ready','rejected'].includes(d.status));
         
-        if (elements.pageSubtitle) {
-            elements.pageSubtitle.innerHTML = `Активных: <strong class="red">${active.length}</strong> | Готовых: <strong class="green">${done.length}</strong>`;
-        }
+        const fullSubtitle = `${aptSubtitle} | Активных: ${active.length} | Готовых: ${done.length}`;
+        setPageTitle(`${propLabel} ${apt.number}`, fullSubtitle);
         
         // Set status buttons
         document.querySelectorAll('.status-item').forEach(btn => {

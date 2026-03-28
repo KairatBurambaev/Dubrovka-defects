@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9040">
-    <script src="/static/app.js?v=9040"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9073">
+    <script src="/static/app.js?v=9073"></script>
 </head>
 <body>
     <div class="app">
@@ -37,25 +37,48 @@
                 </div>
             </header>
 
-            <!-- Sticky Toolbar -->
-            <div class="sticky-toolbar" id="headerToolbar" style="display:none;">
-                <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
-                    <button type="button" class="section-filter-btn" id="filterBtn" onclick="toggleFilterDropdown(event)">
-                        <span id="filterBtnText">Все секции</span>
-                        <span class="dropdown-arrow">▼</span>
-                    </button>
-                    <div class="multi-select-dropdown" id="filterDropdown">
-                        <div id="filterOptions"></div>
+            <!-- Unified Sticky Toolbar -->
+            <div class="sticky-toolbar" id="complexToolbar" style="display:none;">
+                <!-- Complex filters (section, search, pills) -->
+                <div class="toolbar-filters" id="toolbarFilters">
+                    <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
+                        <button type="button" class="section-filter-btn select" id="filterBtn" onclick="toggleFilterDropdown(event)">
+                            <span id="filterBtnText">Все секции</span>
+                            <span class="dropdown-arrow">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown" id="filterDropdown">
+                            <div id="filterOptions"></div>
+                        </div>
+                    </span>
+                    <select id="defectCategoryFilter" onchange="loadApartments()" class="select">
+                        <option value="">Все категории</option>
+                    </select>
+                    <input type="text" id="searchApt" class="input search-apt" placeholder="Номер (напр: 1,3-5,10)..." oninput="debouncedLoad()">
+                    <div class="pills" id="statusPills">
+                        <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
+                        <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
                     </div>
-                </span>
-                <input type="text" id="searchApt" class="input search-apt" placeholder="Номер (напр: 1,3-5,10)..." oninput="debouncedLoad()">
-                <div class="pills" id="statusPills">
-                    <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
-                    <button class="pill pill-green" data-filter="available" onclick="setAccessFilter('available')">Без замечаний</button>
-                    <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
-                    <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
-                    <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
-                    <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
+                </div>
+                <!-- Apartment status buttons -->
+                <div class="toolbar-status" id="toolbarStatus" style="display:none;">
+                    <button class="status-item" data-status="owner_accepted" onclick="setStatus('owner_accepted')">
+                        <span>Принята</span>
+                    </button>
+                    <button class="status-item" data-status="call" onclick="setStatus('call')">
+                        <span>Пригласить</span>
+                    </button>
+                    <button class="status-item" data-status="in_progress" onclick="setStatus('in_progress')">
+                        <span>В работе</span>
+                    </button>
+                    <button class="status-item" data-status="by_phone" onclick="setStatus('by_phone')">
+                        <span>Доступ по звонку</span>
+                    </button>
+                    <button class="status-item" data-status="no_access" onclick="setStatus('no_access')">
+                        <span>Нет доступа</span>
+                    </button>
+                    <button class="status-item" data-status="complex" onclick="setStatus('complex')">
+                        <span>Особое внимание</span>
+                    </button>
                 </div>
             </div>
 
@@ -137,15 +160,6 @@
             <!-- Complex Detail -->
             <section id="tab-complex-detail" class="tab-panel">
                 <div class="complex-detail-toolbar">
-                    <select id="defectCategoryFilter" onchange="loadApartments()" class="select">
-                        <option value="">Все категории</option>
-                    </select>
-                    <select id="defectStatusFilter" onchange="loadApartments()" class="select">
-                        <option value="">Любой статус</option>
-                        <option value="new">Новые</option>
-                        <option value="in_progress">В работе</option>
-                        <option value="ready">Готовые</option>
-                    </select>
                 </div>
 
                 <div class="complex-detail-content">
@@ -187,31 +201,8 @@
             <section id="tab-apartment-detail" class="tab-panel">
                 <div class="detail-grid">
                     <div class="detail-content">
-                        <div class="panel">
-                            <div class="panel-header">
-                                <span class="panel-title">Статус</span>
-                            </div>
-                            <div class="status-grid">
-                                <button class="status-item" data-status="owner_accepted" onclick="setStatus('owner_accepted')">
-                                    <span>Принята</span>
-                                </button>
-                                <button class="status-item" data-status="call" onclick="setStatus('call')">
-                                    <span>Пригласить</span>
-                                </button>
-                                <button class="status-item" data-status="in_progress" onclick="setStatus('in_progress')">
-                                    <span>В работе</span>
-                                </button>
-                                <button class="status-item" data-status="by_phone" onclick="setStatus('by_phone')">
-                                    <span>Доступ по звонку</span>
-                                </button>
-                                <button class="status-item" data-status="no_access" onclick="setStatus('no_access')">
-                                    <span>Нет доступа</span>
-                                </button>
-                                <button class="status-item" data-status="complex" onclick="setStatus('complex')">
-                                    <span>Особое внимание</span>
-                                </button>
-                            </div>
-                            <div id="phoneBlock" class="phone-panel" style="display:none;">
+                        <div class="panel" id="phoneBlock" style="display:none;">
+                            <div class="phone-panel">
                                 <label>Телефон</label>
                                 <div class="phone-row">
                                     <input type="tel" id="phoneInput" class="input" placeholder="+7 (999) 123-45-67">
@@ -219,7 +210,9 @@
                                     <button class="btn btn-danger" onclick="deletePhone()">Удалить</button>
                                 </div>
                             </div>
-                            <div id="commentBlock" class="phone-panel" style="display:none;">
+                        </div>
+                        <div class="panel" id="commentBlock" style="display:none;">
+                            <div class="phone-panel">
                                 <label>Комментарий</label>
                                 <div class="phone-row">
                                     <input type="text" id="complexCommentInput" class="input" placeholder="Причина повышенной сложности">
