@@ -11,7 +11,8 @@ const state = {
     categories: [],
     currentItemId: null,
     accessFilter: '',
-    loading: false
+    loading: false,
+    currentDefects: [] // Store defects for category filtering
 };
 
 // DOM Elements cache
@@ -807,17 +808,81 @@ function toggleFilterDropdown(event) {
     const wrapper = document.getElementById('sectionFilterWrapper');
     if (dropdown) dropdown.classList.toggle('open');
     if (wrapper) wrapper.classList.toggle('active');
+    
+    // Close category dropdown if open
+    const catDropdown = document.getElementById('categoryDropdown');
+    const catWrapper = document.getElementById('categoryFilterWrapper');
+    if (catDropdown) catDropdown.classList.remove('open');
+    if (catWrapper) catWrapper.classList.remove('active');
+}
+
+function toggleCategoryDropdown(event) {
+    if (event) event.stopPropagation();
+    const dropdown = document.getElementById('categoryDropdown');
+    const wrapper = document.getElementById('categoryFilterWrapper');
+    if (dropdown) dropdown.classList.toggle('open');
+    if (wrapper) wrapper.classList.toggle('active');
+    
+    // Initialize category options if empty
+    const categoryOptions = document.getElementById('categoryOptions');
+    if (categoryOptions && categoryOptions.innerHTML.trim() === '' && state.categories.length > 0) {
+        categoryOptions.innerHTML = `
+            <div class="filter-item selected" data-category="" onclick="selectCategory('')">
+                Все категории
+            </div>
+            ${state.categories.map(cat => `
+                <div class="filter-item" data-category="${cat}" onclick="selectCategory('${cat}')">
+                    ${cat}
+                </div>
+            `).join('')}
+        `;
+    }
+    
+    // Close section dropdown if open
+    const filterDropdown = document.getElementById('filterDropdown');
+    const filterWrapper = document.getElementById('sectionFilterWrapper');
+    if (filterDropdown) filterDropdown.classList.remove('open');
+    if (filterWrapper) filterWrapper.classList.remove('active');
+}
+
+function selectCategory(category) {
+    const categoryFilterBtnText = document.getElementById('categoryFilterBtnText');
+    const categoryDropdown = document.getElementById('categoryDropdown');
+    const categoryFilterWrapper = document.getElementById('categoryFilterWrapper');
+    
+    // Update button text
+    if (categoryFilterBtnText) {
+        categoryFilterBtnText.textContent = category || 'Все категории';
+    }
+    
+    // Close dropdown
+    if (categoryDropdown) categoryDropdown.classList.remove('open');
+    if (categoryFilterWrapper) categoryFilterWrapper.classList.remove('active');
+    
+    // Update defectCategoryFilter value and reload
+    const catFilter = document.getElementById('defectCategoryFilter');
+    if (catFilter) {
+        catFilter.value = category;
+    }
+    
+    loadApartments();
 }
 
 function toggleAllFilter(checked) {
-    const items = document.querySelectorAll('.filter-item');
+    const filterOptions = document.getElementById('filterOptions');
+    if (!filterOptions) return;
+    
+    const items = filterOptions.querySelectorAll('.filter-item');
     items.forEach(item => item.classList.toggle('selected', checked));
     handleFilterChange();
 }
 
 function handleFilterChange() {
-    const items = document.querySelectorAll('.filter-item');
-    const selectedItems = document.querySelectorAll('.filter-item.selected');
+    const filterOptions = document.getElementById('filterOptions');
+    if (!filterOptions) return;
+    
+    const items = filterOptions.querySelectorAll('.filter-item');
+    const selectedItems = filterOptions.querySelectorAll('.filter-item.selected');
     const filterBtnText = document.getElementById('filterBtnText');
     const selectedCount = selectedItems.length;
     const totalCount = items.length;
@@ -825,6 +890,9 @@ function handleFilterChange() {
     if (selectedCount === 0 || selectedCount === totalCount) {
         items.forEach(item => item.classList.remove('selected'));
         filterBtnText.textContent = 'Все секции';
+    } else if (selectedCount === 1) {
+        const selectedSection = selectedItems[0].textContent;
+        filterBtnText.textContent = selectedSection;
     } else {
         filterBtnText.textContent = `Выбрано: ${selectedCount}`;
     }
@@ -833,9 +901,12 @@ function handleFilterChange() {
 }
 
 function toggleSectionFilter(sectionId) {
-    const items = document.querySelectorAll('.filter-item');
-    const selectedItems = document.querySelectorAll('.filter-item.selected');
-    const item = document.querySelector(`.filter-item[data-section="${sectionId}"]`);
+    const filterOptions = document.getElementById('filterOptions');
+    if (!filterOptions) return;
+    
+    const items = filterOptions.querySelectorAll('.filter-item');
+    const selectedItems = filterOptions.querySelectorAll('.filter-item.selected');
+    const item = filterOptions.querySelector(`.filter-item[data-section="${sectionId}"]`);
     
     const wasAllSelected = selectedItems.length === items.length || selectedItems.length === 0;
     
@@ -897,11 +968,20 @@ function updatePlaceholders() {
 }
 
 document.addEventListener('click', (e) => {
-    // Close filter dropdown
+    // Close section filter dropdown
     const sectionFilterWrapper = document.getElementById('sectionFilterWrapper');
     if (sectionFilterWrapper && !sectionFilterWrapper.contains(e.target)) {
         const filterDropdown = document.getElementById('filterDropdown');
         if (filterDropdown) filterDropdown.classList.remove('open');
+        if (sectionFilterWrapper) sectionFilterWrapper.classList.remove('active');
+    }
+    
+    // Close category filter dropdown
+    const categoryFilterWrapper = document.getElementById('categoryFilterWrapper');
+    if (categoryFilterWrapper && !categoryFilterWrapper.contains(e.target)) {
+        const categoryDropdown = document.getElementById('categoryDropdown');
+        if (categoryDropdown) categoryDropdown.classList.remove('open');
+        if (categoryFilterWrapper) categoryFilterWrapper.classList.remove('active');
     }
 });
 
@@ -962,25 +1042,28 @@ async function loadApartments() {
         let apts = await res.json();
         console.log('Loaded apartments:', apts.length);
         
+        // Fetch defects for category-based badge counts and filtering
+        const catFilter = document.getElementById('defectCategoryFilter')?.value;
+        const statusFilter = document.getElementById('defectStatusFilter')?.value;
+        const defectsRes = await fetch(`/api/complexes/${state.currentComplex}/defects`);
+        state.currentDefects = await defectsRes.json();
+        
+        // Filter apartments by defects if category filter is active
+        if (catFilter || statusFilter) {
+            const filteredIds = new Set();
+            
+            state.currentDefects.forEach(d => {
+                if (catFilter && d.category !== catFilter) return;
+                if (statusFilter === 'new' && d.status !== 'new') return;
+                if (statusFilter === 'in_progress' && d.status !== 'in_progress') return;
+                if (statusFilter === 'ready' && !['ready','rejected'].includes(d.status)) return;
+                filteredIds.add(d.apartment_id);
+            });
+            apts = apts.filter(a => filteredIds.has(a.id));
+        }
+        
         if (state.accessFilter === 'defects') {
             apts = apts.filter(a => a.total_defects > 0);
-            const catFilter = document.getElementById('defectCategoryFilter')?.value;
-            const statusFilter = document.getElementById('defectStatusFilter')?.value;
-            
-            if (catFilter || statusFilter) {
-                const defectsRes = await fetch(`/api/complexes/${state.currentComplex}/defects`);
-                const defects = await defectsRes.json();
-                const filteredIds = new Set();
-                
-                defects.forEach(d => {
-                    if (catFilter && d.category !== catFilter) return;
-                    if (statusFilter === 'new' && d.status !== 'new') return;
-                    if (statusFilter === 'in_progress' && d.status !== 'in_progress') return;
-                    if (statusFilter === 'ready' && !['ready','rejected'].includes(d.status)) return;
-                    filteredIds.add(d.apartment_id);
-                });
-                apts = apts.filter(a => filteredIds.has(a.id));
-            }
         } else if (state.accessFilter) {
             apts = apts.filter(a => a.access_status === state.accessFilter);
         }
@@ -1066,9 +1149,9 @@ function renderApartments(apartments) {
     if (!apartments?.length) {
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-icon">[Дом]</div>
-                <h3>Нет ${propName} по заданным фильтрам</h3>
-                <p>Попробуйте изменить параметры поиска</p>
+                <div class="empty-icon">✓</div>
+                <h3>Замечаний нет</h3>
+                <p>По выбранным фильтрам замечаний не найдено</p>
             </div>
         `;
         return;
@@ -1233,7 +1316,23 @@ function renderApartments(apartments) {
     }
 }
 
+// Get defect count for apartment by category filter
+function getDefectBadgeCount(aptId) {
+    const catFilter = document.getElementById('defectCategoryFilter')?.value;
+    
+    // If no category filter, return total count
+    if (!catFilter || !state.currentDefects.length) {
+        const apt = state.currentApartmentData || {};
+        return null; // Will use default count
+    }
+    
+    // Count defects only for selected category
+    return state.currentDefects.filter(d => d.apartment_id === aptId && d.category === catFilter && d.status !== 'ready' && d.status !== 'rejected').length;
+}
+
 function renderFloorRow(floorApts, floor, propFull) {
+    const catFilter = document.getElementById('defectCategoryFilter')?.value;
+    
     return `
         <div class="floor-row">
             <div class="floor-label">${floor} эт</div>
@@ -1241,7 +1340,14 @@ function renderFloorRow(floorApts, floor, propFull) {
                 ${floorApts.map(a => {
                     const deadlineClass = getDeadlineClass(a);
                     const cls = getApartmentClass(a.access_status, a.active_defects_count);
-                    const badge = (a.active_defects_count > 0 && a.access_status !== 'owner_accepted') ? `<span class="apt-badge">${a.active_defects_count}</span>` : '';
+                    
+                    // Get badge count - use category filter if active
+                    let badgeCount = a.active_defects_count;
+                    if (catFilter && state.currentDefects.length) {
+                        badgeCount = state.currentDefects.filter(d => d.apartment_id === a.id && d.category === catFilter && d.status !== 'ready' && d.status !== 'rejected').length;
+                    }
+                    
+                    const badge = (badgeCount > 0 && a.access_status !== 'owner_accepted') ? `<span class="apt-badge">${badgeCount}</span>` : '';
                     const tooltip = `${propFull === 'апартамент' ? 'Апартамент' : 'Квартира'} ${a.number}`;
                     return `
                         <div class="apt ${cls} ${deadlineClass}" 

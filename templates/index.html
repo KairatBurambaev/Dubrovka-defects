@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9073">
-    <script src="/static/app.js?v=9073"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9085">
+    <script src="/static/app.js?v=9074"></script>
 </head>
 <body>
     <div class="app">
@@ -39,21 +39,33 @@
 
             <!-- Unified Sticky Toolbar -->
             <div class="sticky-toolbar" id="complexToolbar" style="display:none;">
-                <!-- Complex filters (section, search, pills) -->
+                <!-- Search row -->
+                <div class="toolbar-search">
+                    <input type="text" id="searchApt" class="input search-apt" placeholder="Номер квартиры (напр: 1,3-5,10)..." oninput="debouncedLoad()">
+                </div>
+                <!-- Filter row -->
                 <div class="toolbar-filters" id="toolbarFilters">
                     <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
                         <button type="button" class="section-filter-btn select" id="filterBtn" onclick="toggleFilterDropdown(event)">
                             <span id="filterBtnText">Все секции</span>
-                            <span class="dropdown-arrow">▼</span>
+                            <span class="dropdown-arrow">▾</span>
                         </button>
                         <div class="multi-select-dropdown" id="filterDropdown">
                             <div id="filterOptions"></div>
                         </div>
                     </span>
-                    <select id="defectCategoryFilter" onchange="loadApartments()" class="select">
+                    <span class="section-filter-wrapper" id="categoryFilterWrapper">
+                        <button type="button" class="section-filter-btn select" id="categoryFilterBtn" onclick="toggleCategoryDropdown(event)">
+                            <span id="categoryFilterBtnText">Все категории</span>
+                            <span class="dropdown-arrow">▾</span>
+                        </button>
+                        <div class="multi-select-dropdown" id="categoryDropdown">
+                            <div id="categoryOptions"></div>
+                        </div>
+                    </span>
+                    <select id="defectCategoryFilter" onchange="loadApartments()" class="select" style="display:none;">
                         <option value="">Все категории</option>
                     </select>
-                    <input type="text" id="searchApt" class="input search-apt" placeholder="Номер (напр: 1,3-5,10)..." oninput="debouncedLoad()">
                     <div class="pills" id="statusPills">
                         <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
                         <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
