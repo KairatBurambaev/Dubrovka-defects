@@ -1063,7 +1063,7 @@ async def update_apartment_access(
     access_comment: str = Form(None)
 ):
     # Новые статусы доступа
-    valid_statuses = ['available', 'owner_accepted', 'call', 'no_access', 'by_phone', 'elevated']
+    valid_statuses = ['available', 'owner_accepted', 'call', 'no_access', 'by_phone', 'elevated', 'in_progress', 'complex']
     if access_status not in valid_statuses:
         raise HTTPException(status_code=400, detail="Неверный статус доступа")
     

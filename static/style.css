@@ -548,87 +548,48 @@ body {
 }
 
 .toolbar-status .status-item:hover {
-  background: #2563eb;
-  color: #ffffff;
-  border-color: #2563eb;
   transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .toolbar-status .status-item.active {
-  background: #ffffff;
-  color: #2563eb;
-  border-color: #2563eb;
+  color: #ffffff;
 }
 
 .toolbar-status .status-item[data-status="owner_accepted"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #15803d;
 }
 
 .toolbar-status .status-item[data-status="call"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #f3e8ff;
+  border-color: #a855f7;
+  color: #7e22ce;
 }
 
 .toolbar-status .status-item[data-status="in_progress"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #fef9c3;
+  border-color: #facc15;
+  color: #854d0e;
 }
 
 .toolbar-status .status-item[data-status="by_phone"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #bae6fd;
+  border-color: #38bdf8;
+  color: #0369a1;
 }
 
 .toolbar-status .status-item[data-status="no_access"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
-}
-
-.toolbar-status .status-item[data-status="complex"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
-}
-
-.toolbar-status .status-item[data-status="call"].active {
-  background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
-  border-color: #ec4899;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3);
-}
-
-.toolbar-status .status-item[data-status="in_progress"].active {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-color: #3b82f6;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-}
-
-.toolbar-status .status-item[data-status="by_phone"].active {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  border-color: #8b5cf6;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
-}
-
-.toolbar-status .status-item[data-status="no_access"].active {
-  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  background: #e2e8f0;
   border-color: #64748b;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);
+  color: #334155;
 }
 
 .toolbar-status .status-item[data-status="complex"].active {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  border-color: #f59e0b;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
 }
 
 .section-filter-btn, .section-filter-btn.select {
@@ -1439,56 +1400,54 @@ h1 {
 }
 
 .status-item:hover {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .status-item.active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  color: #ffffff;
 }
 
 .status-item[data-status="owner_accepted"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #22c55e;
+  border-color: #22c55e;
+  color: #ffffff;
 }
 
 .status-item[data-status="call"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #a855f7;
+  border-color: #a855f7;
+  color: #ffffff;
 }
 
 .status-item[data-status="by_phone"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #bae6fd;
+  border-color: #38bdf8;
+  color: #0369a1;
 }
 
 .status-item[data-status="no_access"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #64748b;
+  border-color: #64748b;
+  color: #ffffff;
 }
 
 .status-item[data-status="complex"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
 }
 
 .status-item[data-status="in_progress"].active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #facc15;
+  border-color: #facc15;
+  color: #1d1d1f;
 }
 
 .status-item[data-status="available"].active {
   background: #9ca3af;
-  color: var(--text);
+  border-color: #9ca3af;
+  color: #ffffff;
 }
 
 .status-dot {
@@ -2336,9 +2295,9 @@ h1 {
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
-  border: none;
-  background: #f5f5f7;
-  color: #1d1d1f;
+  border: 2px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
@@ -2348,33 +2307,33 @@ h1 {
 }
 
 .apt.apt-available {
-  background: var(--white);
-  color: #86868b;
-  border: 2px solid var(--border);
+  background: #ffffff;
+  color: #374151;
+  border: 2px solid #d1d5db;
 }
 
 .apt.apt-owner_accepted {
-  background: var(--white);
-  color: #059669;
-  border: 2px solid #059669;
+  background: #15803d;
+  color: #ffffff;
+  border: 2px solid #14532d;
 }
 
 .apt.apt-call {
-  background: #059669;
-  color: var(--white);
-  border: 2px solid #059669;
+  background: #86efac;
+  color: #14532d;
+  border: 2px solid #22c55e;
 }
 
 .apt.apt-no_access {
   background: #3b82f6;
-  color: var(--white);
-  border: 2px solid #3b82f6;
+  color: #ffffff;
+  border: 2px solid #1d4ed8;
 }
 
 .apt.apt-defects {
-  background: #f59e0b;
-  color: var(--white);
-  border: 2px solid #f59e0b;
+  background: #fde047;
+  color: #422006;
+  border: 2px solid #ca8a04;
 }
 
 .apt-badge {
@@ -3041,7 +3000,7 @@ h1 {
   background: var(--gray-light);
 }
 
-/* ========== SOFT PASTEL THEME (EYE-FRIENDLY) ========== */
+/* ========== COLOR THEME ========== */
 
 body {
   background: linear-gradient(180deg, #fafbfc 0%, #f3f4f6 100%);
@@ -3053,10 +3012,11 @@ body {
   border-radius: 8px;
   font-size: 11px;
   font-weight: 600;
-  border: 2px solid var(--text);
+  border: 2px solid #d1d5db;
+  background: #ffffff;
   box-shadow: 0 1px 2px rgba(0,0,0,0.06);
   transition: all 0.15s ease;
-  color: var(--text) !important;
+  color: #374151 !important;
 }
 
 .apt:hover {
@@ -3065,21 +3025,22 @@ body {
 }
 
 .apt.apt-available {
-  background: #f3f4f6 !important;
-  border: 2px solid var(--text) !important;
-  color: #6b7280 !important;
+  background: #ffffff !important;
+  border: 2px solid #d1d5db !important;
+  color: #374151 !important;
 }
 
+/* Apartment colors match toolbar status buttons */
 .apt.apt-owner_accepted {
-  background: #2563eb !important;
-  border: 2px solid var(--text) !important;
-  color: var(--text) !important;
+  background: #dcfce7 !important;
+  border: 2px solid #22c55e !important;
+  color: #15803d !important;
 }
 
 .apt.apt-call {
-  background: #4ade80 !important;
-  border: 2px solid var(--text) !important;
-  color: var(--text) !important;
+  background: #f3e8ff !important;
+  border: 2px solid #a855f7 !important;
+  color: #7e22ce !important;
 }
 
 .apt.apt-by_phone {
@@ -3089,33 +3050,39 @@ body {
 }
 
 .apt.apt-in_progress {
-  background: #facc15 !important;
-  border: 2px solid var(--text) !important;
-  color: var(--text) !important;
+  background: #fef9c3 !important;
+  border: 2px solid #facc15 !important;
+  color: #854d0e !important;
 }
 
 .apt.apt-complex {
-  background: #ef4444 !important;
-  border: 2px solid var(--text) !important;
-  color: var(--text) !important;
+  background: #fee2e2 !important;
+  border: 2px solid #ef4444 !important;
+  color: #b91c1c !important;
 }
 
 .apt.apt-no_access {
-  background: #3b82f6 !important;
-  border: 2px solid var(--text) !important;
-  color: var(--text) !important;
+  background: #e2e8f0 !important;
+  border: 2px solid #64748b !important;
+  color: #334155 !important;
 }
 
 .apt.apt-rejected {
   background: #dc2626 !important;
-  border: 2px solid var(--text) !important;
-  color: var(--text) !important;
+  border: 2px solid #991b1b !important;
+  color: #ffffff !important;
 }
 
 .apt.apt-defects {
   background: #fde047 !important;
-  border: 2px solid var(--text) !important;
-  color: var(--text) !important;
+  border: 2px solid #ca8a04 !important;
+  color: #422006 !important;
+}
+
+.apt-available, .apt:not([class*="apt-"]) {
+  background: #ffffff !important;
+  border: 2px solid #d1d5db !important;
+  color: #374151 !important;
 }
 
 .apt-deadline-passed {
@@ -3129,12 +3096,6 @@ body {
 
 .apt-deadline-warning {
   border: 2px solid #eab308 !important;
-}
-
-.apt.apt-owner_accepted {
-  background: linear-gradient(135deg, #2563eb 0%, #16a34a 100%);
-  border: 2px solid var(--text);
-  color: var(--text);
 }
 
 .apt-devil-badge {
@@ -3325,43 +3286,4 @@ body {
   flex-shrink: 0;
 }
 
-#tab-complex-detail .stats-panel {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  position: sticky;
-  top: 70px;
-}
-
-#tab-complex-detail .stats-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 12px;
-  text-align: center;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-#tab-complex-detail .stat-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  background: #f3f4f6;
-  border-radius: 6px;
-  margin-bottom: 6px;
-}
-
-#tab-complex-detail .stat-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text);
-}
-
-#tab-complex-detail .stat-value {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-}
+/* Stats panel styles for #tab-complex-detail removed - no longer used */
