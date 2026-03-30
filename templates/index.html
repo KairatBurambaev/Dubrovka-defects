@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9218">
-    <script src="/static/app.js?v=9210"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9411">
+    <script src="/static/app.js?v=9410"></script>
 </head>
 <body>
     <div class="app">
@@ -21,8 +21,8 @@
                             <span id="jkName" onclick="onTitleClick()">Перспектива</span>
                         </span>
                         <span class="title-line title-secondary" id="titleSecondary">− инжиниринг −</span>
+                        <div class="header-sub" id="pageSubtitle"></div>
                     </div>
-                    <div class="header-sub" id="pageSubtitle"></div>
                 </div>
                 <div class="header-center">
                     <!-- Section and Category filters + Search (center-left) -->
@@ -48,7 +48,7 @@
                     </div>
                     <!-- Search row -->
                     <div class="toolbar-search" id="toolbarSearch" style="display:none;">
-                        <input type="text" id="searchApt" class="input search-apt" placeholder="Номер квартиры..." oninput="debouncedLoad()">
+                        <input type="text" id="searchApt" class="input search-apt" placeholder="1,3-5,10" oninput="debouncedLoad()">
                     </div>
                 </div>
                 <div class="header-right">
@@ -58,7 +58,6 @@
                             <option value="">Все категории</option>
                         </select>
                         <div class="pills" id="statusPills">
-                            <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
                             <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
                             <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
                             <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>

@@ -184,14 +184,7 @@ function backToComplex() {
     // Restore complex title in header
     if (state.currentComplexData) {
         const complex = state.currentComplexData;
-        const stats = state.currentComplexStats;
-        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
-        
-        const titleText = stats?.total_apartments 
-            ? `${stats.total_apartments} ${propName}`
-            : '';
-        
-        setPageTitle(complex.name, titleText);
+        setPageTitle(complex.name, '');
     }
     
     showTab('complex-detail');
@@ -735,11 +728,7 @@ async function showComplexDetail(id) {
                 .join(' • ');
         }
         
-        const titleText = buildingsCount > 1 
-            ? `${stats.total_apartments} ${propName} • ${buildingSubtitle}`
-            : `${stats.total_apartments} ${propName}`;
-        
-        setPageTitle(complex.name, titleText);
+        setPageTitle(complex.name, '');
         
         // Hide инжиниринг on complex detail page
         const titleSecondary = document.getElementById('titleSecondary');
@@ -1106,6 +1095,13 @@ async function loadApartments() {
             apts = apts.filter(a => searchNumbers.includes(a.number));
         }
         
+        // Update subtitle with displayed count
+        const propName = state.currentPropertyType === 'апартаменты' ? 'квартир' : 'квартир';
+        const pageSubtitle = document.getElementById('pageSubtitle');
+        if (pageSubtitle) {
+            pageSubtitle.textContent = `${apts.length} ${propName}`;
+        }
+        
         renderApartments(apts);
     } catch (err) {
         const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
@@ -1120,14 +1116,22 @@ async function loadApartments() {
 }
 
 function setAccessFilter(filter) {
-    state.accessFilter = filter;
-    
-    document.querySelectorAll('.pill').forEach(chip => {
-        chip.classList.toggle('active', chip.dataset.filter === filter);
-    });
+    // Если кнопка уже активна - снимаем фильтр (показываем все)
+    const currentFilter = state.accessFilter;
+    if (currentFilter === filter) {
+        state.accessFilter = '';
+        document.querySelectorAll('.pill').forEach(chip => {
+            chip.classList.remove('active');
+        });
+    } else {
+        state.accessFilter = filter;
+        document.querySelectorAll('.pill').forEach(chip => {
+            chip.classList.toggle('active', chip.dataset.filter === filter);
+        });
+    }
     
     if (elements.defectFilterPanel) {
-        elements.defectFilterPanel.style.display = filter === 'defects' ? 'flex' : 'none';
+        elements.defectFilterPanel.style.display = state.accessFilter === 'defects' ? 'flex' : 'none';
     }
     
     loadApartments();
