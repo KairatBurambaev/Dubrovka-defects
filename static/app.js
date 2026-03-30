@@ -1002,9 +1002,10 @@ async function loadApartments() {
     showLoading(container);
     
     try {
-        // Get selected sections from filter
-        const selectedItems = document.querySelectorAll('.filter-item.selected');
-        const allItems = document.querySelectorAll('.filter-item');
+        // Get selected sections from filter (only from filterOptions, not category filter)
+        const filterOptions = document.getElementById('filterOptions');
+        const selectedItems = filterOptions ? filterOptions.querySelectorAll('.filter-item.selected') : [];
+        const allItems = filterOptions ? filterOptions.querySelectorAll('.filter-item') : [];
         
         console.log('Filter items:', selectedItems.length, '/', allItems.length);
         
@@ -1170,9 +1171,10 @@ function renderApartments(apartments) {
     
     let html = '<div class="sections-grid">';
     
-    // Get selected sections from filter
-    const selectedItems = document.querySelectorAll('.filter-item.selected');
-    const allItems = document.querySelectorAll('.filter-item');
+    // Get selected sections from filter (only from filterOptions, not category filter)
+    const filterOpts = document.getElementById('filterOptions');
+    const selectedItems = filterOpts ? filterOpts.querySelectorAll('.filter-item.selected') : [];
+    const allItems = filterOpts ? filterOpts.querySelectorAll('.filter-item') : [];
     
     const selectedValues = Array.from(selectedItems).map(item => item.dataset.section);
     const allSelected = selectedItems.length === 0 || selectedItems.length === allItems.length;
