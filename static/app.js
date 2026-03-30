@@ -148,7 +148,22 @@ function showTab(tab) {
 
 function setPageTitle(title, subtitle) {
     const jkName = document.getElementById('jkName');
-    if (jkName) jkName.textContent = title || 'Перспектива';
+    if (jkName) {
+        jkName.textContent = title || 'Перспектива';
+        // Если это квартира/апартамент - добавляем клик для возврата в ЖК
+        if (state.currentApartment) {
+            jkName.onclick = function() { backToComplex(); };
+            jkName.style.cursor = 'pointer';
+        } else if (state.currentComplex) {
+            // Если открыт ЖК - клик возвращает на главную
+            jkName.onclick = function() { window.location.href = '/'; };
+            jkName.style.cursor = 'pointer';
+        } else {
+            // На главной странице - показываем пароль
+            jkName.onclick = function() { checkPassword(); };
+            jkName.style.cursor = 'pointer';
+        }
+    }
     if (elements.pageSubtitle) elements.pageSubtitle.textContent = subtitle || '';
 }
 
@@ -158,9 +173,11 @@ function backToComplex() {
     
     // Show filters, hide status buttons
     const toolbarSearch = document.getElementById('toolbarSearch');
+    const headerFilters = document.getElementById('headerFilters');
     const toolbarFilters = document.getElementById('toolbarFilters');
     const toolbarStatus = document.getElementById('toolbarStatus');
     if (toolbarSearch) toolbarSearch.style.display = 'flex';
+    if (headerFilters) headerFilters.style.display = 'flex';
     if (toolbarFilters) toolbarFilters.style.display = 'flex';
     if (toolbarStatus) toolbarStatus.style.display = 'none';
     
@@ -196,8 +213,10 @@ function goBack() {
         loadComplexes();
         setPageTitle('Портфель объектов', '');
         const toolbarSearch = document.getElementById('toolbarSearch');
+        const headerFilters = document.getElementById('headerFilters');
         const toolbarFilters = document.getElementById('toolbarFilters');
         if (toolbarSearch) toolbarSearch.style.display = 'none';
+        if (headerFilters) headerFilters.style.display = 'none';
         if (toolbarFilters) toolbarFilters.style.display = 'none';
     }
 }
@@ -476,14 +495,11 @@ async function loadComplexes() {
 }
 
 function onTitleClick() {
-    console.log('onTitleClick called, currentComplex:', state.currentComplex);
-    // Если есть complex или apartment - возвращаемся на главную
-    if (state.currentComplex || state.currentApartment) {
-        console.log('Redirecting to /');
-        window.location.replace('/');
+    // Если открыт ЖК - возвращаемся на главную
+    if (state.currentComplex) {
+        window.location.href = '/';
     } else {
-        // На главной - открываем ввод пароля
-        console.log('Opening password');
+        // На главной - показываем пароль для создания ЖК
         checkPassword();
     }
 }
@@ -731,9 +747,11 @@ async function showComplexDetail(id) {
         
         // Show toolbar with search and filters
         const toolbarSearch = document.getElementById('toolbarSearch');
+        const headerFilters = document.getElementById('headerFilters');
         const toolbarFilters = document.getElementById('toolbarFilters');
         const toolbarStatus = document.getElementById('toolbarStatus');
         if (toolbarSearch) toolbarSearch.style.display = 'flex';
+        if (headerFilters) headerFilters.style.display = 'flex';
         if (toolbarFilters) toolbarFilters.style.display = 'flex';
         if (toolbarStatus) toolbarStatus.style.display = 'none';
         
@@ -1438,9 +1456,11 @@ async function showApartmentDetail(id) {
     
     // Switch to apartment status toolbar
     const toolbarSearch = document.getElementById('toolbarSearch');
+    const headerFilters = document.getElementById('headerFilters');
     const toolbarFilters = document.getElementById('toolbarFilters');
     const toolbarStatus = document.getElementById('toolbarStatus');
     if (toolbarSearch) toolbarSearch.style.display = 'none';
+    if (headerFilters) headerFilters.style.display = 'none';
     if (toolbarFilters) toolbarFilters.style.display = 'none';
     if (toolbarStatus) toolbarStatus.style.display = 'flex';
     

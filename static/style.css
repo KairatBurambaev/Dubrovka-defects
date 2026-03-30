@@ -233,7 +233,17 @@ body {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  margin-left: 20px;
 }
 
 .header-logo-center {
@@ -475,9 +485,16 @@ body {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   flex-wrap: nowrap;
   overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.header-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .header-title {
@@ -529,19 +546,19 @@ body {
 
 .toolbar-filters .pills {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .toolbar-search {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .toolbar-search .search-apt {
-  width: 200px;
+  width: 160px;
   padding: 8px 12px;
   font-size: 13px;
 }
@@ -629,19 +646,17 @@ body {
 }
 
 .section-filter-btn, .section-filter-btn.select {
-  padding: 10px 14px;
-  font-size: 13px;
+  padding: 8px 10px;
+  font-size: 12px;
   font-weight: 500;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: #ffffff;
   color: #475569;
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  white-space: nowrap;
 }
 
 .section-filter-btn:hover {
@@ -1091,8 +1106,8 @@ h1 {
 }
 
 .pill {
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 6px 8px;
+  font-size: 11px;
   font-weight: 500;
   border-radius: 4px;
   border: 1px solid #e2e8f0;
@@ -1100,6 +1115,7 @@ h1 {
   color: #64748b;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .pill:hover {

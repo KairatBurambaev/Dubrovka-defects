@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9085">
-    <script src="/static/app.js?v=9099"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9218">
+    <script src="/static/app.js?v=9210"></script>
 </head>
 <body>
     <div class="app">
@@ -16,24 +16,17 @@
             <!-- Header -->
             <header class="header">
                 <div class="header-left">
-                    <div>
-                        <div id="pageTitle" class="clickable-title title-stack" onclick="onTitleClick()">
-                            <span class="title-line title-primary">
-                                <span id="jkName">Перспектива</span>
-                            </span>
-                            <span class="title-line title-secondary" id="titleSecondary">− инжиниринг −</span>
-                        </div>
-                        <div class="header-sub" id="pageSubtitle"></div>
+                    <div id="pageTitle" class="clickable-title title-stack">
+                        <span class="title-line title-primary">
+                            <span id="jkName" onclick="onTitleClick()">Перспектива</span>
+                        </span>
+                        <span class="title-line title-secondary" id="titleSecondary">− инжиниринг −</span>
                     </div>
+                    <div class="header-sub" id="pageSubtitle"></div>
                 </div>
-                <div class="header-right">
-                    <!-- Search row -->
-                    <div class="toolbar-search" id="toolbarSearch" style="display:none;">
-                        <input type="text" id="searchApt" class="input search-apt" placeholder="Номер квартиры..." oninput="debouncedLoad()">
-                    </div>
-
-                    <!-- Filter row -->
-                    <div class="toolbar-filters" id="toolbarFilters" style="display:none;">
+                <div class="header-center">
+                    <!-- Section and Category filters + Search (center-left) -->
+                    <div class="header-filters" id="headerFilters" style="display:none;">
                         <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
                             <button type="button" class="section-filter-btn select" id="filterBtn" onclick="toggleFilterDropdown(event)">
                                 <span id="filterBtnText">Все секции</span>
@@ -52,6 +45,15 @@
                                 <div id="categoryOptions"></div>
                             </div>
                         </span>
+                    </div>
+                    <!-- Search row -->
+                    <div class="toolbar-search" id="toolbarSearch" style="display:none;">
+                        <input type="text" id="searchApt" class="input search-apt" placeholder="Номер квартиры..." oninput="debouncedLoad()">
+                    </div>
+                </div>
+                <div class="header-right">
+                    <!-- Filter row (pills) -->
+                    <div class="toolbar-filters" id="toolbarFilters" style="display:none;">
                         <select id="defectCategoryFilter" onchange="loadApartments()" class="select" style="display:none;">
                             <option value="">Все категории</option>
                         </select>
