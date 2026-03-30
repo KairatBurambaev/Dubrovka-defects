@@ -68,6 +68,10 @@
                     </select>
                     <div class="pills" id="statusPills">
                         <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
+                        <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
+                        <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
+                        <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
+                        <button class="pill pill-red" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
                         <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
                     </div>
                 </div>

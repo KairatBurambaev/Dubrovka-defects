@@ -1097,7 +1097,8 @@ h1 {
 .pill.pill-pink.active,
 .pill.pill-blue.active,
 .pill.pill-amber.active,
-.pill.pill-lightblue.active {
+.pill.pill-lightblue.active,
+.pill.pill-red.active {
   background: #ffffff;
   border-color: #2563eb;
   color: #2563eb;
@@ -1106,6 +1107,36 @@ h1 {
 .pill.pill-lightblue {
   background: #f8fafc;
   border-color: #e2e8f0;
+}
+
+.pill.pill-green {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #15803d;
+}
+
+.pill.pill-pink {
+  background: #fce7f3;
+  border-color: #ec4899;
+  color: #be185d;
+}
+
+.pill.pill-blue {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+}
+
+.pill.pill-red {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+.pill.pill-amber {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #b45309;
 }
 
 .pill.pill-lightblue.active {
