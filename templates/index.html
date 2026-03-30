@@ -27,61 +27,55 @@
                     </div>
                 </div>
                 <div class="header-right">
-                    <button class="btn btn-icon-only btn-ghost hamburger-btn" id="hamburgerBtn" onclick="toggleHamburgerMenu()" title="Назад">
-                        <span class="hamburger-icon">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </span>
-                    </button>
-                </div>
-            </header>
-
-            <!-- Unified Sticky Toolbar -->
-            <div class="sticky-toolbar" id="complexToolbar" style="display:none;">
-                <!-- Search row -->
-                <div class="toolbar-search">
-                    <input type="text" id="searchApt" class="input search-apt" placeholder="Номер квартиры (напр: 1,3-5,10)..." oninput="debouncedLoad()">
-                </div>
-                <!-- Filter row -->
-                <div class="toolbar-filters" id="toolbarFilters">
-                    <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
-                        <button type="button" class="section-filter-btn select" id="filterBtn" onclick="toggleFilterDropdown(event)">
-                            <span id="filterBtnText">Все секции</span>
-                            <span class="dropdown-arrow">▾</span>
-                        </button>
-                        <div class="multi-select-dropdown" id="filterDropdown">
-                            <div id="filterOptions"></div>
-                        </div>
-                    </span>
-                    <span class="section-filter-wrapper" id="categoryFilterWrapper">
-                        <button type="button" class="section-filter-btn select" id="categoryFilterBtn" onclick="toggleCategoryDropdown(event)">
-                            <span id="categoryFilterBtnText">Все категории</span>
-                            <span class="dropdown-arrow">▾</span>
-                        </button>
-                        <div class="multi-select-dropdown" id="categoryDropdown">
-                            <div id="categoryOptions"></div>
-                        </div>
-                    </span>
-                    <select id="defectCategoryFilter" onchange="loadApartments()" class="select" style="display:none;">
-                        <option value="">Все категории</option>
-                    </select>
-                    <div class="pills" id="statusPills">
-                        <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
-                        <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
-                        <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
-                        <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
-                        <button class="pill pill-red" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
-                        <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
+                    <!-- Search row -->
+                    <div class="toolbar-search" id="toolbarSearch" style="display:none;">
+                        <input type="text" id="searchApt" class="input search-apt" placeholder="Номер квартиры..." oninput="debouncedLoad()">
                     </div>
-                </div>
-                <!-- Apartment status buttons -->
-                <div class="toolbar-status" id="toolbarStatus" style="display:none;">
-                    <button class="status-item" data-status="owner_accepted" onclick="setStatus('owner_accepted')">
-                        <span>Принята</span>
+                    <button class="btn btn-icon-only btn-ghost hamburger-btn" id="hamburgerBtn" onclick="goBack()" style="display:none;" title="Назад">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 18l-6-6 6-6"/>
+                        </svg>
                     </button>
-                    <button class="status-item" data-status="call" onclick="setStatus('call')">
-                        <span>Пригласить</span>
+                    <span class="header-title" id="headerTitle" style="display:none;"></span>
+                    <!-- Filter row -->
+                    <div class="toolbar-filters" id="toolbarFilters" style="display:none;">
+                        <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
+                            <button type="button" class="section-filter-btn select" id="filterBtn" onclick="toggleFilterDropdown(event)">
+                                <span id="filterBtnText">Все секции</span>
+                                <span class="dropdown-arrow">▾</span>
+                            </button>
+                            <div class="multi-select-dropdown" id="filterDropdown">
+                                <div id="filterOptions"></div>
+                            </div>
+                        </span>
+                        <span class="section-filter-wrapper" id="categoryFilterWrapper">
+                            <button type="button" class="section-filter-btn select" id="categoryFilterBtn" onclick="toggleCategoryDropdown(event)">
+                                <span id="categoryFilterBtnText">Все категории</span>
+                                <span class="dropdown-arrow">▾</span>
+                            </button>
+                            <div class="multi-select-dropdown" id="categoryDropdown">
+                                <div id="categoryOptions"></div>
+                            </div>
+                        </span>
+                        <select id="defectCategoryFilter" onchange="loadApartments()" class="select" style="display:none;">
+                            <option value="">Все категории</option>
+                        </select>
+                        <div class="pills" id="statusPills">
+                            <button class="pill active" data-filter="" onclick="setAccessFilter('')">Все</button>
+                            <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
+                            <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
+                            <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
+                            <button class="pill pill-red" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
+                            <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
+                        </div>
+                    </div>
+                    <!-- Apartment status buttons -->
+                    <div class="toolbar-status" id="toolbarStatus" style="display:none;">
+                        <button class="status-item" data-status="owner_accepted" onclick="setStatus('owner_accepted')">
+                            <span>Принята</span>
+                        </button>
+                        <button class="status-item" data-status="call" onclick="setStatus('call')">
+                            <span>Пригласить</span>
                     </button>
                     <button class="status-item" data-status="in_progress" onclick="setStatus('in_progress')">
                         <span>В работе</span>
@@ -96,7 +90,7 @@
                         <span>Особое внимание</span>
                     </button>
                 </div>
-            </div>
+            </header>
 
             <!-- Complexes -->
             <section id="tab-complexes" class="tab-panel active">
