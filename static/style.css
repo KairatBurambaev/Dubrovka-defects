@@ -563,6 +563,7 @@ body {
 
 .toolbar-search .search-apt {
   width: auto;
+  min-width: 130px;
   padding: 4px 12px;
   font-size: 12px;
   height: 26px;
