@@ -148,36 +148,8 @@ function showTab(tab) {
 
 function setPageTitle(title, subtitle) {
     const jkName = document.getElementById('jkName');
-    const headerTitle = document.getElementById('headerTitle');
-    const hamburgerBtn = document.getElementById('hamburgerBtn');
-    
     if (jkName) jkName.textContent = title || 'Перспектива';
     if (elements.pageSubtitle) elements.pageSubtitle.textContent = subtitle || '';
-    
-    // Update header title and show/hide burger button
-    if (state.currentComplex) {
-        const complexName = state.currentComplexData?.name || '';
-        let headerText = title || '';
-        
-        // If viewing apartment, show: Квартира 46, Есенин
-        if (state.currentApartment && state.currentApartmentData) {
-            const aptNum = state.currentApartmentData.number;
-            const propLabel = state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира';
-            headerText = `${propLabel} ${aptNum}, ${complexName}`;
-        } else if (complexName) {
-            // Viewing complex: Есенин
-            headerText = complexName;
-        }
-        
-        if (headerTitle) {
-            headerTitle.textContent = headerText;
-            headerTitle.style.display = 'inline-block';
-        }
-        if (hamburgerBtn) hamburgerBtn.style.display = 'inline-flex';
-    } else {
-        if (headerTitle) headerTitle.style.display = 'none';
-        if (hamburgerBtn) hamburgerBtn.style.display = 'none';
-    }
 }
 
 function backToComplex() {
@@ -218,20 +190,16 @@ function goBack() {
         backToComplex();
     } else if (state.currentComplex) {
         state.currentComplex = null;
+        state.currentComplexData = null;
+        state.currentComplexStats = null;
         showTab('complexes');
+        loadComplexes();
+        setPageTitle('Портфель объектов', '');
         const toolbarSearch = document.getElementById('toolbarSearch');
         const toolbarFilters = document.getElementById('toolbarFilters');
-        const hamburgerBtn = document.getElementById('hamburgerBtn');
-        const headerTitle = document.getElementById('headerTitle');
         if (toolbarSearch) toolbarSearch.style.display = 'none';
         if (toolbarFilters) toolbarFilters.style.display = 'none';
-        if (hamburgerBtn) hamburgerBtn.style.display = 'none';
-        if (headerTitle) headerTitle.style.display = 'none';
     }
-}
-
-function toggleHamburgerMenu() {
-    goBack();
 }
 
 function toggleSidebar(show) {
@@ -504,6 +472,19 @@ async function loadComplexes() {
                 <button class="btn btn-primary" onclick="loadComplexes()">Обновить</button>
             </div>
         `;
+    }
+}
+
+function onTitleClick() {
+    console.log('onTitleClick called, currentComplex:', state.currentComplex);
+    // Если есть complex или apartment - возвращаемся на главную
+    if (state.currentComplex || state.currentApartment) {
+        console.log('Redirecting to /');
+        window.location.replace('/');
+    } else {
+        // На главной - открываем ввод пароля
+        console.log('Opening password');
+        checkPassword();
     }
 }
 

@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css?v=9085">
-    <script src="/static/app.js?v=9074"></script>
+    <script src="/static/app.js?v=9099"></script>
 </head>
 <body>
     <div class="app">
@@ -17,7 +17,7 @@
             <header class="header">
                 <div class="header-left">
                     <div>
-                        <div id="pageTitle" class="clickable-title title-stack" onclick="checkPassword()">
+                        <div id="pageTitle" class="clickable-title title-stack" onclick="onTitleClick()">
                             <span class="title-line title-primary">
                                 <span id="jkName">Перспектива</span>
                             </span>
@@ -31,12 +31,7 @@
                     <div class="toolbar-search" id="toolbarSearch" style="display:none;">
                         <input type="text" id="searchApt" class="input search-apt" placeholder="Номер квартиры..." oninput="debouncedLoad()">
                     </div>
-                    <button class="btn btn-icon-only btn-ghost hamburger-btn" id="hamburgerBtn" onclick="goBack()" style="display:none;" title="Назад">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M15 18l-6-6 6-6"/>
-                        </svg>
-                    </button>
-                    <span class="header-title" id="headerTitle" style="display:none;"></span>
+
                     <!-- Filter row -->
                     <div class="toolbar-filters" id="toolbarFilters" style="display:none;">
                         <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
@@ -273,22 +268,6 @@
             <div class="modal-footer">
                 <input type="text" id="commentInput" placeholder="Комментарий...">
                 <button class="btn btn-primary btn-sm" onclick="submitComment()">→</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Hamburger Menu -->
-    <div id="hamburgerMenu" class="hamburger-menu">
-        <div class="hamburger-overlay" onclick="toggleHamburgerMenu()"></div>
-        <div class="hamburger-dropdown">
-            <div class="hamburger-header">
-                <span>Меню</span>
-                <button class="modal-close" onclick="toggleHamburgerMenu()">×</button>
-            </div>
-            <div class="hamburger-content">
-                <a href="/" class="hamburger-item" onclick="location.reload()">
-                    <span>🏠</span> Главная
-                </a>
             </div>
         </div>
     </div>
