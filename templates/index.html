@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9515">
+    <link rel="stylesheet" href="/static/style.css?v=9530">
     <script src="/static/app.js?v=9410"></script>
 </head>
 <body>
@@ -48,7 +48,7 @@
                     </div>
                     <!-- Search row -->
                     <div class="toolbar-search" id="toolbarSearch" style="display:none;">
-                        <input type="text" id="searchApt" class="input search-apt" placeholder="1,3-5,10" oninput="debouncedLoad()">
+                        <input type="text" id="searchApt" class="input search-apt" placeholder="1,3-5" oninput="debouncedLoad()">
                     </div>
                 </div>
                 <div class="header-right">
@@ -58,11 +58,11 @@
                             <option value="">Все категории</option>
                         </select>
                         <div class="pills" id="statusPills">
-                            <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
-                            <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
-                            <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
-                            <button class="pill pill-red" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
                             <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
+                            <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
+                            <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
+                            <button class="pill pill-red" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
+                            <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
                         </div>
                     </div>
                     <!-- Apartment status buttons -->
