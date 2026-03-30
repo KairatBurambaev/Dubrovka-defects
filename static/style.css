@@ -1099,9 +1099,7 @@ h1 {
 .pill.pill-amber.active,
 .pill.pill-lightblue.active,
 .pill.pill-red.active {
-  background: #ffffff;
-  border-color: #2563eb;
-  color: #2563eb;
+  font-weight: 600;
 }
 
 .pill.pill-lightblue {
@@ -1115,16 +1113,46 @@ h1 {
   color: #15803d;
 }
 
+.pill.pill-green:hover {
+  background: #bbf7d0;
+}
+
+.pill.pill-green.active {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #15803d;
+}
+
 .pill.pill-pink {
-  background: #fce7f3;
-  border-color: #ec4899;
-  color: #be185d;
+  background: #f3e8ff;
+  border-color: #a855f7;
+  color: #7e22ce;
+}
+
+.pill.pill-pink:hover {
+  background: #e9d5ff;
+}
+
+.pill.pill-pink.active {
+  background: #f3e8ff;
+  border-color: #a855f7;
+  color: #7e22ce;
 }
 
 .pill.pill-blue {
-  background: #dbeafe;
-  border-color: #3b82f6;
-  color: #1d4ed8;
+  background: #e2e8f0;
+  border-color: #64748b;
+  color: #334155;
+}
+
+.pill.pill-blue:hover {
+  background: #cbd5e1;
+}
+
+.pill.pill-blue.active {
+  background: #e2e8f0;
+  border-color: #64748b;
+  color: #334155;
 }
 
 .pill.pill-red {
@@ -1133,7 +1161,27 @@ h1 {
   color: #b91c1c;
 }
 
+.pill.pill-red:hover {
+  background: #fecaca;
+}
+
+.pill.pill-red.active {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
 .pill.pill-amber {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #b45309;
+}
+
+.pill.pill-amber:hover {
+  background: #fde68a;
+}
+
+.pill.pill-amber.active {
   background: #fef3c7;
   border-color: #f59e0b;
   color: #b45309;
