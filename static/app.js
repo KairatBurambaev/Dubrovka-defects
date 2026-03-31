@@ -421,55 +421,10 @@ async function loadComplexes() {
             const totalApts = c.apartments_count || 0;
             const defectCount = stats.defects || c.defects_count || 0;
             const propType = c.property_type || 'квартиры';
-            const propLabel = propType === 'апартаменты' ? 'апарт.' : 'кв.';
-            
-            const uniqueBuildings = new Set(c.sections.map(s => s.building_number || 1));
-            const buildingsCount = uniqueBuildings.size;
-            
-            const commDate = c.commissioning_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.commissioning_date}</div><div class="complex-stat-label">Ввод</div></div>` : '';
-            const war3 = c.warranty_3_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.warranty_3_date}</div><div class="complex-stat-label">Гарантия инж.</div></div>` : '';
-            const war5 = c.warranty_5_date ? `<div class="complex-stat"><div class="complex-stat-value">${c.warranty_5_date}</div><div class="complex-stat-label">Гарантия общ.</div></div>` : '';
-            
-            // Calculate not accepted and no access from by_access_status
-            const notAcceptedCount = (c.by_access_status || []).reduce((sum, status) => {
-                // Not accepted = everything except owner_accepted
-                if (status.access_status !== 'owner_accepted') {
-                    return sum + status.count;
-                }
-                return sum;
-            }, 0);
-            
-            const noAccessCount = (c.by_access_status || []).reduce((sum, status) => {
-                if (status.access_status === 'no_access') {
-                    return sum + status.count;
-                }
-                return sum;
-            }, 0);
-            
             return `
                 <div class="complex-card" onclick="showComplexDetail(${c.id})">
                     <div class="complex-card-name">${escapeHtml(c.name)}</div>
-                    <div class="complex-card-stats">
-                        <div class="complex-stat">
-                            <div class="complex-stat-value">${buildingsCount}</div>
-                            <div class="complex-stat-label">корпусов</div>
-                        </div>
-                        <div class="complex-stat">
-                            <div class="complex-stat-value">${totalApts}</div>
-                            <div class="complex-stat-label">${propLabel}</div>
-                        </div>
-                        <div class="complex-stat">
-                            <div class="complex-stat-value">${notAcceptedCount}</div>
-                            <div class="complex-stat-label">не принято</div>
-                        </div>
-                        <div class="complex-stat">
-                            <div class="complex-stat-value">${noAccessCount}</div>
-                            <div class="complex-stat-label">нет доступа</div>
-                        </div>
-                        ${commDate}
-                        ${war3}
-                        ${war5}
-                    </div>
+                    <div class="complex-card-info">г. Москва, ул. Дубровская, д. 1</div>
                 </div>
             `;
         }).join('');
@@ -1658,9 +1613,7 @@ function renderDefects(defects) {
     if (!defects.length) {
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-icon">✓</div>
                 <h3>Нет замечаний</h3>
-                <p>Все проверки пройдены успешно</p>
             </div>
         `;
         return;
