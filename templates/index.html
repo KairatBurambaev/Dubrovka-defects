@@ -52,17 +52,21 @@
                     </div>
                 </div>
                 <div class="header-right">
-                    <!-- Filter row (pills) -->
+                    <!-- Filter dropdown -->
                     <div class="toolbar-filters" id="toolbarFilters" style="display:none;">
-                        <select id="defectCategoryFilter" onchange="loadApartments()" class="select" style="display:none;">
-                            <option value="">Все категории</option>
-                        </select>
-                        <div class="pills" id="statusPills">
-                            <button class="pill pill-amber" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
-                            <button class="pill pill-pink" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
-                            <button class="pill pill-green" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
-                            <button class="pill pill-red" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
-                            <button class="pill pill-blue" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
+                        <div class="filter-dropdown-wrapper">
+                            <button class="filter-dropdown-btn" onclick="toggleFilterDropdown()">
+                                <span id="filterDropdownText">Все</span>
+                                <span class="dropdown-arrow">▾</span>
+                            </button>
+                            <div class="filter-dropdown-menu" id="filterDropdownMenu">
+                                <div class="filter-dropdown-item active" data-filter="" onclick="setFilter(this, '')">Все</div>
+                                <div class="filter-dropdown-item" data-filter="defects" onclick="setFilter(this, 'defects')">С замеч.</div>
+                                <div class="filter-dropdown-item" data-filter="call" onclick="setFilter(this, 'call')">Вызов</div>
+                                <div class="filter-dropdown-item" data-filter="owner_accepted" onclick="setFilter(this, 'owner_accepted')">Принята</div>
+                                <div class="filter-dropdown-item" data-filter="complex" onclick="setFilter(this, 'complex')">Сложные</div>
+                                <div class="filter-dropdown-item" data-filter="no_access" onclick="setFilter(this, 'no_access')">Нет доступа</div>
+                            </div>
                         </div>
                     </div>
                     <!-- Apartment status buttons -->
