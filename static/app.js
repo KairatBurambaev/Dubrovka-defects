@@ -1072,19 +1072,6 @@ async function loadApartments() {
     }
 }
 
-function toggleFilterDropdown() {
-    document.getElementById('filterDropdownMenu').classList.toggle('open');
-}
-
-function setFilter(element, filter) {
-    document.querySelectorAll('.filter-dropdown-item').forEach(item => item.classList.remove('active'));
-    element.classList.add('active');
-    document.getElementById('filterDropdownText').textContent = element.textContent;
-    document.getElementById('filterDropdownMenu').classList.remove('open');
-    state.accessFilter = filter;
-    loadApartments();
-}
-
 function setAccessFilter(filter) {
     // Если кнопка уже активна - снимаем фильтр (показываем все)
     const currentFilter = state.accessFilter;
