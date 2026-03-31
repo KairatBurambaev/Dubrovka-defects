@@ -421,8 +421,10 @@ async function loadComplexes() {
             const totalApts = c.apartments_count || 0;
             const defectCount = stats.defects || c.defects_count || 0;
             const propType = c.property_type || 'квартиры';
+            const isPerspective = c.name.toLowerCase().includes('перспектива');
+            const cardClass = isPerspective ? 'complex-card complex-card-red' : 'complex-card';
             return `
-                <div class="complex-card" onclick="showComplexDetail(${c.id})">
+                <div class="${cardClass}" onclick="showComplexDetail(${c.id})">
                     <div class="complex-card-name">${escapeHtml(c.name)}</div>
                     <div class="complex-card-info">г. Москва, ул. Дубровская, д. 1</div>
                 </div>

@@ -298,7 +298,7 @@ body {
 
 .title-primary {
   font-size: 20px;
-  color: #2563eb;
+  color: #334155;
 }
 
 .title-secondary {
@@ -903,30 +903,32 @@ h1 {
 
 /* ========== CARDS GRID ========== */
 .cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding: 16px;
+  max-width: 400px;
 }
 
 /* ========== COMPLEX CARDS ========== */
 .complex-card {
   background: #fff;
   border-radius: 0;
-  padding: 20px;
+  padding: 16px;
   cursor: pointer;
   position: relative;
   transition: background 0.2s ease;
   border: none;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-  min-height: 80px;
+  min-height: 60px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
 }
 
 .complex-card:hover {
-  background: #f9fafb;
+  background: #e5e7eb;
 }
 
 .complex-card-name {
@@ -936,9 +938,24 @@ h1 {
   letter-spacing: 0;
   line-height: 1.4;
   text-align: center;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #c0c0c0;
-  width: 100%;
+  position: relative;
+  display: inline-block;
+}
+
+.complex-card-name::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: calc(100% - 20px);
+  height: 1px;
+  background: #e91e63;
+  transition: transform 0.2s ease;
+}
+
+.complex-card:hover .complex-card-name::after {
+  transform: translateX(-50%) scaleX(1);
 }
 
 .complex-card-info {
@@ -947,10 +964,23 @@ h1 {
   margin-top: 6px;
   text-align: center;
 }
-}
+
+.complex-card-red {
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
 }
 
-.complex-date {
+.complex-card-red:hover {
+  background: #fef2f2;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.complex-card-red .complex-card-name {
+  color: #dc2626;
+}
+
+.complex-card-red .complex-card-info {
+  color: #b91c1c;
+}
   font-size: 12px;
   color: var(--text-secondary);
   font-weight: 400;
@@ -1429,7 +1459,7 @@ h1 {
 .section-title {
   font-size: 14px;
   font-weight: 700;
-  color: #0f4c3a;
+  color: #334155;
   letter-spacing: -0.01em;
 }
 
@@ -3228,14 +3258,8 @@ body {
 }
 
 .apt:hover {
-  background: #f3f4f6;
+  background: #e5e7eb;
   border-color: #d1d5db;
-}
-}
-
-.apt:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
 .apt.apt-available {
