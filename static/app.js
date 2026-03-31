@@ -97,6 +97,46 @@ function setupEventListeners() {
             e.target.classList.remove('active');
         }
     });
+
+    // Swipe filter for mobile
+    const filters = ['', 'defects', 'call', 'owner_accepted', 'complex', 'no_access'];
+    let currentFilterIndex = 0;
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    const apartmentsContainer = document.getElementById('apartmentsContainer');
+    if (apartmentsContainer) {
+        apartmentsContainer.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        apartmentsContainer.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        });
+    }
+
+    function handleSwipe() {
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) < 50) return; // minimum swipe distance
+
+        if (diff > 0) {
+            // Swipe left - next filter
+            currentFilterIndex = Math.min(currentFilterIndex + 1, filters.length - 1);
+        } else {
+            // Swipe right - previous filter
+            currentFilterIndex = Math.max(currentFilterIndex - 1, 0);
+        }
+
+        setAccessFilter(filters[currentFilterIndex]);
+        updateMobileFilterButtons(filters[currentFilterIndex]);
+    }
+
+    function updateMobileFilterButtons(filter) {
+        document.querySelectorAll('.mobile-filter-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.filter === filter);
+        });
+    }
 }
 
 // Navigation with animations
@@ -1086,6 +1126,11 @@ function setAccessFilter(filter) {
             chip.classList.toggle('active', chip.dataset.filter === filter);
         });
     }
+    
+    // Update mobile filter buttons
+    document.querySelectorAll('.mobile-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === state.accessFilter);
+    });
     
     if (elements.defectFilterPanel) {
         elements.defectFilterPanel.style.display = state.accessFilter === 'defects' ? 'flex' : 'none';

@@ -3309,6 +3309,95 @@ h1 {
   .detail-grid {
     gap: 16px;
   }
+
+  .toolbar-filters {
+    display: none !important;
+  }
+
+  .toolbar-search {
+    display: none !important;
+  }
+
+  .toolbar-status {
+    display: none !important;
+  }
+
+  .search-apt {
+    display: none !important;
+  }
+
+  .header-filters {
+    display: none !important;
+  }
+}
+
+/* Mobile swipe filter */
+.mobile-filter {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  padding: 12px 16px;
+  z-index: 100;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+}
+
+@media (max-width: 768px) {
+  .mobile-filter {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+  }
+}
+
+.mobile-filter-btn {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobile-filter-btn:active {
+  transform: scale(0.95);
+}
+
+.mobile-filter-btn[data-filter="defects"]:active,
+.mobile-filter-btn[data-filter="defects"].active {
+  background: #fde047;
+  color: #713f12;
+}
+
+.mobile-filter-btn[data-filter="call"]:active,
+.mobile-filter-btn[data-filter="call"].active {
+  background: #6ee7b7;
+  color: #064e3b;
+}
+
+.mobile-filter-btn[data-filter="owner_accepted"]:active,
+.mobile-filter-btn[data-filter="owner_accepted"].active {
+  background: #34d399;
+  color: #064e3b;
+}
+
+.mobile-filter-btn[data-filter="complex"]:active,
+.mobile-filter-btn[data-filter="complex"].active {
+  background: #f87171;
+  color: #fff;
+}
+
+.mobile-filter-btn[data-filter="no_access"]:active,
+.mobile-filter-btn[data-filter="no_access"].active {
+  background: #94a3b8;
+  color: #fff;
 }
 
 /* Overlay for mobile */
