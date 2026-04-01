@@ -1145,9 +1145,12 @@ async def get_complex_statistics(complex_id: int, stat_date: str = None):
     
     # Квартир с замечаниями
     with_defects = conn.execute("""
-        SELECT COUNT(DISTINCT a.id) FROM apartments a
+        SELECT COUNT(DISTINCT a.id)
+        FROM apartments a
         JOIN defects d ON a.id = d.apartment_id
         WHERE a.complex_id = ?
+          AND a.access_status NOT IN ('owner_accepted', 'tech_accepted')
+          AND d.status NOT IN ('ready', 'rejected')
     """, (complex_id,)).fetchone()[0]
     
     # По статусам доступа (квартиры)
@@ -1379,7 +1382,7 @@ async def export_complex_pdf(complex_id: int, section_id: Optional[int] = None):
     # Статистика
     story.append(Paragraph("Сводная статистика:", styles['RussianHeading']))
     stats_data = [
-        ["Показатель", "Значение"],
+        ["Статус", "Значение"],
         ["Всего замечаний", str(total_defects)],
         ["Новых", str(by_status.get('new', 0))],
         ["В работе", str(by_status.get('in_progress', 0))],

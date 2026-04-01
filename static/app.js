@@ -17,7 +17,8 @@ const state = {
 
 // Global filter constants
 const FILTERS = ['', 'defects', 'call', 'owner_accepted', 'complex', 'no_access'];
-const FILTER_NAMES = ['Все', 'С замечаниями', 'Вызов', 'Принята', 'Сложные', 'Нет доступа'];
+const FILTER_NAMES = ['Все', 'С замечаниями', 'Вызваные квартиры', 'Принята', 'Сложные', 'Нет доступа'];
+const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
 let currentFilterIndex = 0;
 
 // DOM Elements cache
@@ -891,8 +892,13 @@ function toggleFilterDropdown(event) {
     if (event) event.stopPropagation();
     const dropdown = document.getElementById('filterDropdown');
     const wrapper = document.getElementById('sectionFilterWrapper');
+    const button = document.getElementById('filterBtn');
+    const willOpen = dropdown && !dropdown.classList.contains('open');
     if (dropdown) dropdown.classList.toggle('open');
     if (wrapper) wrapper.classList.toggle('active');
+    if (dropdown && button && willOpen) {
+        requestAnimationFrame(() => positionDropdown(dropdown, button));
+    }
     
     // Close category dropdown if open
     const catDropdown = document.getElementById('categoryDropdown');
@@ -905,8 +911,13 @@ function toggleCategoryDropdown(event) {
     if (event) event.stopPropagation();
     const dropdown = document.getElementById('categoryDropdown');
     const wrapper = document.getElementById('categoryFilterWrapper');
+    const button = document.getElementById('categoryFilterBtn');
+    const willOpen = dropdown && !dropdown.classList.contains('open');
     if (dropdown) dropdown.classList.toggle('open');
     if (wrapper) wrapper.classList.toggle('active');
+    if (dropdown && button && willOpen) {
+        requestAnimationFrame(() => positionDropdown(dropdown, button));
+    }
     
     // Initialize category options if empty
     const categoryOptions = document.getElementById('categoryOptions');
@@ -951,6 +962,19 @@ function selectCategory(category) {
     }
     
     loadApartments();
+}
+
+function positionDropdown(dropdown, button) {
+    const rect = button.getBoundingClientRect();
+    const viewportPadding = 8;
+    const dropdownWidth = Math.max(rect.width, 180);
+    const maxLeft = window.innerWidth - dropdownWidth - viewportPadding;
+    const left = Math.min(Math.max(rect.left, viewportPadding), Math.max(viewportPadding, maxLeft));
+
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = `${rect.bottom + 4}px`;
+    dropdown.style.left = `${left}px`;
+    dropdown.style.minWidth = `${Math.max(rect.width, 160)}px`;
 }
 
 function toggleAllFilter(checked) {
@@ -1148,8 +1172,20 @@ async function loadApartments() {
             apts = apts.filter(a => filteredIds.has(a.id));
         }
         
+        const activeDesktopFilter = document.querySelector('.pill.active[data-filter]')?.dataset.filter || '';
+        const activeMobileFilter = document.querySelector('.mobile-filter-btn.active[data-filter]')?.dataset.filter || '';
+        const syncedAccessFilter = activeDesktopFilter || activeMobileFilter || '';
+
+        if (state.accessFilter !== syncedAccessFilter) {
+            state.accessFilter = syncedAccessFilter;
+        }
+
+        if (elements.defectFilterPanel) {
+            elements.defectFilterPanel.style.display = state.accessFilter === 'defects' ? 'flex' : 'none';
+        }
+
         if (state.accessFilter === 'defects') {
-            apts = apts.filter(a => a.total_defects > 0);
+            apts = apts.filter(countsAsDefectApartment);
         } else if (state.accessFilter) {
             apts = apts.filter(a => a.access_status === state.accessFilter);
         }
@@ -1181,9 +1217,10 @@ async function loadApartments() {
 function setAccessFilter(filter) {
     // Если кнопка уже активна - снимаем фильтр (показываем все)
     const currentFilter = state.accessFilter;
-    const filterChanged = currentFilter !== filter;
+    let nextFilter = filter;
     
     if (currentFilter === filter) {
+        nextFilter = '';
         state.accessFilter = '';
         document.querySelectorAll('.pill').forEach(chip => {
             chip.classList.remove('active');
@@ -1194,6 +1231,8 @@ function setAccessFilter(filter) {
             chip.classList.toggle('active', chip.dataset.filter === filter);
         });
     }
+
+    const filterChanged = currentFilter !== nextFilter;
     
     // Update mobile filter indicator and buttons
     updateMobileFilterIndicator(state.accessFilter);
@@ -1239,6 +1278,14 @@ function debouncedLoad() {
     window.loadTimer = setTimeout(loadApartments, 300);
 }
 
+function isAcceptedApartment(apartment) {
+    return ACCEPTED_ACCESS_STATUSES.includes(apartment?.access_status);
+}
+
+function countsAsDefectApartment(apartment) {
+    return !isAcceptedApartment(apartment) && Number(apartment?.active_defects_count || 0) > 0;
+}
+
 // Update stats panel with current filter/counts
 function updateStatsPanel(apartments) {
     try {
@@ -1252,7 +1299,7 @@ function updateStatsPanel(apartments) {
                 else if (a.access_status === 'owner_accepted') accepted++;
                 else if (a.access_status === 'call') call++;
                 else if (a.access_status === 'no_access') noAccess++;
-                if (a.active_defects_count > 0) defects++;
+                if (countsAsDefectApartment(a)) defects++;
             });
         }
         
@@ -1284,9 +1331,7 @@ function renderApartments(apartments) {
     if (!apartments?.length) {
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-icon">✓</div>
                 <h3>Замечаний нет</h3>
-                <p>По выбранным фильтрам замечаний не найдено</p>
             </div>
         `;
         return;
@@ -1354,7 +1399,7 @@ function renderApartments(apartments) {
             sortedSectionIds.forEach(secId => {
                 allApts.push(...Object.values(sections[secId].floors).flat());
             });
-            const bldDefectCount = allApts.filter(a => a.active_defects_count > 0).length;
+            const bldDefectCount = allApts.filter(countsAsDefectApartment).length;
             const bldOwnerCount = allApts.filter(a => a.access_status === 'owner_accepted').length;
             const bldCallCount = allApts.filter(a => a.access_status === 'call').length;
             const bldNoCount = allApts.filter(a => a.access_status === 'no_access').length;
@@ -1373,7 +1418,7 @@ function renderApartments(apartments) {
                                 const secData = sections[secId];
                                 const secFloors = secData.floors;
                                 const secApts = Object.values(secFloors).flat();
-                                const secDefectCount = secApts.filter(a => a.active_defects_count > 0).length;
+                                const secDefectCount = secApts.filter(countsAsDefectApartment).length;
                                 const secOwnerCount = secApts.filter(a => a.access_status === 'owner_accepted').length;
                                 const secCallCount = secApts.filter(a => a.access_status === 'call').length;
                                 const secNoCount = secApts.filter(a => a.access_status === 'no_access').length;
@@ -1416,7 +1461,7 @@ function renderApartments(apartments) {
             const buildingNum = sectionData?.building_number || 1;
             const allApts = Object.values(floors).flat();
             
-            const defectCount = allApts.filter(a => a.active_defects_count > 0).length;
+            const defectCount = allApts.filter(countsAsDefectApartment).length;
             const ownerCount = allApts.filter(a => a.access_status === 'owner_accepted').length;
             const callCount = allApts.filter(a => a.access_status === 'call').length;
             const noCount = allApts.filter(a => a.access_status === 'no_access').length;
@@ -1506,7 +1551,7 @@ function getApartmentClass(status, defects) {
     if (status === 'owner_accepted') {
         return 'apt apt-owner_accepted';
     }
-    // Пригласить - светло-зеленая ячейка
+    // Вызов - фиолетовая ячейка
     if (status === 'call') {
         return 'apt apt-call';
     }
@@ -2330,7 +2375,7 @@ async function loadStats(body, modal) {
         const inProgress = accessStats.find(s => s.access_status === 'in_progress')?.count || 0;
         const available = accessStats.find(s => s.access_status === 'available')?.count || 0;
         
-        const withDefects = totalApartments - ownerAccepted - techAccepted - noAccess - call - inProgress - available;
+        const withDefects = stats.with_defects || 0;
         
         const acceptedToday = stats.accepted_today || 0;
         const defectsToday = stats.defects_today || 0;
@@ -2367,7 +2412,7 @@ async function loadStats(body, modal) {
             <table class="stats-table">
                 <thead>
                     <tr>
-                        <th>Показатель</th>
+                        <th>Статус</th>
                         <th>Всего</th>
                         <th>За неделю</th>
                         <th>За сегодня</th>
@@ -2393,7 +2438,7 @@ async function loadStats(body, modal) {
                         <td class="stat-today">-</td>
                     </tr>
                     <tr class="stat-call">
-                        <td>Вызов</td>
+                        <td>Вызваные квартиры</td>
                         <td class="stat-value">${call}</td>
                         <td class="stat-week">-</td>
                         <td class="stat-today">-</td>
@@ -2475,7 +2520,7 @@ function printStatsReport() {
         const inProgress = accessStats.find(s => s.access_status === 'in_progress')?.count || 0;
         const available = accessStats.find(s => s.access_status === 'available')?.count || 0;
         
-        const withDefects = totalApartments - ownerAccepted - techAccepted - noAccess - call - inProgress - available;
+        const withDefects = stats.with_defects || 0;
         const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
         const jkName = document.getElementById('jkName').textContent;
         
@@ -2534,7 +2579,7 @@ function printStatsReport() {
                 <table>
                     <thead>
                         <tr>
-                            <th>Показатель</th>
+                            <th>Статус</th>
                             <th style="text-align:right;">Всего</th>
                             <th style="text-align:right;">За неделю</th>
                             <th style="text-align:right;">За сегодня</th>
@@ -2560,7 +2605,7 @@ function printStatsReport() {
                             <td class="stat-today">-</td>
                         </tr>
                         <tr class="row-call">
-                            <td>Вызов</td>
+                            <td>Вызваные квартиры</td>
                             <td class="stat-value">${call}</td>
                             <td class="stat-week">-</td>
                             <td class="stat-today">-</td>
