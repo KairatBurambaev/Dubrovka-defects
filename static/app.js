@@ -15,6 +15,11 @@ const state = {
     currentDefects: [] // Store defects for category filtering
 };
 
+// Global filter constants
+const FILTERS = ['', 'defects', 'call', 'owner_accepted', 'complex', 'no_access'];
+const FILTER_NAMES = ['Все', 'С замечаниями', 'Вызов', 'Принята', 'Сложные', 'Нет доступа'];
+let currentFilterIndex = 0;
+
 // DOM Elements cache
 const elements = {};
 
@@ -99,20 +104,48 @@ function setupEventListeners() {
     });
 
     // Swipe filter for mobile
-    const filters = ['', 'defects', 'call', 'owner_accepted', 'complex', 'no_access'];
-    let currentFilterIndex = 0;
     let touchStartX = 0;
     let touchEndX = 0;
+    let isSwiping = false;
+    let swipeTimeout = null;
 
     const apartmentsContainer = document.getElementById('apartmentsContainer');
     if (apartmentsContainer) {
         apartmentsContainer.addEventListener('touchstart', (e) => {
             touchStartX = e.changedTouches[0].screenX;
-        });
+            isSwiping = false;
+            apartmentsContainer.classList.add('swiping');
+        }, { passive: true });
+
+        apartmentsContainer.addEventListener('touchmove', (e) => {
+            if (!isSwiping) {
+                const diff = e.changedTouches[0].screenX - touchStartX;
+                if (Math.abs(diff) > 10) {
+                    isSwiping = true;
+                    // Visual feedback: translate container slightly
+                    requestAnimationFrame(() => {
+                        apartmentsContainer.style.transform = `translateX(${diff * 0.3}px)`;
+                    });
+                }
+            }
+        }, { passive: true });
 
         apartmentsContainer.addEventListener('touchend', (e) => {
             touchEndX = e.changedTouches[0].screenX;
             handleSwipe();
+            // Reset transform and class
+            requestAnimationFrame(() => {
+                apartmentsContainer.style.transform = '';
+                apartmentsContainer.classList.remove('swiping');
+            });
+        });
+
+        // Reset on touch cancel
+        apartmentsContainer.addEventListener('touchcancel', () => {
+            requestAnimationFrame(() => {
+                apartmentsContainer.style.transform = '';
+                apartmentsContainer.classList.remove('swiping');
+            });
         });
     }
 
@@ -122,21 +155,38 @@ function setupEventListeners() {
 
         if (diff > 0) {
             // Swipe left - next filter
-            currentFilterIndex = Math.min(currentFilterIndex + 1, filters.length - 1);
+            currentFilterIndex = Math.min(currentFilterIndex + 1, FILTERS.length - 1);
         } else {
             // Swipe right - previous filter
             currentFilterIndex = Math.max(currentFilterIndex - 1, 0);
         }
 
-        setAccessFilter(filters[currentFilterIndex]);
-        updateMobileFilterButtons(filters[currentFilterIndex]);
+        // Animate filter indicator
+        const indicator = document.getElementById('mobileFilterIndicator');
+        if (indicator) {
+            indicator.classList.add('filter-active');
+            setTimeout(() => {
+                indicator.classList.remove('filter-active');
+            }, 300);
+        }
+
+        // Update filter with debounce
+        if (swipeTimeout) clearTimeout(swipeTimeout);
+        swipeTimeout = setTimeout(() => {
+            setAccessFilter(FILTERS[currentFilterIndex]);
+            updateMobileFilterIndicator(FILTERS[currentFilterIndex]);
+            updateMobileFilterButtons(FILTERS[currentFilterIndex]);
+        }, 50);
     }
 
-    function updateMobileFilterButtons(filter) {
-        document.querySelectorAll('.mobile-filter-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.filter === filter);
+    // Mobile filter buttons
+    const mobileFilterButtons = document.querySelectorAll('.mobile-filter-btn');
+    mobileFilterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const filter = btn.dataset.filter;
+            setAccessFilter(filter);
         });
-    }
+    });
 }
 
 // Navigation with animations
@@ -1115,6 +1165,8 @@ async function loadApartments() {
 function setAccessFilter(filter) {
     // Если кнопка уже активна - снимаем фильтр (показываем все)
     const currentFilter = state.accessFilter;
+    const filterChanged = currentFilter !== filter;
+    
     if (currentFilter === filter) {
         state.accessFilter = '';
         document.querySelectorAll('.pill').forEach(chip => {
@@ -1127,16 +1179,43 @@ function setAccessFilter(filter) {
         });
     }
     
-    // Update mobile filter buttons
-    document.querySelectorAll('.mobile-filter-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.filter === state.accessFilter);
-    });
+    // Update mobile filter indicator and buttons
+    updateMobileFilterIndicator(state.accessFilter);
+    updateMobileFilterButtons(state.accessFilter);
+    
+    // Update current filter index for swipe
+    const index = FILTERS.indexOf(state.accessFilter);
+    if (index >= 0) currentFilterIndex = index;
     
     if (elements.defectFilterPanel) {
         elements.defectFilterPanel.style.display = state.accessFilter === 'defects' ? 'flex' : 'none';
     }
     
-    loadApartments();
+    // Only reload if filter actually changed
+    if (filterChanged) {
+        loadApartments();
+    }
+}
+
+function updateMobileFilterIndicator(filter) {
+    const indicator = document.getElementById('mobileFilterIndicator');
+    if (indicator) {
+        const index = FILTERS.indexOf(filter);
+        const name = index >= 0 ? FILTER_NAMES[index] : 'Все';
+        indicator.textContent = name;
+        // Add animation class
+        indicator.classList.add('filter-changed');
+        setTimeout(() => {
+            indicator.classList.remove('filter-changed');
+        }, 200);
+    }
+}
+
+function updateMobileFilterButtons(filter) {
+    const buttons = document.querySelectorAll('.mobile-filter-btn');
+    buttons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
 }
 
 function debouncedLoad() {
