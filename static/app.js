@@ -95,6 +95,14 @@ function setupForms() {
     });
 }
 
+function initCreateComplexForm() {
+    buildingCount = 0;
+    globalSectionCount = 0;
+    const container = document.getElementById('buildingsContainer');
+    if (container) container.innerHTML = '';
+    addBuildingRow();
+}
+
 // Event Listeners
 function setupEventListeners() {
     document.addEventListener('click', (e) => {
@@ -102,82 +110,6 @@ function setupEventListeners() {
             e.target.classList.remove('active');
         }
     });
-
-    // Swipe filter for mobile
-    let touchStartX = 0;
-    let touchEndX = 0;
-    let isSwiping = false;
-    let swipeTimeout = null;
-
-    const apartmentsContainer = document.getElementById('apartmentsContainer');
-    if (apartmentsContainer) {
-        apartmentsContainer.addEventListener('touchstart', (e) => {
-            touchStartX = e.changedTouches[0].screenX;
-            isSwiping = false;
-            apartmentsContainer.classList.add('swiping');
-        }, { passive: true });
-
-        apartmentsContainer.addEventListener('touchmove', (e) => {
-            if (!isSwiping) {
-                const diff = e.changedTouches[0].screenX - touchStartX;
-                if (Math.abs(diff) > 10) {
-                    isSwiping = true;
-                    // Visual feedback: translate container slightly
-                    requestAnimationFrame(() => {
-                        apartmentsContainer.style.transform = `translateX(${diff * 0.3}px)`;
-                    });
-                }
-            }
-        }, { passive: true });
-
-        apartmentsContainer.addEventListener('touchend', (e) => {
-            touchEndX = e.changedTouches[0].screenX;
-            handleSwipe();
-            // Reset transform and class
-            requestAnimationFrame(() => {
-                apartmentsContainer.style.transform = '';
-                apartmentsContainer.classList.remove('swiping');
-            });
-        });
-
-        // Reset on touch cancel
-        apartmentsContainer.addEventListener('touchcancel', () => {
-            requestAnimationFrame(() => {
-                apartmentsContainer.style.transform = '';
-                apartmentsContainer.classList.remove('swiping');
-            });
-        });
-    }
-
-    function handleSwipe() {
-        const diff = touchStartX - touchEndX;
-        if (Math.abs(diff) < 50) return; // minimum swipe distance
-
-        if (diff > 0) {
-            // Swipe left - next filter
-            currentFilterIndex = Math.min(currentFilterIndex + 1, FILTERS.length - 1);
-        } else {
-            // Swipe right - previous filter
-            currentFilterIndex = Math.max(currentFilterIndex - 1, 0);
-        }
-
-        // Animate filter indicator
-        const indicator = document.getElementById('mobileFilterIndicator');
-        if (indicator) {
-            indicator.classList.add('filter-active');
-            setTimeout(() => {
-                indicator.classList.remove('filter-active');
-            }, 300);
-        }
-
-        // Update filter with debounce
-        if (swipeTimeout) clearTimeout(swipeTimeout);
-        swipeTimeout = setTimeout(() => {
-            setAccessFilter(FILTERS[currentFilterIndex]);
-            updateMobileFilterIndicator(FILTERS[currentFilterIndex]);
-            updateMobileFilterButtons(FILTERS[currentFilterIndex]);
-        }, 50);
-    }
 
     // Mobile filter buttons
     const mobileFilterButtons = document.querySelectorAll('.mobile-filter-btn');
@@ -202,6 +134,14 @@ function showTab(tab) {
     newPanel.classList.add('active');
     
     state.currentTab = tab;
+    
+    // Toggle body class for create-complex
+    if (tab === 'create-complex') {
+        document.body.classList.add('page-create-complex');
+        initCreateComplexForm();
+    } else {
+        document.body.classList.remove('page-create-complex');
+    }
     
     const pageTitle = document.getElementById('pageTitle');
     if (pageTitle) {
@@ -287,21 +227,19 @@ function backToApartment() {
 
 function goBack() {
     if (state.currentApartment) {
-        backToComplex();
+        goToApartmentList();
     } else if (state.currentComplex) {
-        state.currentComplex = null;
-        state.currentComplexData = null;
-        state.currentComplexStats = null;
         showTab('complexes');
-        loadComplexes();
-        setPageTitle('Портфель объектов', '');
-        const toolbarSearch = document.getElementById('toolbarSearch');
-        const headerFilters = document.getElementById('headerFilters');
-        const toolbarFilters = document.getElementById('toolbarFilters');
-        if (toolbarSearch) toolbarSearch.style.display = 'none';
-        if (headerFilters) headerFilters.style.display = 'none';
-        if (toolbarFilters) toolbarFilters.style.display = 'none';
     }
+}
+
+function goHome() {
+    state.currentComplex = null;
+    state.currentApartment = null;
+    state.currentComplexData = null;
+    state.currentPropertyType = 'квартиры';
+    showTab('complexes');
+    loadComplexes();
 }
 
 function toggleSidebar(show) {
@@ -555,79 +493,165 @@ function checkPassword() {
 
 function showCreateComplexForm() {
     showTab('create-complex');
-    const container = document.getElementById('buildingsContainer');
-    if (container) {
-        container.innerHTML = '';
-        addBuildingRow();
-    }
 }
 
+let buildingCount = 0;
+let globalSectionCount = 0;
+
 function addBuildingRow() {
+    buildingCount++;
     const container = document.getElementById('buildingsContainer');
     if (!container) return;
     
-    const buildingId = Date.now();
+    const buildingId = Date.now() + buildingCount;
     const row = document.createElement('div');
     row.className = 'building-row';
     row.dataset.buildingId = buildingId;
+    row.dataset.buildingNum = buildingCount;
     row.innerHTML = `
         <div class="building-header">
-            <input type="number" placeholder="№ корпуса" class="building-num" min="1">
-            <button type="button" class="btn-remove-row" onclick="this.parentElement.parentElement.remove()">× Удалить корпус</button>
+            <span class="building-num">Корпус ${buildingCount}</span>
+            <button type="button" class="btn-remove-row" onclick="removeBuildingRow(this)">× Удалить</button>
         </div>
         <div class="sections-container">
-            <button type="button" class="btn-link" onclick="addSectionRow(${buildingId})">+ Добавить секцию</button>
         </div>
+        <button type="button" class="btn btn-secondary btn-sm add-section-btn" onclick="addSectionRow(${buildingId}, ${buildingCount})">+ Добавить секцию</button>
     `;
     container.appendChild(row);
-    addSectionRow(buildingId);
+    // Auto-add first section
+    addSectionRow(buildingId, buildingCount);
 }
 
-function addSectionRow(buildingId) {
+function addSectionRow(buildingId, buildingNum) {
     const buildingRow = document.querySelector(`[data-building-id="${buildingId}"]`);
     if (!buildingRow) return;
     
     const sectionsContainer = buildingRow.querySelector('.sections-container');
     if (!sectionsContainer) return;
     
-    const sectionId = Date.now();
+    globalSectionCount++;
+    const sectionNum = globalSectionCount;
+    
+    const sectionId = Date.now() + globalSectionCount;
     const sectionRow = document.createElement('div');
     sectionRow.className = 'section-row';
     sectionRow.dataset.sectionId = sectionId;
+    sectionRow.dataset.sectionNum = sectionNum;
     sectionRow.innerHTML = `
         <div class="section-header">
-            <span>Секция</span>
-            <button type="button" class="btn-remove-row" onclick="this.parentElement.parentElement.remove()">×</button>
+            <span class="sec-num">Секция ${sectionNum}</span>
+            <button type="button" class="btn-remove-row" onclick="removeSectionRow(this)">×</button>
         </div>
-        <div class="section-row-grid">
-            <input type="number" placeholder="№ секции" class="sec-num" min="1">
+        <div class="section-settings">
+            <div class="section-settings-row">
+                <div class="setting-item">
+                    <label>Всего этажей</label>
+                    <input type="number" class="total-floors" value="1" min="1">
+                </div>
+                <div class="setting-item">
+                    <label>Квартир на этаже</label>
+                    <input type="number" class="apts-per-floor" value="4" min="1">
+                </div>
+                <div class="setting-item">
+                    <label>Начальный номер</label>
+                    <input type="number" class="start-apt" value="1" min="1">
+                </div>
+            </div>
+            <div class="exceptions-section" id="exceptions-${sectionId}">
+                <div class="exceptions-header">
+                    <span>Исключения (если есть)</span>
+                    <button type="button" class="btn-link btn-sm" onclick="addException('${sectionId}')">+ Добавить исключение</button>
+                </div>
+                <div class="exceptions-list" id="exceptions-list-${sectionId}"></div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm generate-btn" onclick="generateFloors('${sectionId}')">Сгенерировать этажи</button>
         </div>
         <div class="floors-container" id="floors-${sectionId}">
-            <button type="button" class="btn-link" onclick="addFloorRow(${sectionId})">+ Добавить этаж</button>
         </div>
     `;
     sectionsContainer.appendChild(sectionRow);
-    addFloorRow(sectionId);
 }
 
-function addFloorRow(sectionId) {
+function addException(sectionId) {
+    const exceptionsList = document.getElementById(`exceptions-list-${sectionId}`);
+    if (!exceptionsList) return;
+    
+    const exceptionRow = document.createElement('div');
+    exceptionRow.className = 'exception-row';
+    exceptionRow.innerHTML = `
+        <input type="number" placeholder="Этаж" class="exc-floor" min="1">
+        <input type="number" placeholder="Кол-во кв." class="exc-count" min="1">
+        <button type="button" class="btn-remove-row" onclick="this.parentElement.remove()">×</button>
+    `;
+    exceptionsList.appendChild(exceptionRow);
+}
+
+function generateFloors(sectionId) {
+    const sectionRow = document.querySelector(`[data-section-id="${sectionId}"]`);
+    if (!sectionRow) return;
+    
+    const totalFloors = parseInt(sectionRow.querySelector('.total-floors')?.value) || 1;
+    const aptsPerFloor = parseInt(sectionRow.querySelector('.apts-per-floor')?.value) || 4;
+    const startApt = parseInt(sectionRow.querySelector('.start-apt')?.value) || 1;
+    
+    // Collect exceptions (including count=0 for skipping floors)
+    const exceptions = {};
+    sectionRow.querySelectorAll('.exception-row').forEach(row => {
+        const floor = parseInt(row.querySelector('.exc-floor')?.value);
+        const count = parseInt(row.querySelector('.exc-count')?.value);
+        if (floor) {
+            exceptions[floor] = count || 0;
+        }
+    });
+    
     const floorsContainer = document.getElementById(`floors-${sectionId}`);
     if (!floorsContainer) return;
     
-    const floorRow = document.createElement('div');
-    floorRow.className = 'floor-row-input';
-    floorRow.innerHTML = `
-        <input type="number" placeholder="Этаж" class="floor-num" min="1">
-        <input type="number" placeholder="Квартира с" class="floor-from" min="1">
-        <input type="number" placeholder="по" class="floor-to" min="1">
-        <button type="button" class="btn-remove-row" onclick="this.parentElement.remove()">×</button>
-    `;
-    floorsContainer.appendChild(floorRow);
+    floorsContainer.innerHTML = '';
+    
+    let currentApt = startApt;
+    let generatedCount = 0;
+    
+    for (let i = 1; i <= totalFloors; i++) {
+        const count = i in exceptions ? exceptions[i] : aptsPerFloor;
+        
+        // Skip floor if count is 0
+        if (count === 0) {
+            continue;
+        }
+        
+        const floorFrom = currentApt;
+        const floorTo = currentApt + count - 1;
+        
+        const floorRow = document.createElement('div');
+        floorRow.className = 'floor-row-input';
+        floorRow.innerHTML = `
+            <input type="hidden" class="floor-num" value="${i}">
+            <input type="hidden" class="floor-from" value="${floorFrom}">
+            <input type="hidden" class="floor-to" value="${floorTo}">
+            <span class="floor-label">Этаж ${i}</span>
+            <span class="floor-info">кв. ${floorFrom} - ${floorTo}</span>
+            <button type="button" class="btn-remove-row" onclick="this.parentElement.remove()">×</button>
+        `;
+        floorsContainer.appendChild(floorRow);
+        
+        currentApt = floorTo + 1;
+        generatedCount++;
+    }
+    
+    showToast(`Сгенерировано ${generatedCount} этажей`, 'success');
+}
+
+function removeSectionRow(btn) {
+    const row = btn.closest('.section-row');
+    if (row) row.remove();
 }
 
 async function submitComplexForm() {
     const nameInput = document.getElementById('complexName');
     const name = nameInput?.value.trim();
+    const addressInput = document.getElementById('complexAddress');
+    const address = addressInput?.value.trim() || '';
     const typeInput = document.getElementById('complexType');
     const propertyType = typeInput?.value || 'квартиры';
     
@@ -638,13 +662,13 @@ async function submitComplexForm() {
     
     const buildings = [];
     document.querySelectorAll('.building-row').forEach(buildingRow => {
-        const buildingNum = buildingRow.querySelector('.building-num')?.value;
+        const buildingNum = buildingRow.dataset.buildingNum;
         
         if (!buildingNum) return;
         
         const sections = [];
         buildingRow.querySelectorAll('.section-row').forEach(row => {
-            const secNum = row.querySelector('.sec-num')?.value;
+            const secNum = row.dataset.sectionNum;
             
             if (!secNum) return;
             
@@ -686,15 +710,12 @@ async function submitComplexForm() {
     }
     
     const commissioningDate = document.getElementById('commissioningDate')?.value || '';
-    const warranty3Date = document.getElementById('warranty3Date')?.value || '';
-    const warranty5Date = document.getElementById('warranty5Date')?.value || '';
     
     const formData = new FormData();
     formData.append('name', name);
+    formData.append('address', address);
     formData.append('property_type', propertyType);
     formData.append('commissioning_date', commissioningDate);
-    formData.append('warranty_3_date', warranty3Date);
-    formData.append('warranty_5_date', warranty5Date);
     formData.append('buildings', JSON.stringify(buildings));
     
     console.log('Creating complex:', { name, propertyType, buildings });
@@ -710,13 +731,8 @@ async function submitComplexForm() {
         if (res.ok) {
             const data = await res.json();
             console.log('Success:', data);
-            const propName = propertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
-            showToast(`ЖК создан: ${data.apartments_created} ${propName}`, 'success');
-            nameInput.value = '';
-            const buildingsContainer = document.getElementById('buildingsContainer');
-            if (buildingsContainer) buildingsContainer.innerHTML = '';
-            showTab('complexes');
-            loadComplexes();
+            showToast('Комплекс создан', 'success');
+            goHome();
         } else {
             const errorText = await res.text();
             console.error('Error response:', errorText);
@@ -775,7 +791,7 @@ async function showComplexDetail(id) {
                 .join(' • ');
         }
         
-        setPageTitle(complex.name, '');
+        setPageTitle(complex.name, complex.address || '');
         
         // Hide инжиниринг on complex detail page
         const titleSecondary = document.getElementById('titleSecondary');
@@ -2277,5 +2293,336 @@ document.addEventListener('keydown', (e) => {
         goBack();
     }
 });
+
+// ========== STATISTICS MODAL ==========
+
+let statsDate = new Date().toISOString().split('T')[0];
+let statsMinDate = '';
+
+async function showStatsModal() {
+    const modal = document.getElementById('statsModal');
+    const body = document.getElementById('statsBody');
+    
+    if (!state.currentComplex) {
+        body.innerHTML = '<p>Выберите ЖК для просмотра статистики</p>';
+        modal.classList.add('active');
+        return;
+    }
+    
+    await loadStats(body, modal);
+}
+
+async function loadStats(body, modal) {
+    try {
+        const statsRes = await fetch(`/api/complexes/${state.currentComplex}/statistics?stat_date=${statsDate}`);
+        const stats = await statsRes.json();
+        
+        // Set min date from first defect
+        statsMinDate = stats.first_defect_date || statsDate;
+        
+        const accessStats = stats.by_access_status || [];
+        const totalApartments = stats.total_apartments || 0;
+        
+        const ownerAccepted = accessStats.find(s => s.access_status === 'owner_accepted')?.count || 0;
+        const techAccepted = accessStats.find(s => s.access_status === 'tech_accepted')?.count || 0;
+        const noAccess = accessStats.find(s => s.access_status === 'no_access')?.count || 0;
+        const call = accessStats.find(s => s.access_status === 'call')?.count || 0;
+        const inProgress = accessStats.find(s => s.access_status === 'in_progress')?.count || 0;
+        const available = accessStats.find(s => s.access_status === 'available')?.count || 0;
+        
+        const withDefects = totalApartments - ownerAccepted - techAccepted - noAccess - call - inProgress - available;
+        
+        const acceptedToday = stats.accepted_today || 0;
+        const defectsToday = stats.defects_today || 0;
+        const defectsWeek = stats.defects_week || 0;
+        const acceptedWeek = stats.accepted_week || 0;
+        
+        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
+        
+        const calcPercent = (val) => totalApartments > 0 ? Math.round(val / totalApartments * 100) : 0;
+        
+        const formatDate = (d) => {
+            const date = new Date(d);
+            return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+        };
+        
+        body.innerHTML = `
+            <div class="stats-date-picker">
+                <label>Дата отчета:</label>
+                <input type="date" id="statsDateInput" 
+                    value="${statsDate}" 
+                    min="${statsMinDate}"
+                    max="${new Date().toISOString().split('T')[0]}"
+                    onchange="changeStatsDate(this.value)">
+            </div>
+            
+            <div class="stats-header">
+                <div class="stats-header-left">
+                    <span class="stats-label">${propName}</span>
+                    <span class="stats-date">${formatDate(statsDate)}</span>
+                </div>
+                <div class="stats-total">${totalApartments}</div>
+            </div>
+            
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Показатель</th>
+                        <th>Всего</th>
+                        <th>За неделю</th>
+                        <th>За сегодня</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="stat-accepted">
+                        <td>Принято</td>
+                        <td class="stat-value">${ownerAccepted + techAccepted}</td>
+                        <td class="stat-week">+${acceptedWeek}</td>
+                        <td class="stat-today">+${acceptedToday}</td>
+                    </tr>
+                    <tr class="stat-defects">
+                        <td>С замечаниями</td>
+                        <td class="stat-value">${withDefects > 0 ? withDefects : 0}</td>
+                        <td class="stat-week">+${defectsWeek}</td>
+                        <td class="stat-today">${defectsToday > 0 ? '+' + defectsToday : '0'}</td>
+                    </tr>
+                    <tr class="stat-no-access">
+                        <td>Нет доступа</td>
+                        <td class="stat-value">${noAccess}</td>
+                        <td class="stat-week">-</td>
+                        <td class="stat-today">-</td>
+                    </tr>
+                    <tr class="stat-call">
+                        <td>Вызов</td>
+                        <td class="stat-value">${call}</td>
+                        <td class="stat-week">-</td>
+                        <td class="stat-today">-</td>
+                    </tr>
+                    <tr class="stat-progress">
+                        <td>В работе</td>
+                        <td class="stat-value">${inProgress}</td>
+                        <td class="stat-week">-</td>
+                        <td class="stat-today">-</td>
+                    </tr>
+                    <tr>
+                        <td>Доступны</td>
+                        <td class="stat-value">${available}</td>
+                        <td class="stat-week">-</td>
+                        <td class="stat-today">-</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="stats-actions">
+                <button class="btn btn-primary" onclick="printStatsReport()">
+                    🖨 Печать отчета
+                </button>
+            </div>
+        `;
+        
+        // Update date input constraints
+        const dateInput = document.getElementById('statsDateInput');
+        if (dateInput) {
+            dateInput.min = statsMinDate;
+            dateInput.max = new Date().toISOString().split('T')[0];
+        }
+        
+        modal.classList.add('active');
+    } catch (err) {
+        console.error('Stats error:', err);
+        body.innerHTML = '<p>Ошибка загрузки статистики</p>';
+        modal.classList.add('active');
+    }
+}
+
+function changeStatsDate(newDate) {
+    const minDate = statsMinDate;
+    const maxDate = new Date().toISOString().split('T')[0];
+    
+    if (newDate < minDate) {
+        alert('Нельзя выбрать дату ранее первого замечания (' + minDate + ')');
+        document.getElementById('statsDateInput').value = statsDate;
+        return;
+    }
+    
+    if (newDate > maxDate) {
+        alert('Нельзя выбрать дату в будущем');
+        document.getElementById('statsDateInput').value = statsDate;
+        return;
+    }
+    
+    statsDate = newDate;
+    const body = document.getElementById('statsBody');
+    const modal = document.getElementById('statsModal');
+    loadStats(body, modal);
+}
+
+function printStatsReport() {
+    const statsRes = fetch(`/api/complexes/${state.currentComplex}/statistics?stat_date=${statsDate}`).then(r => r.json());
+    
+    statsRes.then(stats => {
+        const accessStats = stats.by_access_status || [];
+        const totalApartments = stats.total_apartments || 0;
+        const acceptedToday = stats.accepted_today || 0;
+        const defectsToday = stats.defects_today || 0;
+        const defectsWeek = stats.defects_week || 0;
+        const acceptedWeek = stats.accepted_week || 0;
+        
+        const ownerAccepted = accessStats.find(s => s.access_status === 'owner_accepted')?.count || 0;
+        const techAccepted = accessStats.find(s => s.access_status === 'tech_accepted')?.count || 0;
+        const noAccess = accessStats.find(s => s.access_status === 'no_access')?.count || 0;
+        const call = accessStats.find(s => s.access_status === 'call')?.count || 0;
+        const inProgress = accessStats.find(s => s.access_status === 'in_progress')?.count || 0;
+        const available = accessStats.find(s => s.access_status === 'available')?.count || 0;
+        
+        const withDefects = totalApartments - ownerAccepted - techAccepted - noAccess - call - inProgress - available;
+        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
+        const jkName = document.getElementById('jkName').textContent;
+        
+        const formatDate = (d) => {
+            const date = new Date(d);
+            return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+        };
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Отчет - ${jkName}</title>
+                <style>
+                    * { box-sizing: border-box; }
+                    body { font-family: Arial, sans-serif; padding: 30px; max-width: 800px; margin: 0 auto; }
+                    h1 { font-size: 22px; margin-bottom: 5px; }
+                    .report-date { color: #666; margin-bottom: 20px; font-size: 14px; }
+                    .summary { background: #f5f5f5; padding: 20px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+                    .summary-left { text-align: left; }
+                    .summary-label { font-size: 13px; color: #666; }
+                    .summary-date { font-size: 16px; color: #333; font-weight: 500; margin-top: 4px; }
+                    .summary-value { font-size: 36px; font-weight: bold; color: #2563eb; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+                    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+                    th { background: #f8f9fa; font-weight: 600; font-size: 13px; }
+                    th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align: right; }
+                    .stat-value { text-align: right; font-weight: 600; }
+                    .stat-week, .stat-today { text-align: right; color: #16a34a; font-weight: 600; }
+                    .row-accepted { background: #d4edda; }
+                    .row-defects { background: #fff3cd; }
+                    .row-no-access { background: #f8d7da; }
+                    .row-call { background: #cce5ff; }
+                    .row-progress { background: #e2e3e5; }
+                    .changes { display: flex; gap: 30px; margin-bottom: 25px; }
+                    .change-box { flex: 1; background: #f0f9ff; padding: 15px; border-radius: 8px; text-align: center; }
+                    .change-title { font-size: 12px; color: #666; margin-bottom: 5px; }
+                    .change-value { font-size: 24px; font-weight: bold; color: #0369a1; }
+                    .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; }
+                    @media print { body { padding: 0; } }
+                </style>
+            </head>
+            <body>
+                <h1>ЖК "${jkName}"</h1>
+                <p class="report-date">Отчет на ${formatDate(statsDate)}</p>
+                
+                <div class="summary">
+                    <div class="summary-left">
+                        <div class="summary-label">${propName}</div>
+                        <div class="summary-date">${formatDate(statsDate)}</div>
+                    </div>
+                    <div class="summary-value">${totalApartments}</div>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Показатель</th>
+                            <th style="text-align:right;">Всего</th>
+                            <th style="text-align:right;">За неделю</th>
+                            <th style="text-align:right;">За сегодня</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="row-accepted">
+                            <td>Принято</td>
+                            <td class="stat-value">${ownerAccepted + techAccepted}</td>
+                            <td class="stat-week">+${acceptedWeek}</td>
+                            <td class="stat-today">+${acceptedToday}</td>
+                        </tr>
+                        <tr class="row-defects">
+                            <td>С замечаниями</td>
+                            <td class="stat-value">${withDefects > 0 ? withDefects : 0}</td>
+                            <td class="stat-week">+${defectsWeek}</td>
+                            <td class="stat-today">${defectsToday > 0 ? '+' + defectsToday : '0'}</td>
+                        </tr>
+                        <tr class="row-no-access">
+                            <td>Нет доступа</td>
+                            <td class="stat-value">${noAccess}</td>
+                            <td class="stat-week">-</td>
+                            <td class="stat-today">-</td>
+                        </tr>
+                        <tr class="row-call">
+                            <td>Вызов</td>
+                            <td class="stat-value">${call}</td>
+                            <td class="stat-week">-</td>
+                            <td class="stat-today">-</td>
+                        </tr>
+                        <tr class="row-progress">
+                            <td>В работе</td>
+                            <td class="stat-value">${inProgress}</td>
+                            <td class="stat-week">-</td>
+                            <td class="stat-today">-</td>
+                        </tr>
+                        <tr>
+                            <td>Доступны</td>
+                            <td class="stat-value">${available}</td>
+                            <td class="stat-week">-</td>
+                            <td class="stat-today">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="changes">
+                    <div class="change-box">
+                        <div class="change-title">За неделю принято</div>
+                        <div class="change-value">+${acceptedWeek}</div>
+                    </div>
+                    <div class="change-box">
+                        <div class="change-title">За неделю замечаний</div>
+                        <div class="change-value">+${defectsWeek}</div>
+                    </div>
+                </div>
+                
+                <div class="footer">
+                    Сформировано системой "Приемка квартир"
+                </div>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    });
+}
+
+function closeStatsModal(event) {
+    if (!event || event.target.id === 'statsModal') {
+        document.getElementById('statsModal').classList.remove('active');
+    }
+}
+
+function getAccessStatusName(status) {
+    const names = {
+        '': 'Все',
+        'available': 'Доступна',
+        'defects': 'С замеч.',
+        'call': 'Вызов',
+        'owner_accepted': 'Принята',
+        'tech_accepted': 'Тех. принята',
+        'complex': 'Сложные',
+        'no_access': 'Нет доступа',
+        'by_phone': 'По звонку',
+        'elevated': 'Поднять',
+        'in_progress': 'В работе'
+    };
+    return names[status] || status || 'Неизвестно';
+}
 
 console.log('app.js loaded - v2.0 optimized');

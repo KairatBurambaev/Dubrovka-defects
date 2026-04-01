@@ -3,7 +3,7 @@ import os
 import uuid
 import json
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from dateutil.relativedelta import relativedelta
 from typing import Optional, List
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
@@ -453,7 +453,7 @@ async def index():
 @app.get("/api/complexes")
 async def get_complexes():
     conn = get_db()
-    rows = conn.execute("SELECT id, name, property_type, commissioning_date, warranty_3_date, warranty_5_date, created_at FROM complexes ORDER BY created_at DESC").fetchall()
+    rows = conn.execute("SELECT id, name, address, property_type, commissioning_date, warranty_3_date, warranty_5_date, created_at FROM complexes ORDER BY created_at DESC").fetchall()
     complexes = []
     
     for row in rows:
@@ -490,6 +490,7 @@ async def get_complexes():
 @app.post("/api/complexes")
 async def create_complex(
     name: str = Form(...),
+    address: str = Form(""),
     property_type: str = Form("квартиры"),
     commissioning_date: str = Form(""),
     warranty_3_date: str = Form(""),
@@ -532,7 +533,7 @@ async def create_complex(
     conn = get_db()
     
     # Создаем ЖК
-    cursor = conn.execute("INSERT INTO complexes (name, property_type, commissioning_date, warranty_3_date, warranty_5_date) VALUES (?, ?, ?, ?, ?)", (name, property_type, commissioning_date, warranty_3_date, warranty_5_date))
+    cursor = conn.execute("INSERT INTO complexes (name, address, property_type, commissioning_date, warranty_3_date, warranty_5_date) VALUES (?, ?, ?, ?, ?, ?)", (name, address, property_type, commissioning_date, warranty_3_date, warranty_5_date))
     complex_id = cursor.lastrowid
     
     total_apartments = 0
@@ -1117,8 +1118,24 @@ async def get_templates(category: str):
 
 
 @app.get("/api/complexes/{complex_id}/statistics")
-async def get_complex_statistics(complex_id: int):
+async def get_complex_statistics(complex_id: int, stat_date: str = None):
     conn = get_db()
+    
+    # Get first defect date for this complex
+    first_defect = conn.execute("""
+        SELECT MIN(date(d.created_at)) as first_date
+        FROM defects d
+        JOIN apartments a ON d.apartment_id = a.id
+        WHERE a.complex_id = ?
+    """, (complex_id,)).fetchone()
+    
+    first_defect_date = first_defect[0] if first_defect else str(date.today())
+    
+    today = date.today()
+    today_str = today.strftime('%Y-%m-%d')
+    
+    # Get dates for week ago
+    week_ago = (today - timedelta(days=7)).strftime('%Y-%m-%d')
     
     # Всего квартир
     total = conn.execute(
@@ -1133,16 +1150,7 @@ async def get_complex_statistics(complex_id: int):
         WHERE a.complex_id = ?
     """, (complex_id,)).fetchone()[0]
     
-    # По статусам дефектов
-    defect_status_stats = conn.execute("""
-        SELECT d.status, COUNT(*) as count
-        FROM defects d
-        JOIN apartments a ON d.apartment_id = a.id
-        WHERE a.complex_id = ?
-        GROUP BY d.status
-    """, (complex_id,)).fetchall()
-    
-    # По статусам доступа
+    # По статусам доступа (квартиры)
     access_status_stats = conn.execute("""
         SELECT a.access_status, COUNT(*) as count
         FROM apartments a
@@ -1150,16 +1158,29 @@ async def get_complex_statistics(complex_id: int):
         GROUP BY a.access_status
     """, (complex_id,)).fetchall()
     
-    # По секциям
-    section_stats = conn.execute("""
-        SELECT s.section_number, COUNT(d.id) as count
-        FROM sections s
-        LEFT JOIN apartments a ON s.id = a.section_id
-        LEFT JOIN defects d ON a.id = d.apartment_id
-        WHERE s.complex_id = ?
-        GROUP BY s.id
-        ORDER BY s.section_number
-    """, (complex_id,)).fetchall()
+    # Принято (всего)
+    accepted_today = conn.execute("""
+        SELECT COUNT(*) FROM apartments 
+        WHERE complex_id = ? AND access_status IN ('owner_accepted', 'tech_accepted')
+    """, (complex_id,)).fetchone()[0]
+    
+    # Замечаний сегодня
+    defects_today = conn.execute("""
+        SELECT COUNT(*) FROM defects d
+        JOIN apartments a ON d.apartment_id = a.id
+        WHERE a.complex_id = ? AND date(d.created_at) = ?
+    """, (complex_id, today_str)).fetchone()[0]
+    
+    # За неделю
+    defects_week = conn.execute("""
+        SELECT COUNT(*) FROM defects d
+        JOIN apartments a ON d.apartment_id = a.id
+        WHERE a.complex_id = ? AND date(d.created_at) >= ?
+    """, (complex_id, week_ago)).fetchone()[0]
+    
+    # Принято за неделю (количество переходов в accepted за неделю)
+    # Для простоты - просто считаем сколько сейчас принято (динамика сложнее)
+    accepted_week = accepted_today  # placeholder - можно доработать
     
     conn.close()
     
@@ -1167,9 +1188,12 @@ async def get_complex_statistics(complex_id: int):
         "total_apartments": total,
         "with_defects": with_defects,
         "without_defects": total - with_defects,
-        "by_defect_status": [dict(row) for row in defect_status_stats],
-        "by_access_status": [dict(row) for row in access_status_stats],
-        "by_section": [dict(row) for row in section_stats]
+        "by_access_status": [{"access_status": row[0], "count": row[1]} for row in access_status_stats],
+        "accepted_today": accepted_today,
+        "defects_today": defects_today,
+        "defects_week": defects_week,
+        "accepted_week": accepted_week,
+        "first_defect_date": first_defect_date
     }
 
 

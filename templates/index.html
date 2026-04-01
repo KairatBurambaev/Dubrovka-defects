@@ -72,6 +72,7 @@
                             <button class="pill" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
                             <button class="pill" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
                             <button class="pill" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
+                            <button class="pill pill-stats" onclick="showStatsModal()">📊 Статистика</button>
                         </div>
                     </div>
                     <!-- Apartment status buttons -->
@@ -117,69 +118,40 @@
 
             <!-- Create Complex -->
             <section id="tab-create-complex" class="tab-panel">
-                <div class="form">
-                    <div class="form-field">
-                        <label>Название комплекса</label>
-                        <input type="text" id="complexName" placeholder="Например: ЖК Дубровка">
-                    </div>
-                    <div class="form-field">
-                        <label>Тип недвижимости</label>
-                        <select id="complexType" class="select">
-                            <option value="квартиры">Квартиры</option>
-                            <option value="апартаменты">Апартаменты</option>
-                        </select>
-                    </div>
-                    <div class="form-field">
-                        <label>Дата ввода в эксплуатацию</label>
-                        <input type="date" id="commissioningDate">
-                    </div>
-                    <div class="form-field">
-                        <label>Гарантия инженерные сети (3 года)</label>
-                        <input type="date" id="warranty3Date">
-                    </div>
-                    <div class="form-field">
-                        <label>Гарантия общие (5 лет)</label>
-                        <input type="date" id="warranty5Date">
-                    </div>
-                    <div class="form-section">
-                        <div class="form-section-header">
-                            <span>Корпуса и секции</span>
-                            <button type="button" class="btn-link" onclick="addBuildingRow()">+ Добавить корпус</button>
+                <div class="create-complex-container">
+                    <div class="form create-complex-form">
+                        <div class="form-header">
+                            <h2>Новый комплекс</h2>
                         </div>
-                        <div id="buildingsContainer"></div>
-                    </div>
-                    <div class="form-footer">
-                        <button type="button" class="btn" onclick="showTab('complexes')">Отмена</button>
-                        <button type="button" class="btn btn-primary" onclick="submitComplexForm()">Создать комплекс</button>
-                    </div>
-                </div>
-
-                <div id="statsPanel" class="stats-panel">
-                    <div class="stats-title">Статистика</div>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-label">Всего</span>
-                            <span class="stat-value" id="statTotal">0</span>
+                        <div class="form-field">
+                            <label>Название комплекса</label>
+                            <input type="text" id="complexName" placeholder="Например: ЖК Дубровка">
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Без замечаний</span>
-                            <span class="stat-value" id="statAvailable">0</span>
+                        <div class="form-field">
+                            <label>Адрес ЖК</label>
+                            <input type="text" id="complexAddress" placeholder="Например: ул. Ленина, 1">
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Принято</span>
-                            <span class="stat-value" id="statAccepted">0</span>
+                        <div class="form-field">
+                            <label>Тип недвижимости</label>
+                            <select id="complexType" class="select">
+                                <option value="квартиры">Квартиры</option>
+                                <option value="апартаменты">Апартаменты</option>
+                            </select>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Вызов</span>
-                            <span class="stat-value" id="statCall">0</span>
+                        <div class="form-field">
+                            <label>Дата ввода в эксплуатацию</label>
+                            <input type="date" id="commissioningDate">
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Нет доступа</span>
-                            <span class="stat-value" id="statNoAccess">0</span>
+                        <div class="form-section">
+                            <div class="form-section-header">
+                                <span>Корпуса и секции</span>
+                            </div>
+                            <div id="buildingsContainer"></div>
+                            <button type="button" class="btn btn-secondary btn-sm add-building-btn" onclick="addBuildingRow()">+ Добавить корпус</button>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">С замеч.</span>
-                            <span class="stat-value" id="statDefects">0</span>
+                        <div class="form-footer">
+                            <button type="button" class="btn" onclick="goHome()">Отмена</button>
+                            <button type="button" class="btn btn-primary" onclick="submitComplexForm()">Создать комплекс</button>
                         </div>
                     </div>
                 </div>
@@ -296,5 +268,16 @@
     </div>
 
     <div id="toast" class="toast"></div>
+
+    <!-- Stats Modal -->
+    <div id="statsModal" class="modal" onclick="closeStatsModal(event)">
+        <div class="modal-content modal-lg" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Статистика</h3>
+                <button class="modal-close" onclick="closeStatsModal()">×</button>
+            </div>
+            <div class="modal-body" id="statsBody"></div>
+        </div>
+    </div>
 </body>
 </html>
