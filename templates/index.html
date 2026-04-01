@@ -33,6 +33,33 @@
                         <option value="no_access">Нет доступа</option>
                     </select>
                 </div>
+                <div class="header-center">
+                    <!-- Section and Category filters + Search (center-left) -->
+                    <div class="header-filters" id="headerFilters" style="display:none;">
+                        <span class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
+                            <button type="button" class="section-filter-btn select" id="filterBtn" onclick="toggleFilterDropdown(event)">
+                                <span id="filterBtnText">Все секции</span>
+                                <span class="dropdown-arrow">▾</span>
+                            </button>
+                            <div class="multi-select-dropdown" id="filterDropdown">
+                                <div id="filterOptions"></div>
+                            </div>
+                        </span>
+                        <span class="section-filter-wrapper" id="categoryFilterWrapper">
+                            <button type="button" class="section-filter-btn select" id="categoryFilterBtn" onclick="toggleCategoryDropdown(event)">
+                                <span id="categoryFilterBtnText">Все категории</span>
+                                <span class="dropdown-arrow">▾</span>
+                            </button>
+                            <div class="multi-select-dropdown" id="categoryDropdown">
+                                <div id="categoryOptions"></div>
+                            </div>
+                        </span>
+                    </div>
+                    <!-- Search row -->
+                    <div class="toolbar-search" id="toolbarSearch" style="display:none;">
+                        <input type="text" id="searchApt" class="input search-apt" placeholder="Например 1,3-5,10" oninput="debouncedLoad()">
+                    </div>
+                </div>
                 <div class="header-right">
                     <!-- Filter row (pills) -->
                     <div class="toolbar-filters" id="toolbarFilters" style="display:none;">
@@ -46,7 +73,6 @@
                             <button class="pill" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
                             <button class="pill" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
                         </div>
-                    </div>
                     </div>
                     <!-- Apartment status buttons -->
                     <div class="toolbar-status" id="toolbarStatus" style="display:none;">
