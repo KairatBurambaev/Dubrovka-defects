@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9535">
-    <script src="/static/app.js?v=9410"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9537">
+    <script src="/static/app.js?v=9412"></script>
 </head>
 <body>
     <div class="app">
@@ -113,6 +113,22 @@
 
             <!-- Complexes -->
             <section id="tab-complexes" class="tab-panel active">
+                <div class="portfolio-shell">
+                    <div class="portfolio-hero">
+                        <div>
+                            <div class="portfolio-eyebrow">Сервис приемки</div>
+                            <h1 class="portfolio-title">Портфель объектов</h1>
+                            <p class="portfolio-subtitle">Быстрый обзор по всем ЖК, поиск по названию и адресу, переход к проблемным объектам в один клик.</p>
+                        </div>
+                        <div class="portfolio-actions">
+                            <div class="portfolio-search-wrap">
+                                <input type="text" id="complexSearch" class="input portfolio-search" placeholder="Поиск по ЖК или адресу">
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="loadComplexes()">Обновить</button>
+                        </div>
+                    </div>
+                    <div id="portfolioStats" class="portfolio-stats"></div>
+                </div>
                 <div id="complexesList" class="cards-grid"></div>
             </section>
 
@@ -164,6 +180,7 @@
 
                 <div class="complex-detail-content">
                     <div class="complex-detail-main">
+                        <div id="resultsSummaryBar" class="results-summary" style="display:none;"></div>
                         <div id="apartmentsContainer" class="sections-grid"></div>
                     </div>
                 </div>
@@ -173,6 +190,7 @@
             <section id="tab-apartment-detail" class="tab-panel">
                 <div class="detail-grid">
                     <div class="detail-content">
+                        <div id="apartmentQuickInfo" class="panel apartment-quick-info" style="display:none;"></div>
                         <div class="panel" id="phoneBlock" style="display:none;">
                             <div class="phone-panel">
                                 <label>Телефон</label>
@@ -202,7 +220,7 @@
                         </div>
                     </div>
 
-                    <div class="detail-main">
+                    <aside class="detail-main detail-aside-placeholder"></aside>
                 </div>
             </section>
 

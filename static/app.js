@@ -7,12 +7,15 @@ const state = {
     currentPropertyType: 'квартиры',
     currentApartment: null,
     currentApartmentData: null,
+    currentApartmentDefects: [],
     currentDefect: null,
+    complexes: [],
     categories: [],
     currentItemId: null,
     accessFilter: '',
     loading: false,
-    currentDefects: [] // Store defects for category filtering
+    currentDefects: [], // Store defects for category filtering
+    complexSearch: ''
 };
 
 // Global filter constants
@@ -31,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupForms();
     setupEventListeners();
     document.body.classList.add('page-home');
+    updateMobileFilterIndicator('');
 });
 
 // Cache DOM elements
@@ -44,9 +48,13 @@ function cacheElements() {
     elements.pageTitle = document.getElementById('pageTitle');
     elements.pageSubtitle = document.getElementById('pageSubtitle');
     elements.complexesList = document.getElementById('complexesList');
+    elements.complexSearch = document.getElementById('complexSearch');
+    elements.portfolioStats = document.getElementById('portfolioStats');
     elements.totalComplexes = document.getElementById('totalComplexes');
     elements.apartmentsContainer = document.getElementById('apartmentsContainer');
+    elements.resultsSummaryBar = document.getElementById('resultsSummaryBar');
     elements.defectsList = document.getElementById('defectsList');
+    elements.apartmentQuickInfo = document.getElementById('apartmentQuickInfo');
     elements.statsPanel = document.getElementById('statsPanel');
     elements.statAvailable = document.getElementById('statAvailable');
     elements.statAccepted = document.getElementById('statAccepted');
@@ -119,6 +127,23 @@ function setupEventListeners() {
             setAccessFilter(filter);
         });
     });
+
+    if (elements.complexSearch) {
+        elements.complexSearch.addEventListener('input', (e) => {
+            state.complexSearch = e.target.value.trim().toLowerCase();
+            renderComplexes(state.complexes);
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== '/' || e.target.matches('input, textarea, select')) return;
+        e.preventDefault();
+        if (state.currentTab === 'complexes' && elements.complexSearch) {
+            elements.complexSearch.focus();
+        } else if (state.currentComplex) {
+            document.getElementById('searchApt')?.focus();
+        }
+    });
 }
 
 // Navigation with animations
@@ -164,6 +189,7 @@ function showTab(tab) {
             if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'inline-flex';
         }
         setPageTitle('Перспектива', '');
+        renderResultsSummary([]);
         // Hide section filter on main page
         const sectionFilterWrapper = document.getElementById('sectionFilterWrapper');
         if (sectionFilterWrapper) sectionFilterWrapper.style.display = 'none';
@@ -200,6 +226,7 @@ function setPageTitle(title, subtitle) {
 function backToComplex() {
     state.currentApartment = null;
     state.currentApartmentData = null;
+    state.currentApartmentDefects = [];
     
     // Show filters, hide status buttons
     const toolbarSearch = document.getElementById('toolbarSearch');
@@ -227,9 +254,9 @@ function backToApartment() {
 
 function goBack() {
     if (state.currentApartment) {
-        goToApartmentList();
+        backToComplex();
     } else if (state.currentComplex) {
-        showTab('complexes');
+        goHome();
     }
 }
 
@@ -237,6 +264,8 @@ function goHome() {
     state.currentComplex = null;
     state.currentApartment = null;
     state.currentComplexData = null;
+    state.currentApartmentData = null;
+    state.currentApartmentDefects = [];
     state.currentPropertyType = 'квартиры';
     showTab('complexes');
     loadComplexes();
@@ -428,39 +457,13 @@ async function loadComplexes() {
     try {
         const res = await fetch('/api/complexes');
         const complexes = await res.json();
+        state.complexes = Array.isArray(complexes) ? complexes : [];
         console.log('Complexes loaded:', complexes.length);
-        
-        if (!complexes.length) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">[Building]</div>
-                    <h3>Нет жилых комплексов</h3>
-                    <p>Создайте первый комплекс, чтобы начать работу</p>
-                </div>
-            `;
-            if (elements.totalComplexes) elements.totalComplexes.textContent = '0';
-            return;
-        }
-        
-        container.innerHTML = complexes.map(c => {
-            const stats = {};
-            (c.by_access_status || []).forEach(s => stats[s.access_status] = s.count);
-            
-            const totalApts = c.apartments_count || 0;
-            const defectCount = stats.defects || c.defects_count || 0;
-            const propType = c.property_type || 'квартиры';
-            const isPerspective = c.name.toLowerCase().includes('перспектива');
-            const cardClass = isPerspective ? 'complex-card complex-card-red' : 'complex-card';
-            return `
-                <div class="${cardClass}" onclick="showComplexDetail(${c.id})">
-                    <div class="complex-card-name">${escapeHtml(c.name)}</div>
-                    <div class="complex-card-info">г. Москва, ул. Дубровская, д. 1</div>
-                </div>
-            `;
-        }).join('');
-        
-        if (elements.totalComplexes) elements.totalComplexes.textContent = complexes.length;
+
+        renderPortfolioStats(state.complexes);
+        renderComplexes(state.complexes);
     } catch (err) {
+        renderPortfolioStats([]);
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-icon">[!]</div>
@@ -470,6 +473,111 @@ async function loadComplexes() {
             </div>
         `;
     }
+}
+
+function renderPortfolioStats(complexes) {
+    const statsContainer = elements.portfolioStats;
+    if (!statsContainer) return;
+
+    const totals = complexes.reduce((acc, complex) => {
+        const statusMap = {};
+        (complex.by_access_status || []).forEach(item => {
+            statusMap[item.access_status] = item.count;
+        });
+
+        acc.complexes += 1;
+        acc.apartments += complex.apartments_count || 0;
+        acc.defects += complex.defects_count || 0;
+        acc.accepted += (statusMap.owner_accepted || 0) + (statusMap.tech_accepted || 0);
+        return acc;
+    }, { complexes: 0, apartments: 0, defects: 0, accepted: 0 });
+
+    statsContainer.innerHTML = `
+        <div class="portfolio-stat-card">
+            <span class="portfolio-stat-value">${totals.complexes}</span>
+            <span class="portfolio-stat-label">ЖК в работе</span>
+        </div>
+        <div class="portfolio-stat-card">
+            <span class="portfolio-stat-value">${totals.apartments}</span>
+            <span class="portfolio-stat-label">Всего квартир</span>
+        </div>
+        <div class="portfolio-stat-card portfolio-stat-card-warn">
+            <span class="portfolio-stat-value">${totals.defects}</span>
+            <span class="portfolio-stat-label">Активных замечаний</span>
+        </div>
+        <div class="portfolio-stat-card portfolio-stat-card-ok">
+            <span class="portfolio-stat-value">${totals.accepted}</span>
+            <span class="portfolio-stat-label">Принято</span>
+        </div>
+    `;
+}
+
+function renderComplexes(complexes) {
+    const container = elements.complexesList;
+    if (!container) return;
+
+    const filteredComplexes = (complexes || []).filter(complex => {
+        if (!state.complexSearch) return true;
+        const haystack = `${complex.name || ''} ${complex.address || ''}`.toLowerCase();
+        return haystack.includes(state.complexSearch);
+    });
+
+    if (!complexes.length) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">[Building]</div>
+                    <h3>Нет жилых комплексов</h3>
+                    <p>Создайте первый комплекс, чтобы начать работу</p>
+                </div>
+            `;
+            if (elements.totalComplexes) elements.totalComplexes.textContent = '0';
+            return;
+    }
+
+    if (!filteredComplexes.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">⌕</div>
+                <h3>Ничего не найдено</h3>
+                <p>Измените поисковый запрос по названию ЖК или адресу</p>
+            </div>
+        `;
+        if (elements.totalComplexes) elements.totalComplexes.textContent = '0';
+        return;
+    }
+
+    container.innerHTML = filteredComplexes.map(c => {
+        const stats = {};
+        (c.by_access_status || []).forEach(s => stats[s.access_status] = s.count);
+
+        const totalApts = c.apartments_count || 0;
+        const defectCount = c.defects_count || 0;
+        const acceptedCount = (stats.owner_accepted || 0) + (stats.tech_accepted || 0);
+        const callCount = stats.call || 0;
+        const noAccessCount = stats.no_access || 0;
+        const propType = c.property_type || 'квартиры';
+        const address = c.address ? escapeHtml(c.address) : 'Адрес не указан';
+
+        return `
+            <article class="complex-card" onclick="showComplexDetail(${c.id})">
+                <div class="complex-card-topline">
+                    <span class="complex-card-type">${escapeHtml(propType)}</span>
+                    <span class="complex-card-arrow">Открыть</span>
+                </div>
+                <div class="complex-card-name">${escapeHtml(c.name)}</div>
+                <div class="complex-card-info">${address}</div>
+                <div class="complex-stats">
+                    <span class="stat-item stat-available">${totalApts} квартир</span>
+                    <span class="stat-item stat-defect">${defectCount} замечаний</span>
+                    <span class="stat-item stat-success">${acceptedCount} принято</span>
+                    <span class="stat-item stat-call">${callCount} вызов</span>
+                    <span class="stat-item stat-noaccess">${noAccessCount} нет доступа</span>
+                </div>
+            </article>
+        `;
+    }).join('');
+
+    if (elements.totalComplexes) elements.totalComplexes.textContent = filteredComplexes.length;
 }
 
 function onTitleClick() {
@@ -1164,9 +1272,12 @@ async function loadApartments() {
         if (pageSubtitle) {
             pageSubtitle.textContent = `${apts.length} ${propName}`;
         }
+
+        renderResultsSummary(apts);
         
         renderApartments(apts);
     } catch (err) {
+        renderResultsSummary([]);
         const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
         container.innerHTML = `
             <div class="empty-state">
@@ -1176,6 +1287,79 @@ async function loadApartments() {
             </div>
         `;
     }
+}
+
+function renderResultsSummary(apartments) {
+    const bar = elements.resultsSummaryBar;
+    if (!bar) return;
+    if (!state.currentComplex) {
+        bar.style.display = 'none';
+        bar.innerHTML = '';
+        return;
+    }
+
+    const search = document.getElementById('searchApt')?.value.trim();
+    const category = document.getElementById('categoryFilterBtnText')?.textContent?.trim();
+    const sectionLabel = document.getElementById('filterBtnText')?.textContent?.trim();
+    const activeChips = [];
+
+    if (state.accessFilter) activeChips.push(getAccessStatusName(state.accessFilter));
+    if (search) activeChips.push(`Поиск: ${escapeHtml(search)}`);
+    if (category && category !== 'Все категории') activeChips.push(category);
+    if (sectionLabel && sectionLabel !== 'Все секции') activeChips.push(sectionLabel);
+
+    const count = apartments.length;
+    const chipHtml = activeChips.length
+        ? activeChips.map(chip => `<span class="results-chip">${chip}</span>`).join('')
+        : '<span class="results-chip results-chip-muted">Без дополнительных фильтров</span>';
+
+    bar.style.display = 'flex';
+    bar.innerHTML = `
+        <div class="results-copy">
+            <div class="results-title">Найдено ${count} ${pluralize(count, 'квартира', 'квартиры', 'квартир')}</div>
+            <div class="results-chips">${chipHtml}</div>
+        </div>
+        <div class="results-actions">
+            <button type="button" class="btn btn-sm" onclick="clearApartmentFilters()">Сбросить фильтры</button>
+        </div>
+    `;
+}
+
+function clearApartmentFilters() {
+    state.accessFilter = '';
+    document.querySelectorAll('.pill').forEach(chip => chip.classList.remove('active'));
+    updateMobileFilterIndicator('');
+    updateMobileFilterButtons('');
+
+    const search = document.getElementById('searchApt');
+    if (search) search.value = '';
+
+    const categoryFilter = document.getElementById('defectCategoryFilter');
+    if (categoryFilter) categoryFilter.value = '';
+
+    const categoryFilterBtnText = document.getElementById('categoryFilterBtnText');
+    if (categoryFilterBtnText) categoryFilterBtnText.textContent = 'Все категории';
+
+    const filterBtnText = document.getElementById('filterBtnText');
+    if (filterBtnText) filterBtnText.textContent = 'Все секции';
+
+    const filterOptions = document.getElementById('filterOptions');
+    if (filterOptions) {
+        filterOptions.querySelectorAll('.filter-item').forEach(item => item.classList.remove('selected'));
+    }
+
+    const mobileFilter = document.getElementById('mobileStatusFilter');
+    if (mobileFilter) mobileFilter.value = '';
+
+    loadApartments();
+}
+
+function getCurrentApartmentDefectCounts() {
+    const defects = Array.isArray(state.currentApartmentDefects) ? state.currentApartmentDefects : [];
+    return {
+        active: defects.filter(d => !['ready', 'rejected'].includes(d.status)).length,
+        done: defects.filter(d => ['ready', 'rejected'].includes(d.status)).length
+    };
 }
 
 function setAccessFilter(filter) {
@@ -1551,6 +1735,7 @@ function getDeadlineClass(apt) {
 async function showApartmentDetail(id) {
     state.currentApartment = id;
     state.currentApartmentData = null;
+    state.currentApartmentDefects = [];
     updateHeader(true, false);
     setPageTitle('Загрузка...', '');
     showTab('apartment-detail');
@@ -1583,6 +1768,7 @@ async function showApartmentDetail(id) {
         }
         
         state.currentApartmentData = apt;
+        state.currentApartmentDefects = defects;
         const propType = state.currentPropertyType;
         const propLabel = propType === 'апартаменты' ? 'Апартаменты' : 'Квартира';
         
@@ -1598,6 +1784,7 @@ async function showApartmentDetail(id) {
         
         const fullSubtitle = `${aptSubtitle} | Активных: ${active.length} | Готовых: ${done.length}`;
         setPageTitle(`${propLabel} ${apt.number}`, fullSubtitle);
+        renderApartmentQuickInfo(apt, active.length, done.length);
         
         // Set status buttons
         document.querySelectorAll('.status-item').forEach(btn => {
@@ -1618,17 +1805,85 @@ async function showApartmentDetail(id) {
         
         // Comment field
         const commentBlock = document.getElementById('commentBlock');
-        const commentInput = document.getElementById('commentInput');
+        const commentInput = document.getElementById('complexCommentInput');
         
         if (commentInput) commentInput.value = apt.access_comment || '';
         if (commentBlock) {
-            commentBlock.style.display = apt.access_status === 'elevated' ? 'block' : 'none';
+            commentBlock.style.display = apt.access_status === 'complex' ? 'block' : 'none';
         }
         
         renderDefects(defects);
     } catch (err) {
         showToast('Ошибка загрузки', 'error');
         console.error(err);
+    }
+}
+
+function renderApartmentQuickInfo(apt, activeCount, doneCount) {
+    const container = elements.apartmentQuickInfo;
+    if (!container || !apt) return;
+
+    const statusName = getAccessStatusName(apt.access_status);
+    const complexName = state.currentComplexData?.name || 'ЖК';
+    const locationParts = [
+        apt.building_number ? `Корпус ${apt.building_number}` : '',
+        `Секция ${apt.section_number}`,
+        `Этаж ${apt.floor}`
+    ].filter(Boolean);
+
+    container.style.display = 'block';
+    container.innerHTML = `
+        <div class="apartment-quick-info-header">
+            <div>
+                <div class="apartment-quick-info-title">${escapeHtml(complexName)}</div>
+                <div class="apartment-quick-info-subtitle">${escapeHtml(locationParts.join(' • '))}</div>
+            </div>
+            <button type="button" class="btn btn-sm" onclick="copyApartmentSummary()">Копировать</button>
+        </div>
+        <div class="apartment-quick-info-grid">
+            <div class="quick-info-chip">
+                <span class="quick-info-label">Статус</span>
+                <strong>${escapeHtml(statusName)}</strong>
+            </div>
+            <div class="quick-info-chip">
+                <span class="quick-info-label">Активных</span>
+                <strong>${activeCount}</strong>
+            </div>
+            <div class="quick-info-chip">
+                <span class="quick-info-label">Готовых</span>
+                <strong>${doneCount}</strong>
+            </div>
+            <div class="quick-info-chip">
+                <span class="quick-info-label">Телефон</span>
+                <strong>${escapeHtml(apt.access_phone || 'Не указан')}</strong>
+            </div>
+            <div class="quick-info-chip quick-info-chip-wide">
+                <span class="quick-info-label">Комментарий</span>
+                <strong>${escapeHtml(apt.access_comment || 'Нет комментария')}</strong>
+            </div>
+        </div>
+    `;
+}
+
+async function copyApartmentSummary() {
+    if (!state.currentApartmentData) return;
+
+    const apt = state.currentApartmentData;
+    const summary = [
+        `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apt.number}`,
+        state.currentComplexData?.name || '',
+        apt.building_number ? `Корпус ${apt.building_number}` : '',
+        `Секция ${apt.section_number}`,
+        `Этаж ${apt.floor}`,
+        `Статус: ${getAccessStatusName(apt.access_status)}`,
+        apt.access_phone ? `Телефон: ${apt.access_phone}` : ''
+    ].filter(Boolean).join('\n');
+
+    try {
+        await navigator.clipboard.writeText(summary);
+        showToast('Сводка скопирована', 'success');
+    } catch (err) {
+        showToast('Не удалось скопировать', 'error');
     }
 }
 
@@ -1648,7 +1903,7 @@ function setStatus(status) {
     
     const commentBlock = document.getElementById('commentBlock');
     if (commentBlock) {
-        commentBlock.style.display = status === 'elevated' ? 'block' : 'none';
+        commentBlock.style.display = status === 'complex' ? 'block' : 'none';
     }
     
     saveStatus(status);
@@ -1676,6 +1931,8 @@ async function saveStatus(status) {
             }
             
             state.currentApartmentData.access_status = status;
+            const counts = getCurrentApartmentDefectCounts();
+            renderApartmentQuickInfo(state.currentApartmentData, counts.active, counts.done);
         } else {
             showToast('Ошибка сохранения', 'error');
         }
@@ -1699,6 +1956,8 @@ async function savePhone() {
         });
         
         state.currentApartmentData.access_phone = phone;
+        const counts = getCurrentApartmentDefectCounts();
+        renderApartmentQuickInfo(state.currentApartmentData, counts.active, counts.done);
         showToast('Телефон сохранен', 'success');
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
@@ -1721,6 +1980,8 @@ async function deletePhone() {
         if (phoneInput) phoneInput.value = '';
         
         state.currentApartmentData.access_phone = null;
+        const counts = getCurrentApartmentDefectCounts();
+        renderApartmentQuickInfo(state.currentApartmentData, counts.active, counts.done);
         showToast('Телефон удален', 'success');
     } catch (err) {
         showToast('Ошибка удаления', 'error');
@@ -1730,17 +1991,20 @@ async function deletePhone() {
 async function saveComment() {
     if (!state.currentApartment) return;
     
-    const commentInput = document.getElementById('commentInput');
+    const commentInput = document.getElementById('complexCommentInput');
     const comment = commentInput?.value.trim();
     
     try {
         await fetch(`/api/apartments/${state.currentApartment}/access`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `access_status=elevated&access_comment=${encodeURIComponent(comment)}`
+            body: `access_status=complex&access_comment=${encodeURIComponent(comment)}`
         });
         
+        state.currentApartmentData.access_status = 'complex';
         state.currentApartmentData.access_comment = comment;
+        const counts = getCurrentApartmentDefectCounts();
+        renderApartmentQuickInfo(state.currentApartmentData, counts.active, counts.done);
         showToast('Комментарий сохранен', 'success');
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
