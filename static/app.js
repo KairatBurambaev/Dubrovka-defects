@@ -1258,6 +1258,7 @@ function updateMobileFilterIndicator(filter) {
         const index = FILTERS.indexOf(filter);
         const name = index >= 0 ? FILTER_NAMES[index] : 'Все';
         indicator.textContent = name;
+        indicator.classList.toggle('filter-active', Boolean(filter));
         // Add animation class
         indicator.classList.add('filter-changed');
         setTimeout(() => {
@@ -1313,6 +1314,68 @@ function updateStatsPanel(apartments) {
     }
 }
 
+function buildSectionSummary(apartments) {
+    const total = apartments.length;
+    const accepted = apartments.filter(a => a.access_status === 'owner_accepted').length;
+    const defects = apartments.filter(countsAsDefectApartment).length;
+    const noAccess = apartments.filter(a => a.access_status === 'no_access').length;
+    const overdue = apartments.filter(a => getDeadlineClass(a) === 'apt-deadline-passed').length;
+
+    return [
+        { label: 'Всего', value: total, tone: 'neutral' },
+        { label: 'С замеч.', value: defects, tone: defects ? 'warning' : 'neutral' },
+        { label: 'Принята', value: accepted, tone: accepted ? 'success' : 'neutral' },
+        { label: 'Нет доступа', value: noAccess, tone: noAccess ? 'slate' : 'neutral' },
+        { label: 'Просрочено', value: overdue, tone: overdue ? 'danger' : 'neutral' },
+    ];
+}
+
+function getApartmentListEmptyState() {
+    const search = document.getElementById('searchApt')?.value?.trim();
+    const category = document.getElementById('defectCategoryFilter')?.value;
+    const sectionItems = document.querySelectorAll('#filterOptions .filter-item.selected');
+    const hasSectionFilter = sectionItems.length > 0;
+    const filterName = FILTER_NAMES[FILTERS.indexOf(state.accessFilter)] || 'Все';
+
+    if (search || category || state.accessFilter || hasSectionFilter) {
+        return {
+            title: 'Ничего не найдено',
+            description: `Измени поиск или фильтры. Сейчас активен статус «${filterName}».`
+        };
+    }
+
+    return {
+        title: 'Квартиры не найдены',
+        description: 'Для этого комплекса пока нет квартир в текущем диапазоне секций.'
+    };
+}
+
+function formatApartmentBadgeCount(count) {
+    return count > 9 ? '9+' : String(count);
+}
+
+function renderSectionCard(title, apartments, floors, propShort, propFull) {
+    const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
+
+    return `
+        <section class="section-card">
+            <div class="section-header">
+                <div class="section-heading section-heading-simple">
+                    <span class="section-title">${title}</span>
+                </div>
+            </div>
+            <div class="section-body-container">
+                <div class="section-body">
+                    ${sortedFloors.map(floor => {
+                        const floorApts = floors[floor].sort((a, b) => a.number - b.number);
+                        return renderFloorRow(floorApts, floor, propFull);
+                    }).join('')}
+                </div>
+            </div>
+        </section>
+    `;
+}
+
 // Render apartments with new .apt classes and colors
 function renderApartments(apartments) {
     console.log('=== renderApartments START ===', apartments?.length);
@@ -1324,16 +1387,19 @@ function renderApartments(apartments) {
     
     const viewMode = document.getElementById('viewMode')?.value || 'section';
     const propType = state.currentPropertyType;
-    const propName = propType === 'апартаменты' ? 'квартир' : 'квартир';
     const propShort = propType === 'апартаменты' ? 'апарт.' : 'кв.';
     const propFull = propType === 'апартаменты' ? 'апартамент' : 'квартира';
     
     if (!apartments?.length) {
+        const emptyState = getApartmentListEmptyState();
         container.innerHTML = `
             <div class="empty-state">
-                <h3>Замечаний нет</h3>
+                <div class="empty-icon">#</div>
+                <h3>${emptyState.title}</h3>
+                <p>${emptyState.description}</p>
             </div>
         `;
+        updateStatsPanel([]);
         return;
     }
     
@@ -1394,56 +1460,29 @@ function renderApartments(apartments) {
                 return sections[a].section_number - sections[b].section_number;
             });
             
-            // Building totals
             const allApts = [];
             sortedSectionIds.forEach(secId => {
                 allApts.push(...Object.values(sections[secId].floors).flat());
             });
-            const bldDefectCount = allApts.filter(countsAsDefectApartment).length;
-            const bldOwnerCount = allApts.filter(a => a.access_status === 'owner_accepted').length;
-            const bldCallCount = allApts.filter(a => a.access_status === 'call').length;
-            const bldNoCount = allApts.filter(a => a.access_status === 'no_access').length;
             
             const title = `Корпус ${bnum}`;
             
             return `
-                <div class="section-item">
-                    <div class="section-header">
-                        <span class="section-title">${title}</span>
-                        <span class="section-count">${allApts.length} ${propShort}</span>
+                <section class="section-group">
+                    <div class="section-group-header">
+                        <div>
+                            <div class="section-group-title">${title}</div>
+                        </div>
                     </div>
-                    <div class="section-body-container">
-                        <div class="section-body">
+                    <div class="section-group-grid">
                             ${sortedSectionIds.map(secId => {
                                 const secData = sections[secId];
                                 const secFloors = secData.floors;
                                 const secApts = Object.values(secFloors).flat();
-                                const secDefectCount = secApts.filter(countsAsDefectApartment).length;
-                                const secOwnerCount = secApts.filter(a => a.access_status === 'owner_accepted').length;
-                                const secCallCount = secApts.filter(a => a.access_status === 'call').length;
-                                const secNoCount = secApts.filter(a => a.access_status === 'no_access').length;
-                                const sortedFloors = Object.keys(secFloors).sort((a, b) => b - a);
-                                
-                                return `
-                                    <div class="section-block">
-                                        <div class="section-header" style="background:#f8f9fa;border-bottom:1px solid #eee;">
-                                            <span class="section-title">Секция ${secData.section_number}</span>
-                                            <span class="section-count">${secApts.length} ${propShort}</span>
-                                        </div>
-                                        <div class="section-body-container" style="padding:0;">
-                                            <div class="section-body">
-                                                ${sortedFloors.map(floor => {
-                                                    const floorApts = secFloors[floor].sort((a, b) => a.number - b.number);
-                                                    return renderFloorRow(floorApts, floor, propFull);
-                                                }).join('')}
-                                            </div>
-                                        </div>
-                                    </div>
-                                `;
+                                return renderSectionCard(`Секция ${secData.section_number}`, secApts, secFloors, propShort, propFull);
                             }).join('')}
-                        </div>
                     </div>
-                </div>
+                </section>
             `;
         }).join('');
     } else {
@@ -1461,31 +1500,9 @@ function renderApartments(apartments) {
             const buildingNum = sectionData?.building_number || 1;
             const allApts = Object.values(floors).flat();
             
-            const defectCount = allApts.filter(countsAsDefectApartment).length;
-            const ownerCount = allApts.filter(a => a.access_status === 'owner_accepted').length;
-            const callCount = allApts.filter(a => a.access_status === 'call').length;
-            const noCount = allApts.filter(a => a.access_status === 'no_access').length;
-            
-            const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
-            
             const title = uniqueBuildings.size > 1 ? `Корпус ${buildingNum} • Секция ${sec}` : `Секция ${sec}`;
-            
-            return `
-                <div class="section-item">
-                    <div class="section-header">
-                        <span class="section-title">${title}</span>
-                        <span class="section-count">${allApts.length} ${propShort}</span>
-                    </div>
-                    <div class="section-body-container">
-                        <div class="section-body">
-                            ${sortedFloors.map(floor => {
-                                const floorApts = floors[floor].sort((a, b) => a.number - b.number);
-                                return renderFloorRow(floorApts, floor, propFull);
-                            }).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
+
+            return renderSectionCard(title, allApts, floors, propShort, propFull);
         }).join('');
     }
     
@@ -1528,7 +1545,7 @@ function renderFloorRow(floorApts, floor, propFull) {
                         badgeCount = state.currentDefects.filter(d => d.apartment_id === a.id && d.category === catFilter && d.status !== 'ready' && d.status !== 'rejected').length;
                     }
                     
-                    const badge = (badgeCount > 0 && a.access_status !== 'owner_accepted') ? `<span class="apt-badge">${badgeCount}</span>` : '';
+                    const badge = (badgeCount > 0 && a.access_status !== 'owner_accepted') ? `<span class="apt-badge">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
                     const tooltip = `${propFull === 'апартамент' ? 'Апартамент' : 'Квартира'} ${a.number}`;
                     return `
                         <div class="apt ${cls} ${deadlineClass}" 
@@ -2384,83 +2401,108 @@ async function loadStats(body, modal) {
         
         const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
         
-        const calcPercent = (val) => totalApartments > 0 ? Math.round(val / totalApartments * 100) : 0;
-        
         const formatDate = (d) => {
             const date = new Date(d);
             return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
         };
         
+        const statRows = [
+            {
+                label: 'Принято',
+                value: ownerAccepted + techAccepted,
+                week: `+${acceptedWeek}`,
+                today: `+${acceptedToday}`,
+                tone: 'accepted'
+            },
+            {
+                label: 'С замечаниями',
+                value: withDefects > 0 ? withDefects : 0,
+                week: `+${defectsWeek}`,
+                today: defectsToday > 0 ? `+${defectsToday}` : '0',
+                tone: 'defects'
+            },
+            {
+                label: 'Нет доступа',
+                value: noAccess,
+                week: '-',
+                today: '-',
+                tone: 'no-access'
+            },
+            {
+                label: 'Вызванные',
+                value: call,
+                week: '-',
+                today: '-',
+                tone: 'call'
+            },
+            {
+                label: 'В работе',
+                value: inProgress,
+                week: '-',
+                today: '-',
+                tone: 'progress'
+            },
+            {
+                label: 'Доступны',
+                value: available,
+                week: '-',
+                today: '-',
+                tone: 'available'
+            }
+        ];
+
         body.innerHTML = `
+            <div class="stats-panel-head">
+                <div>
+                    <span class="stats-label">Срез по ${propName}</span>
+                    <div class="stats-date">${formatDate(statsDate)}</div>
+                </div>
+                <div class="stats-total-card">
+                    <span class="stats-total-label">Всего</span>
+                    <strong class="stats-total">${totalApartments}</strong>
+                </div>
+            </div>
+
             <div class="stats-date-picker">
-                <label>Дата отчета:</label>
+                <label for="statsDateInput">Дата отчета</label>
                 <input type="date" id="statsDateInput" 
                     value="${statsDate}" 
                     min="${statsMinDate}"
                     max="${new Date().toISOString().split('T')[0]}"
                     onchange="changeStatsDate(this.value)">
             </div>
-            
-            <div class="stats-header">
-                <div class="stats-header-left">
-                    <span class="stats-label">${propName}</span>
-                    <span class="stats-date">${formatDate(statsDate)}</span>
+
+            <div class="stats-summary-grid">
+                <div class="stats-summary-card stats-summary-card-accent">
+                    <span class="stats-summary-label">Принято</span>
+                    <strong class="stats-summary-value">${ownerAccepted + techAccepted}</strong>
+                    <span class="stats-summary-meta">+${acceptedToday} сегодня</span>
                 </div>
-                <div class="stats-total">${totalApartments}</div>
+                <div class="stats-summary-card">
+                    <span class="stats-summary-label">С замечаниями</span>
+                    <strong class="stats-summary-value">${withDefects}</strong>
+                    <span class="stats-summary-meta">+${defectsWeek} за неделю</span>
+                </div>
             </div>
-            
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th>Статус</th>
-                        <th>Всего</th>
-                        <th>За неделю</th>
-                        <th>За сегодня</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr class="stat-accepted">
-                        <td>Принято</td>
-                        <td class="stat-value">${ownerAccepted + techAccepted}</td>
-                        <td class="stat-week">+${acceptedWeek}</td>
-                        <td class="stat-today">+${acceptedToday}</td>
-                    </tr>
-                    <tr class="stat-defects">
-                        <td>С замечаниями</td>
-                        <td class="stat-value">${withDefects > 0 ? withDefects : 0}</td>
-                        <td class="stat-week">+${defectsWeek}</td>
-                        <td class="stat-today">${defectsToday > 0 ? '+' + defectsToday : '0'}</td>
-                    </tr>
-                    <tr class="stat-no-access">
-                        <td>Нет доступа</td>
-                        <td class="stat-value">${noAccess}</td>
-                        <td class="stat-week">-</td>
-                        <td class="stat-today">-</td>
-                    </tr>
-                    <tr class="stat-call">
-                        <td>Вызваные квартиры</td>
-                        <td class="stat-value">${call}</td>
-                        <td class="stat-week">-</td>
-                        <td class="stat-today">-</td>
-                    </tr>
-                    <tr class="stat-progress">
-                        <td>В работе</td>
-                        <td class="stat-value">${inProgress}</td>
-                        <td class="stat-week">-</td>
-                        <td class="stat-today">-</td>
-                    </tr>
-                    <tr>
-                        <td>Доступны</td>
-                        <td class="stat-value">${available}</td>
-                        <td class="stat-week">-</td>
-                        <td class="stat-today">-</td>
-                    </tr>
-                </tbody>
-            </table>
-            
+
+            <div class="stats-list">
+                ${statRows.map((row) => `
+                    <div class="stats-list-item stats-list-item-${row.tone}">
+                        <div class="stats-list-main">
+                            <span class="stats-list-name">${row.label}</span>
+                            <strong class="stats-list-value">${row.value}</strong>
+                        </div>
+                        <div class="stats-list-meta">
+                            <span>Неделя ${row.week}</span>
+                            <span>Сегодня ${row.today}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+
             <div class="stats-actions">
                 <button class="btn btn-primary" onclick="printStatsReport()">
-                    🖨 Печать отчета
+                    Печать отчета
                 </button>
             </div>
         `;

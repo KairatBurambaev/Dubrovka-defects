@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9535">
+    <link rel="stylesheet" href="/static/style.css?v=9540">
     <script src="/static/app.js?v=9413"></script>
 </head>
 <body>
@@ -72,7 +72,7 @@
                             <button class="pill" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
                             <button class="pill" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
                             <button class="pill" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
-                            <button class="pill pill-stats" onclick="showStatsModal()">📊 Статистика</button>
+                            <button class="pill pill-stats" onclick="showStatsModal()">Статистика</button>
                         </div>
                     </div>
                     <!-- Apartment status buttons -->
@@ -270,8 +270,8 @@
     <div id="toast" class="toast"></div>
 
     <!-- Stats Modal -->
-    <div id="statsModal" class="modal" onclick="closeStatsModal(event)">
-        <div class="modal-content modal-lg" onclick="event.stopPropagation()">
+    <div id="statsModal" class="modal stats-modal" onclick="closeStatsModal(event)">
+        <div class="modal-content stats-popover" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <h3>Статистика</h3>
                 <button class="modal-close" onclick="closeStatsModal()">×</button>
