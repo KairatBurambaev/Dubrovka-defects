@@ -6376,3 +6376,77 @@ body {
   outline: none !important;
   box-shadow: none !important;
 }
+
+/* Final controls override: same shape as apartment tiles */
+.btn,
+.input,
+.select,
+.form-control,
+.pill,
+.status-item,
+.toolbar-status .status-item,
+.select-btn,
+.mobile-filter-btn,
+.mobile-dropdown-filter,
+.toolbar-search .search-apt,
+.toolbar-filters .search-apt,
+.section-filter-btn {
+  border-radius: 12px !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.btn,
+.input,
+.select,
+.form-control,
+.select-btn,
+.mobile-dropdown-filter,
+.toolbar-search .search-apt,
+.toolbar-filters .search-apt,
+.section-filter-btn {
+  background: #ffffff !important;
+  min-height: 36px !important;
+  height: 36px;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.pill,
+.status-item,
+.toolbar-status .status-item,
+.mobile-filter-btn {
+  min-height: 36px !important;
+  height: 36px;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+
+.btn-sm,
+.btn-icon-only {
+  min-height: 36px !important;
+  height: 36px;
+}
+
+.btn-icon-only {
+  width: 36px;
+  padding: 0 !important;
+}
+
+.select,
+.mobile-dropdown-filter {
+  padding-right: 36px !important;
+}
+
+.input:focus,
+.select:focus,
+.form-control:focus,
+.select-btn:focus,
+.mobile-dropdown-filter:focus,
+.toolbar-search .search-apt:focus,
+.toolbar-filters .search-apt:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
