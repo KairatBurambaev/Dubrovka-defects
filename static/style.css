@@ -1250,7 +1250,7 @@ h1 {
   opacity: 0;
   transform: translateY(-10px);
   visibility: hidden;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
 }
 
 .multi-select-dropdown.open {
@@ -7015,20 +7015,21 @@ body {
 .complex-card,
 .complex-card-red,
 .complex-card-has-bg {
-  background: linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fcfcfe 100%) !important;
   border: none !important;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06) !important;
-  transition: box-shadow 0.2s ease !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05) !important;
+  transition: box-shadow 0.2s ease, background 0.2s ease !important;
   transform: none !important;
   min-height: 72px !important;
   aspect-ratio: auto !important;
+  border-radius: 20px !important;
 }
 
 .complex-card:hover,
 .complex-card-red:hover,
 .complex-card-has-bg:hover {
-  background: linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%) !important;
-  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.09) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%) !important;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08) !important;
   transform: none !important;
 }
 
@@ -7039,7 +7040,7 @@ body {
   border-radius: 0;
   background: transparent;
   border: none;
-  gap: 5px;
+  gap: 4px;
   align-items: center;
 }
 
@@ -7048,30 +7049,25 @@ body {
 .complex-card-red .complex-card-name,
 .complex-card-has-bg .complex-card-name {
   display: inline-block;
-  width: fit-content;
+  width: auto;
   min-width: 0;
   margin-bottom: 0;
   font-size: 12px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
   color: #0f172a !important;
   text-align: center;
 }
 
 .complex-card-name::after {
-  left: 50%;
-  width: 100%;
-  height: 1px;
-  background: #4169E1;
-  transform: translateX(-50%) scaleX(0);
-  transform-origin: center;
+  display: none;
 }
 
 .complex-card:hover .complex-card-name::after,
 .complex-card-red:hover .complex-card-name::after,
 .complex-card-has-bg:hover .complex-card-name::after {
-  transform: translateX(-50%) scaleX(1);
+  display: none;
 }
 
 .complex-card-info,
@@ -7079,12 +7075,77 @@ body {
 .complex-card-red .complex-card-info,
 .complex-card-has-bg .complex-card-info {
   font-size: 10px;
-  line-height: 1.35;
-  color: #6b7280 !important;
+  line-height: 1.4;
+  color: #64748b !important;
   text-align: center;
-  max-width: 24ch;
+  max-width: 26ch;
 }
 
 .complex-card-cover {
   display: none !important;
+}
+
+.select-btn,
+.section-filter-btn,
+.section-filter-btn.select,
+.filter-dropdown-btn,
+.mobile-dropdown-filter {
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.select-btn:hover,
+.section-filter-btn:hover,
+.section-filter-btn.select:hover,
+.filter-dropdown-btn:hover,
+.mobile-dropdown-filter:hover {
+  border-color: #374151 !important;
+  background: #f8fafc !important;
+}
+
+.select-btn:focus,
+.section-filter-btn:focus,
+.section-filter-btn.select:focus,
+.filter-dropdown-btn:focus,
+.mobile-dropdown-filter:focus {
+  outline: none !important;
+  border-color: #374151 !important;
+  box-shadow: 0 0 0 3px rgba(55, 65, 81, 0.12) !important;
+}
+
+.select-btn:active,
+.section-filter-btn:active,
+.section-filter-btn.select:active,
+.filter-dropdown-btn:active,
+.mobile-dropdown-filter:active {
+  background: #e5e7eb !important;
+  border-color: #374151 !important;
+  box-shadow: none !important;
+}
+
+.input:hover,
+.select:hover,
+.form-control:hover,
+.toolbar-search .search-apt:hover,
+.toolbar-filters .search-apt:hover {
+  border-color: #374151 !important;
+}
+
+.input:focus,
+.select:focus,
+.form-control:focus,
+.toolbar-search .search-apt:focus,
+.toolbar-filters .search-apt:focus {
+  border-color: #374151 !important;
+  box-shadow: 0 0 0 3px rgba(55, 65, 81, 0.12) !important;
+}
+
+.filter-item.selected,
+.dropdown-item.selected {
+  background: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+.filter-item:hover,
+.dropdown-item:hover {
+  background: #f3f4f6 !important;
 }

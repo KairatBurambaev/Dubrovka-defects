@@ -894,10 +894,13 @@ function toggleFilterDropdown(event) {
     const wrapper = document.getElementById('sectionFilterWrapper');
     const button = document.getElementById('filterBtn');
     const willOpen = dropdown && !dropdown.classList.contains('open');
-    if (dropdown) dropdown.classList.toggle('open');
-    if (wrapper) wrapper.classList.toggle('active');
-    if (dropdown && button && willOpen) {
-        requestAnimationFrame(() => positionDropdown(dropdown, button));
+    if (dropdown && willOpen && button) {
+        if (wrapper) wrapper.classList.add('active');
+        positionDropdown(dropdown, button);
+        requestAnimationFrame(() => dropdown.classList.add('open'));
+    } else {
+        if (dropdown) dropdown.classList.remove('open');
+        if (wrapper) wrapper.classList.remove('active');
     }
     
     // Close category dropdown if open
@@ -913,10 +916,13 @@ function toggleCategoryDropdown(event) {
     const wrapper = document.getElementById('categoryFilterWrapper');
     const button = document.getElementById('categoryFilterBtn');
     const willOpen = dropdown && !dropdown.classList.contains('open');
-    if (dropdown) dropdown.classList.toggle('open');
-    if (wrapper) wrapper.classList.toggle('active');
-    if (dropdown && button && willOpen) {
-        requestAnimationFrame(() => positionDropdown(dropdown, button));
+    if (dropdown && willOpen && button) {
+        if (wrapper) wrapper.classList.add('active');
+        positionDropdown(dropdown, button);
+        requestAnimationFrame(() => dropdown.classList.add('open'));
+    } else {
+        if (dropdown) dropdown.classList.remove('open');
+        if (wrapper) wrapper.classList.remove('active');
     }
     
     // Initialize category options if empty
