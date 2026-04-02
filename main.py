@@ -1324,6 +1324,27 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
             "percentage": percentage,
         })
 
+    tracked_statuses = ["owner_accepted", "tech_accepted", "no_access", "call"]
+    status_period_net = {status: 0 for status in tracked_statuses}
+    movement_rows = conn.execute(
+        """
+        SELECT old_status, new_status
+        FROM apartment_status_history h
+        JOIN apartments a ON h.apartment_id = a.id
+        WHERE a.complex_id = ?
+          AND date(h.created_at) BETWEEN ? AND ?
+        """,
+        (complex_id, period_start.isoformat(), period_end.isoformat()),
+    ).fetchall()
+
+    for row in movement_rows:
+        old_status = row["old_status"]
+        new_status = row["new_status"]
+        if old_status in status_period_net:
+            status_period_net[old_status] -= 1
+        if new_status in status_period_net:
+            status_period_net[new_status] += 1
+
     return {
         "complex_name": complex_row["name"],
         "property_type": complex_row["property_type"] or "квартиры",
@@ -1337,6 +1358,7 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         "period_apartments_with_defects": period_apartments_with_defects,
         "by_access_status": by_access_status,
         "period_status_changes": period_status_changes,
+        "status_period_net": status_period_net,
         "first_defect_date": first_defect_date,
         "period_mode": period["mode"],
         "period_start": period_start.isoformat(),

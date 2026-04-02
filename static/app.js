@@ -448,9 +448,6 @@ async function loadComplexes() {
             const stats = {};
             (c.by_access_status || []).forEach(s => stats[s.access_status] = s.count);
             
-            const totalApts = c.apartments_count || 0;
-            const defectCount = stats.defects || c.defects_count || 0;
-            const propType = c.property_type || 'квартиры';
             const cardClass = 'complex-card';
             const address = c.address?.trim() || 'Адрес не указан';
             return `
@@ -2501,47 +2498,60 @@ async function loadStats(body, modal) {
         const periodOpenDefects = stats.period_open_defects || 0;
         const periodApartmentsWithDefects = stats.period_apartments_with_defects || 0;
         const statusChangeRows = stats.period_status_changes || [];
+        const accessStats = stats.by_access_status || [];
+        const statusPeriodNet = stats.status_period_net || {};
         const complexName = stats.complex_name || document.getElementById('jkName')?.textContent || 'ЖК';
         const periodLabel = statsMode === 'range'
             ? formatStatsPeriodLabel(statsRangeStart || stats.period_start, statsRangeEnd || stats.period_end)
             : formatStatsPeriodLabel(statsDate || stats.period_start, statsDate || stats.period_end);
 
-        const getStatusChangeCount = (status) => statusChangeRows.find((row) => row.access_status === status)?.count || 0;
-        const acceptedChanges = statusChangeRows
-            .filter((row) => ['owner_accepted', 'tech_accepted'].includes(row.access_status))
-            .reduce((sum, row) => sum + row.count, 0);
-        const noAccessChanges = getStatusChangeCount('no_access');
-        const callChanges = getStatusChangeCount('call');
+        const getCurrentStatusCount = (status) => accessStats.find((row) => row.access_status === status)?.count || 0;
+        const formatStatsDelta = (value) => {
+            if (value > 0) return `+${value}`;
+            if (value < 0) return `${value}`;
+            return '0';
+        };
+        const deltaLabel = statsMode === 'range' ? 'за период' : 'за день';
+        const acceptedTotal = getCurrentStatusCount('owner_accepted') + getCurrentStatusCount('tech_accepted');
+        const noAccessTotal = getCurrentStatusCount('no_access');
+        const callTotal = getCurrentStatusCount('call');
         const isApartmentType = state.currentPropertyType === 'апартаменты';
 
         const statRows = [
             {
-                label: 'С замечаниями',
-                value: periodApartmentsWithDefects > 0 ? periodApartmentsWithDefects : 0,
-                percent: formatStatsPercent(periodApartmentsWithDefects, totalApartments),
-                showPercent: true,
-                tone: 'defects'
+                label: 'Вызов',
+                value: callTotal,
+                percent: formatStatsPercent(callTotal, totalApartments),
+                delta: formatStatsDelta(statusPeriodNet.call || 0),
+                tone: 'call'
             },
             {
                 label: 'Приняты',
-                value: acceptedChanges,
-                percent: formatStatsPercent(acceptedChanges, totalApartments),
-                showPercent: true,
+                value: acceptedTotal,
+                percent: formatStatsPercent(acceptedTotal, totalApartments),
+                delta: formatStatsDelta((statusPeriodNet.owner_accepted || 0) + (statusPeriodNet.tech_accepted || 0)),
                 tone: 'accepted'
             },
             {
                 label: 'Нет доступа',
-                value: noAccessChanges,
-                percent: formatStatsPercent(noAccessChanges, totalApartments),
-                showPercent: true,
+                value: noAccessTotal,
+                percent: formatStatsPercent(noAccessTotal, totalApartments),
+                delta: formatStatsDelta(statusPeriodNet.no_access || 0),
                 tone: 'no-access'
             },
             {
-                label: 'Вызов',
-                value: callChanges,
-                percent: formatStatsPercent(callChanges, totalApartments),
-                showPercent: true,
-                tone: 'call'
+                label: 'С замечаниями',
+                value: stats.with_defects || 0,
+                percent: formatStatsPercent(stats.with_defects || 0, totalApartments),
+                delta: formatStatsDelta(periodApartmentsWithDefects || 0),
+                tone: 'defects'
+            },
+            {
+                label: 'С замечаниями за все время',
+                value: allTimeApartmentsWithDefects,
+                percent: formatStatsPercent(allTimeApartmentsWithDefects, totalApartments),
+                delta: formatStatsDelta(periodApartmentsWithDefects || 0),
+                tone: 'all-time'
             }
         ];
 
@@ -2587,19 +2597,6 @@ async function loadStats(body, modal) {
                 </div>
 
                 <div class="stats-ticket-layout">
-                    <aside class="stats-ticket-summary">
-                        <div class="stats-ticket-summary-card accent-teal">
-                            <span>Открытых замечаний</span>
-                            <strong>${periodOpenDefects}</strong>
-                            <em>${stats.period_mode === 'range' ? 'За период' : 'За день'}</em>
-                        </div>
-                        <div class="stats-ticket-summary-card accent-rose">
-                            <span>С замечаниями за все время</span>
-                            <strong>${allTimeApartmentsWithDefects}</strong>
-                            <em>${formatStatsPercent(allTimeApartmentsWithDefects, totalApartments)} от общего числа</em>
-                        </div>
-                    </aside>
-
                     <div class="stats-ticket-panel stats-ticket-card">
                         <div class="stats-ticket-list">
                             ${statRows.map((row) => `
@@ -2607,6 +2604,7 @@ async function loadStats(body, modal) {
                                     <label>${row.label}</label>
                                     <strong>${row.value}</strong>
                                     <em>${row.percent}</em>
+                                    <span>${row.delta} ${deltaLabel}</span>
                                 </div>
                             `).join('')}
                         </div>

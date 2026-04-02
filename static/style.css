@@ -1033,22 +1033,22 @@ h1 {
 .cards-grid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  max-width: 210px;
+  gap: 10px;
+  padding: 12px;
+  max-width: 320px;
 }
 
 /* ========== COMPLEX CARDS ========== */
 .complex-card {
   background: #fff;
-  border-radius: 14px;
-  padding: 7px 8px;
+  border-radius: 18px;
+  padding: 12px 14px;
   cursor: pointer;
   position: relative;
   transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   border: 1px solid rgba(15, 23, 42, 0.08);
   box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
-  min-height: 52px;
+  min-height: 72px;
   aspect-ratio: auto;
   display: flex;
   flex-direction: column;
@@ -2736,6 +2736,8 @@ body.page-create-complex .mobile-filter-buttons {
     flex-direction: column;
     gap: 8px;
     justify-content: center;
+    align-items: center;
+    text-align: center;
 }
 
 .stats-ticket-total span {
@@ -2756,8 +2758,7 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-ticket-layout {
-    display: grid;
-    grid-template-columns: 280px minmax(0, 1fr);
+    display: block;
     min-height: 0;
 }
 
@@ -2813,7 +2814,7 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-ticket-card {
-    margin: 18px 18px 18px 0;
+    margin: 18px;
     border: 1px solid #dbe3ee;
     border-radius: 24px;
     background: #ffffff;
@@ -2850,7 +2851,8 @@ body.page-create-complex .mobile-filter-buttons {
 
 .stats-ticket-row label,
 .stats-ticket-row strong,
-.stats-ticket-row em {
+.stats-ticket-row em,
+.stats-ticket-row span {
     font-style: normal;
 }
 
@@ -2875,6 +2877,13 @@ body.page-create-complex .mobile-filter-buttons {
     color: #4b5563;
 }
 
+.stats-ticket-row span {
+    grid-column: 2 / 4;
+    text-align: right;
+    font-size: 12px;
+    color: #64748b;
+}
+
 .stats-ticket-row-accepted {
     border-bottom-color: rgba(0, 157, 145, 0.35);
 }
@@ -2894,6 +2903,14 @@ body.page-create-complex .mobile-filter-buttons {
 
 .stats-ticket-row-call::before {
     background: #e969a8;
+}
+
+.stats-ticket-row-all-time {
+    border-bottom-color: rgba(56, 189, 248, 0.28);
+}
+
+.stats-ticket-row-all-time::before {
+    background: #38bdf8;
 }
 
 .stats-ticket-row-no-access {
@@ -3428,6 +3445,11 @@ body.page-create-complex .mobile-filter-buttons {
         grid-column: 1 / -1;
         text-align: left;
         min-width: 0;
+    }
+
+    .stats-ticket-row span {
+        grid-column: 1 / -1;
+        text-align: left;
     }
 
     .stats-ticket-summary-card {
@@ -6993,21 +7015,20 @@ body {
 .complex-card,
 .complex-card-red,
 .complex-card-has-bg {
-  background: #ffffff !important;
-  border: 1px solid #111111 !important;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
-  transition: border-color 0.2s ease !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%) !important;
+  border: none !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06) !important;
+  transition: box-shadow 0.2s ease !important;
   transform: none !important;
-  min-height: 52px !important;
+  min-height: 72px !important;
   aspect-ratio: auto !important;
 }
 
 .complex-card:hover,
 .complex-card-red:hover,
 .complex-card-has-bg:hover {
-  background: #ffffff !important;
-  border-color: #111111 !important;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfd 100%) !important;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.09) !important;
   transform: none !important;
 }
 
@@ -7018,7 +7039,7 @@ body {
   border-radius: 0;
   background: transparent;
   border: none;
-  gap: 2px;
+  gap: 5px;
   align-items: center;
 }
 
@@ -7030,11 +7051,11 @@ body {
   width: fit-content;
   min-width: 0;
   margin-bottom: 0;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
-  color: #111827 !important;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: #0f172a !important;
   text-align: center;
 }
 
@@ -7057,10 +7078,11 @@ body {
 .complex-card-body .complex-card-info,
 .complex-card-red .complex-card-info,
 .complex-card-has-bg .complex-card-info {
-  font-size: 9px;
-  line-height: 1.2;
-  color: #4b5563 !important;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #6b7280 !important;
   text-align: center;
+  max-width: 24ch;
 }
 
 .complex-card-cover {
