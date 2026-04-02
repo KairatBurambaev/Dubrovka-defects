@@ -710,21 +710,21 @@ body {
 }
 
 .toolbar-status .status-item[data-status="owner_accepted"].active {
-  background: #dcfce7;
-  border-color: #22c55e;
-  color: #15803d;
+  background: #34d399;
+  border-color: #34d399;
+  color: #064e3b;
 }
 
 .toolbar-status .status-item[data-status="call"].active {
-  background: #f3e8ff;
-  border-color: #a855f7;
-  color: #7e22ce;
+  background: #ec4899;
+  border-color: #ec4899;
+  color: #ffffff;
 }
 
 .toolbar-status .status-item[data-status="in_progress"].active {
-  background: #fef9c3;
+  background: #fde047;
   border-color: #facc15;
-  color: #854d0e;
+  color: #713f12;
 }
 
 .toolbar-status .status-item[data-status="by_phone"].active {
@@ -734,9 +734,9 @@ body {
 }
 
 .toolbar-status .status-item[data-status="no_access"].active {
-  background: #e2e8f0;
-  border-color: #64748b;
-  color: #334155;
+  background: #94a3b8;
+  border-color: #94a3b8;
+  color: #ffffff;
 }
 
 .toolbar-status .status-item[data-status="complex"].active {
@@ -2000,9 +2000,9 @@ h1 {
 }
 
 .status-item[data-status="owner_accepted"].active {
-  background: #22c55e;
-  border-color: #22c55e;
-  color: #ffffff;
+  background: #34d399;
+  border-color: #34d399;
+  color: #064e3b;
 }
 
 .status-item[data-status="call"].active {
@@ -2018,8 +2018,8 @@ h1 {
 }
 
 .status-item[data-status="no_access"].active {
-  background: #64748b;
-  border-color: #64748b;
+  background: #94a3b8;
+  border-color: #94a3b8;
   color: #ffffff;
 }
 
@@ -2030,9 +2030,9 @@ h1 {
 }
 
 .status-item[data-status="in_progress"].active {
-  background: #facc15;
-  border-color: #facc15;
-  color: #1d1d1f;
+  background: #fde047;
+  border-color: #fde047;
+  color: #713f12;
 }
 
 .status-item[data-status="available"].active {
@@ -3097,7 +3097,7 @@ body.page-create-complex .mobile-filter-buttons {
   bottom: 28px;
   right: 28px;
   background: var(--dark);
-  color: var(--white);
+  color: #ffffff;
   padding: 16px 24px;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
@@ -3109,18 +3109,26 @@ body.page-create-complex .mobile-filter-buttons {
   z-index: 2000;
 }
 
+.toast,
+.toast * {
+  color: #ffffff !important;
+}
+
 .toast.show {
   transform: translateY(0);
   opacity: 1;
 }
 
-.toast.success { 
+.toast.success,
+.toast-success { 
   background: #2563eb; 
 }
-.toast.error { 
+.toast.error,
+.toast-error { 
   background: #ef4444; 
 }
-.toast.warning { 
+.toast.warning,
+.toast-warning { 
   background: #f59e0b; 
 }
 
