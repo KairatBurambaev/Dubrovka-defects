@@ -11,6 +11,7 @@ const state = {
     categories: [],
     currentItemId: null,
     accessFilter: '',
+    sortByDefects: false,
     loading: false,
     currentDefects: [] // Store defects for category filtering
 };
@@ -1354,7 +1355,35 @@ function formatApartmentBadgeCount(count) {
     return count > 9 ? '9+' : String(count);
 }
 
-function renderSectionCard(title, apartments, floors, propShort, propFull) {
+function getApartmentBadgeCount(apartment, catFilter) {
+    let badgeCount = apartment.active_defects_count || 0;
+    if (catFilter && state.currentDefects.length) {
+        badgeCount = state.currentDefects.filter(d => d.apartment_id === apartment.id && d.category === catFilter && d.status !== 'ready' && d.status !== 'rejected').length;
+    }
+    return badgeCount;
+}
+
+function renderApartmentTile(apartment, propFull, catFilter) {
+    const deadlineClass = getDeadlineClass(apartment);
+    const cls = getApartmentClass(apartment.access_status, apartment.active_defects_count);
+    const badgeCount = getApartmentBadgeCount(apartment, catFilter);
+    const badge = (badgeCount > 0 && apartment.access_status !== 'owner_accepted') ? `<span class="apt-badge">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
+    const tooltip = `${propFull === 'апартамент' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
+
+    return `
+        <div class="apt-wrap">
+            <div class="apt ${cls} ${deadlineClass}" 
+                 data-id="${apartment.id}" 
+                 title="${tooltip}"
+                 onclick="showApartmentDetail(${apartment.id})">
+                ${apartment.number}
+                ${badge}
+            </div>
+        </div>
+    `;
+}
+
+function renderSectionCard(title, apartments, floors, propFull) {
     const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
 
     return `
@@ -1387,8 +1416,8 @@ function renderApartments(apartments) {
     
     const viewMode = document.getElementById('viewMode')?.value || 'section';
     const propType = state.currentPropertyType;
-    const propShort = propType === 'апартаменты' ? 'апарт.' : 'кв.';
     const propFull = propType === 'апартаменты' ? 'апартамент' : 'квартира';
+    const catFilter = document.getElementById('defectCategoryFilter')?.value;
     
     if (!apartments?.length) {
         const emptyState = getApartmentListEmptyState();
@@ -1424,11 +1453,61 @@ function renderApartments(apartments) {
     const selectedValues = Array.from(selectedItems).map(item => item.dataset.section);
     const allSelected = selectedItems.length === 0 || selectedItems.length === allItems.length;
     const selectedSectionIds = allSelected ? [] : selectedValues.map(v => parseInt(v));
+    const visibleApartments = apartments.filter(a => selectedSectionIds.length === 0 || (a.section_id && selectedSectionIds.includes(a.section_id)));
+
+    const sortByDefectsBtn = document.getElementById('sortByDefectsBtn');
+    if (sortByDefectsBtn) {
+        sortByDefectsBtn.classList.toggle('active', state.sortByDefects);
+    }
+
+    if (state.sortByDefects) {
+        const sortedBySection = {};
+
+        visibleApartments.forEach((apartment) => {
+            const sectionNumber = apartment.section_number || 0;
+            if (!sortedBySection[sectionNumber]) {
+                sortedBySection[sectionNumber] = [];
+            }
+            sortedBySection[sectionNumber].push(apartment);
+        });
+
+        const sortedSectionNumbers = Object.keys(sortedBySection)
+            .map(Number)
+            .sort((a, b) => a - b);
+
+        container.innerHTML = `
+            <div class="sections-grid sections-grid-sorted">
+                ${sortedSectionNumbers.map((sectionNumber) => {
+                    const sectionApartments = sortedBySection[sectionNumber].sort((a, b) => {
+                        const countA = getApartmentBadgeCount(a, catFilter);
+                        const countB = getApartmentBadgeCount(b, catFilter);
+                        if (countA !== countB) return countA - countB;
+                        return Number(a.number) - Number(b.number);
+                    });
+
+                    return `
+                        <section class="section-card section-card-sorted">
+                            <div class="section-header">
+                                <div class="section-heading section-heading-simple">
+                                    <span class="section-title">Секция ${sectionNumber}</span>
+                                </div>
+                            </div>
+                            <div class="section-body-container">
+                                <div class="apt-sort-grid">
+                                    ${sectionApartments.map(apartment => renderApartmentTile(apartment, propFull, catFilter)).join('')}
+                                </div>
+                            </div>
+                        </section>
+                    `;
+                }).join('')}
+            </div>
+        `;
+        updateStatsPanel(apartments);
+        return;
+    }
     
     // Check if we have multiple buildings from the data
     const uniqueBuildings = new Set(apartments.map(a => a.building_number || 1));
-    const hasMultipleBuildings = uniqueBuildings.size > 1;
-    
     if (viewMode === 'building') {
         // Group by building -> section
         const byBuilding = {};
@@ -1479,7 +1558,7 @@ function renderApartments(apartments) {
                                 const secData = sections[secId];
                                 const secFloors = secData.floors;
                                 const secApts = Object.values(secFloors).flat();
-                                return renderSectionCard(`Секция ${secData.section_number}`, secApts, secFloors, propShort, propFull);
+                                return renderSectionCard(`Секция ${secData.section_number}`, secApts, secFloors, propFull);
                             }).join('')}
                     </div>
                 </section>
@@ -1502,7 +1581,7 @@ function renderApartments(apartments) {
             
             const title = uniqueBuildings.size > 1 ? `Корпус ${buildingNum} • Секция ${sec}` : `Секция ${sec}`;
 
-            return renderSectionCard(title, allApts, floors, propShort, propFull);
+            return renderSectionCard(title, allApts, floors, propFull);
         }).join('');
     }
     
@@ -1535,31 +1614,15 @@ function renderFloorRow(floorApts, floor, propFull) {
         <div class="floor-row">
             <div class="floor-label">${floor} эт</div>
             <div class="floor-apts">
-                ${floorApts.map(a => {
-                    const deadlineClass = getDeadlineClass(a);
-                    const cls = getApartmentClass(a.access_status, a.active_defects_count);
-                    
-                    // Get badge count - use category filter if active
-                    let badgeCount = a.active_defects_count;
-                    if (catFilter && state.currentDefects.length) {
-                        badgeCount = state.currentDefects.filter(d => d.apartment_id === a.id && d.category === catFilter && d.status !== 'ready' && d.status !== 'rejected').length;
-                    }
-                    
-                    const badge = (badgeCount > 0 && a.access_status !== 'owner_accepted') ? `<span class="apt-badge">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
-                    const tooltip = `${propFull === 'апартамент' ? 'Апартамент' : 'Квартира'} ${a.number}`;
-                    return `
-                        <div class="apt ${cls} ${deadlineClass}" 
-                             data-id="${a.id}" 
-                             title="${tooltip}"
-                             onclick="showApartmentDetail(${a.id})">
-                            ${a.number}
-                            ${badge}
-                            </div>
-                    `;
-                }).join('')}
+                ${floorApts.map(a => renderApartmentTile(a, propFull, catFilter)).join('')}
             </div>
         </div>
     `;
+}
+
+function toggleApartmentSort() {
+    state.sortByDefects = !state.sortByDefects;
+    loadApartments();
 }
 
 // Get apartment CSS class based on status and defects

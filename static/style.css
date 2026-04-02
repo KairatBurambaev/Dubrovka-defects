@@ -6277,18 +6277,23 @@ body {
 }
 
 .apt-badge {
-  top: -6px;
-  right: -6px;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
+  top: -3px;
+  right: -3px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
-  background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
-  border: 1px solid #f59e0b;
-  color: #92400e;
-  font-size: 9px;
-  font-weight: 700;
-  box-shadow: 0 6px 12px rgba(245, 158, 11, 0.16);
+  background: #1f2937;
+  border: none;
+  color: #ffffff;
+  font-size: 7px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow: none;
 }
 
 @media (min-width: 1400px) {
@@ -6372,6 +6377,10 @@ body {
 .floor-apts .apt:hover,
 .floor-apts .apt:focus,
 .floor-apts .apt:active,
+.apt-sort-grid .apt,
+.apt-sort-grid .apt:hover,
+.apt-sort-grid .apt:focus,
+.apt-sort-grid .apt:active,
 .floor-apts .apt.apt-available,
 .floor-apts .apt.apt-owner_accepted,
 .floor-apts .apt.apt-call,
@@ -6379,7 +6388,15 @@ body {
 .floor-apts .apt.apt-in_progress,
 .floor-apts .apt.apt-complex,
 .floor-apts .apt.apt-no_access,
-.floor-apts .apt.apt-defects {
+.floor-apts .apt.apt-defects,
+.apt-sort-grid .apt.apt-available,
+.apt-sort-grid .apt.apt-owner_accepted,
+.apt-sort-grid .apt.apt-call,
+.apt-sort-grid .apt.apt-by_phone,
+.apt-sort-grid .apt.apt-in_progress,
+.apt-sort-grid .apt.apt-complex,
+.apt-sort-grid .apt.apt-no_access,
+.apt-sort-grid .apt.apt-defects {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
@@ -6430,6 +6447,35 @@ body {
   padding: 0 12px !important;
   font-size: 12px !important;
   font-weight: 700 !important;
+}
+
+.pill-sort.active {
+  background: #1f2937 !important;
+  color: #ffffff !important;
+}
+
+.pill-sort:hover,
+.pill-sort.active:hover {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+  color: #ffffff !important;
+}
+
+.sections-grid-sorted {
+  grid-template-columns: 1fr;
+}
+
+.section-card-sorted {
+  max-width: none;
+}
+
+.apt-sort-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.apt-wrap {
+  position: relative;
 }
 
 .btn-sm,
