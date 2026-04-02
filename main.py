@@ -25,7 +25,7 @@ UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 DB_PATH = BASE_DIR / "dubrovka_defects.db"
 
-app = FastAPI(title="ЖК Дубровка - Приемка квартир")
+app = FastAPI(title="ЖК Дубровка - Перспектива Инжиниринг гарантийный сервис")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
@@ -272,6 +272,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS complexes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
+            address TEXT DEFAULT '',
+            image_url TEXT DEFAULT '',
             property_type TEXT DEFAULT 'квартиры',
             commissioning_date TEXT DEFAULT '',
             warranty_3_date TEXT DEFAULT '',
@@ -354,6 +356,15 @@ def init_db():
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (defect_id) REFERENCES defects(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS apartment_status_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            apartment_id INTEGER NOT NULL,
+            old_status TEXT,
+            new_status TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (apartment_id) REFERENCES apartments(id) ON DELETE CASCADE
+        );
     """)
     
     # Миграция: добавляем колонку property_type если её нет
@@ -362,6 +373,18 @@ def init_db():
         conn.commit()
     except:
         pass  # Колонка уже существует
+
+    try:
+        conn.execute("ALTER TABLE complexes ADD COLUMN address TEXT DEFAULT ''")
+        conn.commit()
+    except:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE complexes ADD COLUMN image_url TEXT DEFAULT ''")
+        conn.commit()
+    except:
+        pass
     
     migrate_sections_to_sections_only(conn)
     
@@ -448,12 +471,17 @@ async def index():
     return HTMLResponse((BASE_DIR / "templates" / "index.html").read_text(encoding="utf-8"))
 
 
+@app.get("/style-variants", response_class=HTMLResponse)
+async def style_variants():
+    return HTMLResponse((BASE_DIR / "templates" / "style_variants.html").read_text(encoding="utf-8"))
+
+
 # === COMPLEX ENDPOINTS ===
 
 @app.get("/api/complexes")
 async def get_complexes():
     conn = get_db()
-    rows = conn.execute("SELECT id, name, address, property_type, commissioning_date, warranty_3_date, warranty_5_date, created_at FROM complexes ORDER BY created_at DESC").fetchall()
+    rows = conn.execute("SELECT id, name, address, image_url, property_type, commissioning_date, warranty_3_date, warranty_5_date, created_at FROM complexes ORDER BY created_at DESC").fetchall()
     complexes = []
     
     for row in rows:
@@ -1069,14 +1097,15 @@ async def update_apartment_access(
         raise HTTPException(status_code=400, detail="Неверный статус доступа")
     
     conn = get_db()
-    cur = conn.execute("SELECT access_phone, access_comment FROM apartments WHERE id = ?", (apartment_id,))
+    cur = conn.execute("SELECT access_status, access_phone, access_comment FROM apartments WHERE id = ?", (apartment_id,))
     row = cur.fetchone()
     if not row:
         conn.close()
         raise HTTPException(status_code=404, detail="Квартира не найдена")
 
-    existing_phone = row[0]
-    existing_comment = row[1]
+    existing_status = row[0]
+    existing_phone = row[1]
+    existing_comment = row[2]
     
     if access_phone is not None:
         new_phone = access_phone if access_phone else None
@@ -1092,6 +1121,13 @@ async def update_apartment_access(
         "UPDATE apartments SET access_status = ?, access_phone = ?, access_comment = ? WHERE id = ?", 
         (access_status, new_phone, new_comment, apartment_id)
     )
+
+    if existing_status != access_status:
+        conn.execute(
+            "INSERT INTO apartment_status_history (apartment_id, old_status, new_status) VALUES (?, ?, ?)",
+            (apartment_id, existing_status, access_status),
+        )
+
     conn.commit()
     conn.close()
     
@@ -1117,87 +1153,323 @@ async def get_templates(category: str):
     return {"category": category, "templates": TEMPLATES[category]}
 
 
-@app.get("/api/complexes/{complex_id}/statistics")
-async def get_complex_statistics(complex_id: int, stat_date: str = None):
-    conn = get_db()
-    
-    # Get first defect date for this complex
-    first_defect = conn.execute("""
+def parse_stats_period(stat_date: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None):
+    today = date.today()
+
+    if start_date or end_date:
+        try:
+            period_start = datetime.strptime(start_date or end_date, "%Y-%m-%d").date()
+            period_end = datetime.strptime(end_date or start_date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Некорректный формат даты")
+
+        if period_start > period_end:
+            period_start, period_end = period_end, period_start
+
+        return {
+            "mode": "range",
+            "start": period_start,
+            "end": period_end,
+            "today": today,
+        }
+
+    if stat_date:
+        try:
+            period_date = datetime.strptime(stat_date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Некорректный формат даты")
+    else:
+        period_date = today
+
+    return {
+        "mode": "day",
+        "start": period_date,
+        "end": period_date,
+        "today": today,
+    }
+
+
+def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None):
+    period = parse_stats_period(stat_date, start_date, end_date)
+    period_start = period["start"]
+    period_end = period["end"]
+
+    complex_row = conn.execute("SELECT name, property_type FROM complexes WHERE id = ?", (complex_id,)).fetchone()
+    if not complex_row:
+        raise HTTPException(status_code=404, detail="ЖК не найден")
+
+    first_defect = conn.execute(
+        """
         SELECT MIN(date(d.created_at)) as first_date
         FROM defects d
         JOIN apartments a ON d.apartment_id = a.id
         WHERE a.complex_id = ?
-    """, (complex_id,)).fetchone()
-    
-    first_defect_date = first_defect[0] if first_defect else str(date.today())
-    
-    today = date.today()
-    today_str = today.strftime('%Y-%m-%d')
-    
-    # Get dates for week ago
-    week_ago = (today - timedelta(days=7)).strftime('%Y-%m-%d')
-    
-    # Всего квартир
+        """,
+        (complex_id,),
+    ).fetchone()
+
+    first_defect_date = first_defect[0] if first_defect and first_defect[0] else str(period["today"])
+
     total = conn.execute(
         "SELECT COUNT(*) FROM apartments WHERE complex_id = ?",
-        (complex_id,)
+        (complex_id,),
     ).fetchone()[0]
-    
-    # Квартир с замечаниями
-    with_defects = conn.execute("""
+
+    with_defects = conn.execute(
+        """
         SELECT COUNT(DISTINCT a.id)
         FROM apartments a
         JOIN defects d ON a.id = d.apartment_id
         WHERE a.complex_id = ?
           AND a.access_status NOT IN ('owner_accepted', 'tech_accepted')
           AND d.status NOT IN ('ready', 'rejected')
-    """, (complex_id,)).fetchone()[0]
-    
-    # По статусам доступа (квартиры)
-    access_status_stats = conn.execute("""
+        """,
+        (complex_id,),
+    ).fetchone()[0]
+
+    all_time_defects = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM defects d
+        JOIN apartments a ON d.apartment_id = a.id
+        WHERE a.complex_id = ?
+        """,
+        (complex_id,),
+    ).fetchone()[0]
+
+    all_time_apartments_with_defects = conn.execute(
+        """
+        SELECT COUNT(DISTINCT a.id)
+        FROM apartments a
+        JOIN defects d ON a.id = d.apartment_id
+        WHERE a.complex_id = ?
+        """,
+        (complex_id,),
+    ).fetchone()[0]
+
+    period_defects = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM defects d
+        JOIN apartments a ON d.apartment_id = a.id
+        WHERE a.complex_id = ?
+          AND date(d.created_at) BETWEEN ? AND ?
+        """,
+        (complex_id, period_start.isoformat(), period_end.isoformat()),
+    ).fetchone()[0]
+
+    period_open_defects = conn.execute(
+        """
+        SELECT COUNT(*)
+        FROM defects d
+        JOIN apartments a ON d.apartment_id = a.id
+        WHERE a.complex_id = ?
+          AND d.status NOT IN ('ready', 'rejected')
+          AND date(d.created_at) BETWEEN ? AND ?
+        """,
+        (complex_id, period_start.isoformat(), period_end.isoformat()),
+    ).fetchone()[0]
+
+    period_apartments_with_defects = conn.execute(
+        """
+        SELECT COUNT(DISTINCT a.id)
+        FROM apartments a
+        JOIN defects d ON a.id = d.apartment_id
+        WHERE a.complex_id = ?
+          AND d.status NOT IN ('ready', 'rejected')
+          AND date(d.created_at) BETWEEN ? AND ?
+        """,
+        (complex_id, period_start.isoformat(), period_end.isoformat()),
+    ).fetchone()[0]
+
+    access_status_stats = conn.execute(
+        """
         SELECT a.access_status, COUNT(*) as count
         FROM apartments a
         WHERE a.complex_id = ?
         GROUP BY a.access_status
-    """, (complex_id,)).fetchall()
-    
-    # Принято (всего)
-    accepted_today = conn.execute("""
-        SELECT COUNT(*) FROM apartments 
-        WHERE complex_id = ? AND access_status IN ('owner_accepted', 'tech_accepted')
-    """, (complex_id,)).fetchone()[0]
-    
-    # Замечаний сегодня
-    defects_today = conn.execute("""
-        SELECT COUNT(*) FROM defects d
-        JOIN apartments a ON d.apartment_id = a.id
-        WHERE a.complex_id = ? AND date(d.created_at) = ?
-    """, (complex_id, today_str)).fetchone()[0]
-    
-    # За неделю
-    defects_week = conn.execute("""
-        SELECT COUNT(*) FROM defects d
-        JOIN apartments a ON d.apartment_id = a.id
-        WHERE a.complex_id = ? AND date(d.created_at) >= ?
-    """, (complex_id, week_ago)).fetchone()[0]
-    
-    # Принято за неделю (количество переходов в accepted за неделю)
-    # Для простоты - просто считаем сколько сейчас принято (динамика сложнее)
-    accepted_week = accepted_today  # placeholder - можно доработать
-    
-    conn.close()
-    
+        """,
+        (complex_id,),
+    ).fetchall()
+
+    by_access_status = []
+    for row in access_status_stats:
+        count = row[1]
+        percentage = round((count / total) * 100, 1) if total else 0
+        by_access_status.append({
+            "access_status": row[0],
+            "count": count,
+            "percentage": percentage,
+        })
+
+    status_change_stats = conn.execute(
+        """
+        SELECT h.new_status, COUNT(*) as count
+        FROM apartment_status_history h
+        JOIN apartments a ON h.apartment_id = a.id
+        WHERE a.complex_id = ?
+          AND date(h.created_at) BETWEEN ? AND ?
+        GROUP BY h.new_status
+        """,
+        (complex_id, period_start.isoformat(), period_end.isoformat()),
+    ).fetchall()
+
+    period_status_changes = []
+    for row in status_change_stats:
+        count = row[1]
+        percentage = round((count / total) * 100, 1) if total else 0
+        period_status_changes.append({
+            "access_status": row[0],
+            "count": count,
+            "percentage": percentage,
+        })
+
     return {
+        "complex_name": complex_row["name"],
+        "property_type": complex_row["property_type"] or "квартиры",
         "total_apartments": total,
         "with_defects": with_defects,
         "without_defects": total - with_defects,
-        "by_access_status": [{"access_status": row[0], "count": row[1]} for row in access_status_stats],
-        "accepted_today": accepted_today,
-        "defects_today": defects_today,
-        "defects_week": defects_week,
-        "accepted_week": accepted_week,
-        "first_defect_date": first_defect_date
+        "all_time_defects": all_time_defects,
+        "all_time_apartments_with_defects": all_time_apartments_with_defects,
+        "period_defects": period_defects,
+        "period_open_defects": period_open_defects,
+        "period_apartments_with_defects": period_apartments_with_defects,
+        "by_access_status": by_access_status,
+        "period_status_changes": period_status_changes,
+        "first_defect_date": first_defect_date,
+        "period_mode": period["mode"],
+        "period_start": period_start.isoformat(),
+        "period_end": period_end.isoformat(),
     }
+
+
+@app.get("/api/complexes/{complex_id}/statistics")
+async def get_complex_statistics(complex_id: int, stat_date: str = None, start_date: str = None, end_date: str = None):
+    conn = get_db()
+    try:
+        return build_complex_statistics(conn, complex_id, stat_date, start_date, end_date)
+    finally:
+        conn.close()
+
+
+@app.get("/api/complexes/{complex_id}/statistics/pdf")
+async def export_complex_statistics_pdf(complex_id: int, stat_date: str = None, start_date: str = None, end_date: str = None):
+    conn = get_db()
+    try:
+        stats = build_complex_statistics(conn, complex_id, stat_date, start_date, end_date)
+    finally:
+        conn.close()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm, topMargin=1.5 * cm, bottomMargin=1.5 * cm)
+
+    try:
+        pdfmetrics.registerFont(TTFont('DejaVuSans', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
+        pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
+        font_name = 'DejaVuSans'
+        font_bold = 'DejaVuSans-Bold'
+    except Exception:
+        font_name = 'Helvetica'
+        font_bold = 'Helvetica-Bold'
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name='StatsBody',
+        fontName=font_name,
+        fontSize=10,
+        leading=14,
+        textColor=colors.HexColor('#111111'),
+    ))
+    styles.add(ParagraphStyle(
+        name='StatsTitle',
+        fontName=font_bold,
+        fontSize=20,
+        leading=24,
+        textColor=colors.HexColor('#111111'),
+    ))
+    styles.add(ParagraphStyle(
+        name='StatsMeta',
+        fontName=font_name,
+        fontSize=11,
+        leading=14,
+        textColor=colors.HexColor('#4b5563'),
+    ))
+
+    story = []
+
+    period_label = stats["period_start"] if stats["period_start"] == stats["period_end"] else f'{stats["period_start"]} - {stats["period_end"]}'
+    property_label = 'Апартаментов' if stats.get('property_type') == 'апартаменты' else 'Квартир'
+    period_status_changes = stats.get("period_status_changes", [])
+
+    def get_period_status_count(status_names):
+        return sum(row["count"] for row in period_status_changes if row["access_status"] in status_names)
+
+    accepted_count = get_period_status_count({"owner_accepted", "tech_accepted"})
+    no_access_count = get_period_status_count({"no_access"})
+    call_count = get_period_status_count({"call"})
+
+    story.append(Paragraph(stats["complex_name"], styles['StatsTitle']))
+    story.append(Spacer(1, 0.15 * cm))
+    story.append(Paragraph(f'Период: {period_label}', styles['StatsMeta']))
+    story.append(Spacer(1, 0.45 * cm))
+
+    summary_data = [
+        [property_label, str(stats["total_apartments"])],
+        ["Открытых замечаний", str(stats["period_open_defects"])],
+        ["С замечаниями за все время", str(stats["all_time_apartments_with_defects"])],
+    ]
+    summary_table = Table(summary_data, colWidths=[10.5 * cm, 4.5 * cm])
+    summary_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), font_name),
+        ('FONTNAME', (1, 0), (1, -1), font_bold),
+        ('FONTSIZE', (0, 0), (0, -1), 11),
+        ('FONTSIZE', (1, 0), (1, -1), 18),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#111111')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 0.45 * cm))
+
+    rows = [["Статус", "Количество", "% от общего"]]
+    status_rows = [
+        ("С замечаниями", stats["period_apartments_with_defects"]),
+        ("Приняты", accepted_count),
+        ("Нет доступа", no_access_count),
+        ("Вызов", call_count),
+    ]
+    total_apartments = stats["total_apartments"] or 0
+    for label, count in status_rows:
+        percent = round((count / total_apartments) * 100, 1) if total_apartments else 0
+        rows.append([label, str(count), f'{percent}%'])
+
+    status_table = Table(rows, colWidths=[8.5 * cm, 3 * cm, 3 * cm])
+    status_table.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), font_name),
+        ('FONTNAME', (0, 0), (-1, 0), font_bold),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#111111')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('LINEBELOW', (0, 1), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+        ('TOPPADDING', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+    ]))
+    story.append(status_table)
+
+    doc.build(story)
+    buffer.seek(0)
+    filename = f'statistics_{complex_id}.pdf'
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return StreamingResponse(buffer, media_type='application/pdf', headers=headers)
 
 
 # === COMMENTS ENDPOINTS ===

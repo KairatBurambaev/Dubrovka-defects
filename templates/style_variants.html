@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Варианты стиля списка квартир</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style-variants.css?v=3">
+</head>
+<body>
+    <main class="variants-page">
+        <section class="hero">
+            <a class="back-link" href="/">Вернуться в приложение</a>
+            <p class="eyebrow">Перспектива Инжиниринг гарантийный сервис</p>
+            <h1>5 вариантов доработки стиля списка квартир</h1>
+            <p class="hero-text">Ниже живые концепты одного и того же экрана: разные акценты, плотность, подача статусов и мобильное настроение. Можно выбрать один вариант или смешать элементы.</p>
+        </section>
+
+        <section class="variant variant-atlas">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 1</p>
+                    <h2>Atlas</h2>
+                </div>
+                <p class="variant-note">Премиальный светлый интерфейс с чистыми карточками секций и спокойной аналитикой.</p>
+            </div>
+            <div class="preview-shell">
+                <div class="preview-toolbar">
+                    <div class="preview-search">Поиск: 101, 103-106</div>
+                    <div class="preview-pills">
+                        <span class="pill active warning">С замеч.</span>
+                        <span class="pill">Принята</span>
+                        <span class="pill">Сложные</span>
+                    </div>
+                </div>
+                <div class="preview-grid two-cols">
+                    <article class="section-card">
+                        <header class="section-head">
+                            <div>
+                                <h3>Корпус 1 • Секция 2</h3>
+                                <p>32 квартиры</p>
+                            </div>
+                            <div class="stats-row">
+                                <span>7 с замеч.</span>
+                                <span>5 приняты</span>
+                                <span>1 просроч.</span>
+                            </div>
+                        </header>
+                        <div class="floors compact">
+                            <div class="floor"><span class="label">19 эт</span><div class="cells"><span class="apt ok">1901</span><span class="apt issue">1902</span><span class="apt issue">1903</span><span class="apt phone">1904</span><span class="apt no-access">1905</span></div></div>
+                            <div class="floor"><span class="label">18 эт</span><div class="cells"><span class="apt ok">1801</span><span class="apt work">1802</span><span class="apt issue">1803</span><span class="apt complex">1804</span><span class="apt neutral">1805</span></div></div>
+                        </div>
+                    </article>
+                    <article class="section-card ghost">
+                        <header class="section-head">
+                            <div>
+                                <h3>Корпус 1 • Секция 3</h3>
+                                <p>28 квартир</p>
+                            </div>
+                            <div class="stats-row">
+                                <span>3 с замеч.</span>
+                                <span>11 приняты</span>
+                                <span>0 просроч.</span>
+                            </div>
+                        </header>
+                        <div class="floors compact">
+                            <div class="floor"><span class="label">19 эт</span><div class="cells"><span class="apt neutral">1911</span><span class="apt ok">1912</span><span class="apt ok">1913</span><span class="apt issue">1914</span><span class="apt neutral">1915</span></div></div>
+                            <div class="floor"><span class="label">18 эт</span><div class="cells"><span class="apt neutral">1811</span><span class="apt neutral">1812</span><span class="apt issue">1813</span><span class="apt ok">1814</span><span class="apt ok">1815</span></div></div>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-stripe">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 2</p>
+                    <h2>Stripe Board</h2>
+                </div>
+                <p class="variant-note">Более деловой экран: сильная типографика, тонкие рамки, максимально рабочая подача.</p>
+            </div>
+            <div class="preview-shell dense-shell">
+                <article class="board-card">
+                    <header class="board-head">
+                        <div>
+                            <h3>Секция 2</h3>
+                            <p>Рабочий режим прораба</p>
+                        </div>
+                        <div class="mini-kpis">
+                            <span><b>32</b> всего</span>
+                            <span><b>7</b> с замеч.</span>
+                            <span><b>5</b> приняты</span>
+                        </div>
+                    </header>
+                    <div class="board-rows">
+                        <div class="board-row"><span class="label">19</span><div class="cells"><span class="apt issue">01</span><span class="apt issue">02</span><span class="apt work">03</span><span class="apt neutral">04</span><span class="apt complex">05</span><span class="apt ok">06</span></div></div>
+                        <div class="board-row"><span class="label">18</span><div class="cells"><span class="apt neutral">01</span><span class="apt ok">02</span><span class="apt neutral">03</span><span class="apt phone">04</span><span class="apt issue">05</span><span class="apt no-access">06</span></div></div>
+                        <div class="board-row"><span class="label">17</span><div class="cells"><span class="apt ok">01</span><span class="apt ok">02</span><span class="apt issue">03</span><span class="apt issue">04</span><span class="apt neutral">05</span><span class="apt neutral">06</span></div></div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="variant variant-noctis">
+            <div class="variant-head light-text">
+                <div>
+                    <p class="variant-kicker">Вариант 3</p>
+                    <h2>Noctis</h2>
+                </div>
+                <p class="variant-note">Тёмный режим для вечерней работы на объекте: выше контраст, заметнее статусы, меньше бликов.</p>
+            </div>
+            <div class="preview-shell dark-shell">
+                <div class="preview-toolbar dark">
+                    <div class="preview-search">Фильтр: сложные + нет доступа</div>
+                    <div class="preview-pills">
+                        <span class="pill dark complex active">Сложные</span>
+                        <span class="pill dark">Нет доступа</span>
+                    </div>
+                </div>
+                <article class="night-card">
+                    <header class="night-head">
+                        <h3>Корпус 2 • Секция 1</h3>
+                        <div class="night-badges"><span>2 просроч.</span><span>4 сложные</span><span>3 вызов</span></div>
+                    </header>
+                    <div class="floors compact dark-floors">
+                        <div class="floor"><span class="label dark">12</span><div class="cells"><span class="apt issue">1201</span><span class="apt complex">1202</span><span class="apt no-access">1203</span><span class="apt phone">1204</span><span class="apt ok">1205</span></div></div>
+                        <div class="floor"><span class="label dark">11</span><div class="cells"><span class="apt neutral dark-neutral">1101</span><span class="apt issue">1102</span><span class="apt work">1103</span><span class="apt complex">1104</span><span class="apt ok">1105</span></div></div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="variant variant-scaffold">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 4</p>
+                    <h2>Scaffold</h2>
+                </div>
+                <p class="variant-note">Техничный вариант с акцентом на этажи и дисциплину сетки. Хорошо подходит, если экран должен быть очень быстрым для чтения.</p>
+            </div>
+            <div class="preview-shell scaffold-shell">
+                <article class="scaffold-card">
+                    <aside class="scaffold-side">
+                        <div><span>Всего</span><strong>54</strong></div>
+                        <div><span>Замечания</span><strong>12</strong></div>
+                        <div><span>Принята</span><strong>18</strong></div>
+                    </aside>
+                    <div class="scaffold-main">
+                        <header class="scaffold-head">
+                            <h3>Секция 4</h3>
+                            <p>Чёткая этажная сетка</p>
+                        </header>
+                        <div class="scaffold-floors">
+                            <div class="scaffold-row"><span class="floor-tag">22</span><div class="cells"><span class="apt neutral">01</span><span class="apt issue">02</span><span class="apt issue">03</span><span class="apt ok">04</span><span class="apt ok">05</span><span class="apt work">06</span></div></div>
+                            <div class="scaffold-row"><span class="floor-tag">21</span><div class="cells"><span class="apt no-access">01</span><span class="apt complex">02</span><span class="apt issue">03</span><span class="apt neutral">04</span><span class="apt ok">05</span><span class="apt neutral">06</span></div></div>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="variant variant-mobile">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 5</p>
+                    <h2>Pocket Flow</h2>
+                </div>
+                <p class="variant-note">Мобильный-first вариант: липкий статус-фильтр, большие касательные зоны, мягкая компактность.</p>
+            </div>
+            <div class="mobile-demo">
+                <div class="mobile-frame">
+                    <div class="mobile-top">С замечаниями</div>
+                    <div class="mobile-chips">
+                        <span class="pill warning active">С замеч.</span>
+                        <span class="pill">Принята</span>
+                        <span class="pill">Нет доступа</span>
+                    </div>
+                    <article class="mobile-section">
+                        <header>
+                            <h3>Секция 2</h3>
+                            <p>7 замечаний • 1 просрочка</p>
+                        </header>
+                        <div class="mobile-floor-row"><span>19</span><div class="cells"><span class="apt issue">01</span><span class="apt issue">02</span><span class="apt work">03</span><span class="apt ok">04</span></div></div>
+                        <div class="mobile-floor-row"><span>18</span><div class="cells"><span class="apt neutral">01</span><span class="apt no-access">02</span><span class="apt complex">03</span><span class="apt ok">04</span></div></div>
+                    </article>
+                </div>
+                <div class="mobile-aside">
+                    <h3>Что даёт</h3>
+                    <ul>
+                        <li>на телефоне видно текущий фильтр сразу</li>
+                        <li>кнопки статусов удобно нажимать одной рукой</li>
+                        <li>ряды этажей читаются без горизонтальной каши</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-editorial">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 6</p>
+                    <h2>Editorial Ledger</h2>
+                </div>
+                <p class="variant-note">Подача как в дорогом журнале о недвижимости: много воздуха, крупные номера этажей, спокойная типографика.</p>
+            </div>
+            <div class="editorial-shell">
+                <div class="editorial-side">
+                    <p>Секция</p>
+                    <strong>2</strong>
+                    <span>31 квартира</span>
+                </div>
+                <div class="editorial-main">
+                    <div class="editorial-row"><span class="editorial-floor">19</span><div class="cells"><span class="apt issue">1901</span><span class="apt neutral">1902</span><span class="apt ok">1903</span><span class="apt issue">1904</span></div></div>
+                    <div class="editorial-row"><span class="editorial-floor">18</span><div class="cells"><span class="apt complex">1801</span><span class="apt no-access">1802</span><span class="apt ok">1803</span><span class="apt neutral">1804</span></div></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-dashboardx">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 7</p>
+                    <h2>Dashboard X</h2>
+                </div>
+                <p class="variant-note">Экран как центр управления: сверху KPI, ниже жёсткая сетка секций и оперативные статусы.</p>
+            </div>
+            <div class="dash-shell">
+                <div class="dash-kpis">
+                    <div><span>Всего</span><strong>128</strong></div>
+                    <div><span>Замечания</span><strong>24</strong></div>
+                    <div><span>Приняты</span><strong>49</strong></div>
+                    <div><span>Просрочено</span><strong>3</strong></div>
+                </div>
+                <div class="dash-grid">
+                    <article class="dash-card"><h3>Секция 1</h3><div class="cells"><span class="apt issue">01</span><span class="apt issue">02</span><span class="apt ok">03</span><span class="apt phone">04</span><span class="apt neutral">05</span></div></article>
+                    <article class="dash-card"><h3>Секция 2</h3><div class="cells"><span class="apt neutral">01</span><span class="apt ok">02</span><span class="apt work">03</span><span class="apt complex">04</span><span class="apt ok">05</span></div></article>
+                    <article class="dash-card"><h3>Секция 3</h3><div class="cells"><span class="apt no-access">01</span><span class="apt issue">02</span><span class="apt issue">03</span><span class="apt ok">04</span><span class="apt neutral">05</span></div></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-industrial">
+            <div class="variant-head light-text">
+                <div>
+                    <p class="variant-kicker">Вариант 8</p>
+                    <h2>Industrial Night</h2>
+                </div>
+                <p class="variant-note">Брутальный интерфейс для стройки: графитовый фон, сигнальные цвета, мощная рабочая атмосфера.</p>
+            </div>
+            <div class="industrial-shell">
+                <header class="industrial-top">
+                    <span>ЖК Дубровка</span>
+                    <span>Корпус 2</span>
+                    <span>Режим ночной проверки</span>
+                </header>
+                <div class="industrial-board">
+                    <div class="industrial-column"><h3>19 этаж</h3><div class="cells"><span class="apt issue">1901</span><span class="apt complex">1902</span><span class="apt ok">1903</span></div></div>
+                    <div class="industrial-column"><h3>18 этаж</h3><div class="cells"><span class="apt no-access">1801</span><span class="apt phone">1802</span><span class="apt work">1803</span></div></div>
+                    <div class="industrial-column"><h3>17 этаж</h3><div class="cells"><span class="apt neutral dark-neutral">1701</span><span class="apt issue">1702</span><span class="apt ok">1703</span></div></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-glasszen">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 9</p>
+                    <h2>Glass Zen</h2>
+                </div>
+                <p class="variant-note">Полупрозрачные панели и мягкий градиент. Спокойный, дорогой, почти iPad-native стиль.</p>
+            </div>
+            <div class="glass-shell">
+                <article class="glass-card">
+                    <div class="glass-meta">
+                        <h3>Секция 5</h3>
+                        <span>24 квартиры</span>
+                    </div>
+                    <div class="glass-floors">
+                        <div class="glass-row"><span>15</span><div class="cells"><span class="apt ok">01</span><span class="apt issue">02</span><span class="apt work">03</span><span class="apt neutral">04</span></div></div>
+                        <div class="glass-row"><span>14</span><div class="cells"><span class="apt phone">01</span><span class="apt no-access">02</span><span class="apt ok">03</span><span class="apt issue">04</span></div></div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="variant variant-monochrome">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 10</p>
+                    <h2>Mono Grid</h2>
+                </div>
+                <p class="variant-note">Монохромный управленческий стиль. Цвет используется только как аварийный сигнал, всё остальное строится на ритме сетки.</p>
+            </div>
+            <div class="mono-shell">
+                <div class="mono-head"><h3>Секция 2</h3><p>Чёрно-белая дисциплина</p></div>
+                <div class="mono-grid">
+                    <span class="mono-tag">19</span><span class="apt mono">01</span><span class="apt mono alert">02</span><span class="apt mono">03</span><span class="apt mono">04</span>
+                    <span class="mono-tag">18</span><span class="apt mono">01</span><span class="apt mono">02</span><span class="apt mono alert">03</span><span class="apt mono">04</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-blueprint">
+            <div class="variant-head light-text">
+                <div>
+                    <p class="variant-kicker">Вариант 11</p>
+                    <h2>Blueprint</h2>
+                </div>
+                <p class="variant-note">Интерфейс как строительный чертёж: синие линии, сетка, чувство точности и инженерной строгости.</p>
+            </div>
+            <div class="blueprint-shell">
+                <div class="blueprint-plan">
+                    <div class="bp-row"><span class="bp-floor">10</span><div class="cells"><span class="apt blueprint-cell">1001</span><span class="apt blueprint-cell issuebp">1002</span><span class="apt blueprint-cell">1003</span></div></div>
+                    <div class="bp-row"><span class="bp-floor">09</span><div class="cells"><span class="apt blueprint-cell">0901</span><span class="apt blueprint-cell">0902</span><span class="apt blueprint-cell issuebp">0903</span></div></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-luxe">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 12</p>
+                    <h2>Luxe Marble</h2>
+                </div>
+                <p class="variant-note">Премиум-подача для дорогих объектов: тёплый каменный фон, тонкие золотистые акценты, статус как часть бренда.</p>
+            </div>
+            <div class="luxe-shell">
+                <article class="luxe-card">
+                    <header><h3>Корпус 1 • Секция 7</h3><span>Concierge View</span></header>
+                    <div class="luxe-floors">
+                        <div class="luxe-row"><span>21</span><div class="cells"><span class="apt luxe ok">01</span><span class="apt luxe issue">02</span><span class="apt luxe neutral">03</span><span class="apt luxe complex">04</span></div></div>
+                        <div class="luxe-row"><span>20</span><div class="cells"><span class="apt luxe neutral">01</span><span class="apt luxe ok">02</span><span class="apt luxe work">03</span><span class="apt luxe no-access">04</span></div></div>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="variant variant-kanban">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 13</p>
+                    <h2>Kanban Sections</h2>
+                </div>
+                <p class="variant-note">Не этажи, а workflow: секции раскладываются как колонки, а квартиры воспринимаются как задачи.</p>
+            </div>
+            <div class="kanban-shell">
+                <div class="kanban-col"><h3>Секция 1</h3><div class="kanban-stack"><span class="kanban-card issue">Кв. 101</span><span class="kanban-card ok">Кв. 102</span><span class="kanban-card complex">Кв. 103</span></div></div>
+                <div class="kanban-col"><h3>Секция 2</h3><div class="kanban-stack"><span class="kanban-card no-access">Кв. 201</span><span class="kanban-card work">Кв. 202</span><span class="kanban-card ok">Кв. 203</span></div></div>
+                <div class="kanban-col"><h3>Секция 3</h3><div class="kanban-stack"><span class="kanban-card issue">Кв. 301</span><span class="kanban-card issue">Кв. 302</span><span class="kanban-card phone">Кв. 303</span></div></div>
+            </div>
+        </section>
+
+        <section class="variant variant-nativephone">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 14</p>
+                    <h2>Native Phone Sheets</h2>
+                </div>
+                <p class="variant-note">Как мобильное нативное приложение: карточки-листы, крупные свайповые зоны, почти без desktop-привычек.</p>
+            </div>
+            <div class="native-phone-shell">
+                <div class="sheet"><div class="sheet-handle"></div><h3>Секция 2</h3><div class="sheet-list"><div class="sheet-item"><span>1901</span><b>Новое замечание</b></div><div class="sheet-item"><span>1902</span><b>Нет доступа</b></div><div class="sheet-item"><span>1903</span><b>Принята</b></div></div></div>
+                <div class="sheet info"><div class="sheet-handle"></div><h3>Фильтры</h3><div class="sheet-chips"><span class="pill active warning">С замеч.</span><span class="pill">Сложные</span><span class="pill">Принята</span></div></div>
+            </div>
+        </section>
+
+        <section class="variant variant-neonwall">
+            <div class="variant-head light-text">
+                <div>
+                    <p class="variant-kicker">Вариант 15</p>
+                    <h2>Neon Datawall</h2>
+                </div>
+                <p class="variant-note">Радикальный digital-стиль: крупные светящиеся маркеры, яркая аналитика, акцент на визуальный wow-эффект.</p>
+            </div>
+            <div class="neon-shell">
+                <div class="neon-strip"><span>LIVE</span><span>ЖК Дубровка</span><span>22 активных дефекта</span></div>
+                <div class="neon-grid">
+                    <div class="neon-cell issue">1901</div>
+                    <div class="neon-cell ok">1902</div>
+                    <div class="neon-cell complex">1903</div>
+                    <div class="neon-cell no-access">1904</div>
+                    <div class="neon-cell work">1905</div>
+                    <div class="neon-cell issue">1906</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-suite">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 16</p>
+                    <h2>Office Suite</h2>
+                </div>
+                <p class="variant-note">Полный редизайн под корпоративный продукт: левая навигация, дашборд сверху, рабочие панели справа. Подходит для команды и офиса.</p>
+            </div>
+            <div class="service-shell suite-shell">
+                <aside class="service-sidebar">
+                    <div class="brand-block"><strong>Dubrovka OS</strong><span>Приемка и дефекты</span></div>
+                    <nav class="service-nav"><span class="active">ЖК</span><span>Квартиры</span><span>Статистика</span><span>Отчёты</span></nav>
+                </aside>
+                <div class="service-main">
+                    <div class="service-topbar">
+                        <div class="top-title"><h3>Перспектива</h3><p>128 квартир, 24 активных замечания</p></div>
+                        <div class="top-actions"><span>Фильтры</span><span>Экспорт</span></div>
+                    </div>
+                    <div class="service-kpis"><div><span>Комплексы</span><strong>12</strong></div><div><span>Просрочка</span><strong>3</strong></div><div><span>Принято</span><strong>49</strong></div></div>
+                    <div class="service-content-grid">
+                        <article class="service-panel"><h4>Список квартир</h4><div class="cells"><span class="apt issue">101</span><span class="apt ok">102</span><span class="apt phone">103</span><span class="apt neutral">104</span></div></article>
+                        <article class="service-panel soft"><h4>Карточка квартиры</h4><div class="detail-lines"><span>Статус: В работе</span><span>Срок: 14.04</span><span>Фото: 3</span></div></article>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-mapfirst">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 17</p>
+                    <h2>Map First</h2>
+                </div>
+                <p class="variant-note">Главный экран как карта корпусов и секций. Подходит, если навигация по объекту важнее таблиц.</p>
+            </div>
+            <div class="service-shell map-shell">
+                <div class="map-canvas">
+                    <div class="map-building large"><span>Корпус 1</span></div>
+                    <div class="map-building mid"><span>Корпус 2</span></div>
+                    <div class="map-building small"><span>Корпус 3</span></div>
+                </div>
+                <aside class="map-sidepanel">
+                    <h4>Объект</h4>
+                    <div class="map-stats"><span>3 корпуса</span><span>11 секций</span><span>24 дефекта</span></div>
+                    <div class="map-list"><span>Секция 2: 7 замечаний</span><span>Секция 5: 1 просрочка</span><span>Секция 7: без доступа 3</span></div>
+                </aside>
+            </div>
+        </section>
+
+        <section class="variant variant-conciergeplus">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 18</p>
+                    <h2>Concierge Premium</h2>
+                </div>
+                <p class="variant-note">Редизайн как продукт для премиальной управляющей компании: статус, сервис, визуальная роскошь, минимум грубой стройки.</p>
+            </div>
+            <div class="service-shell concierge-shell">
+                <header class="concierge-hero"><h3>ЖК Дубровка Signature</h3><p>Owner journey, records, service quality</p></header>
+                <div class="concierge-grid">
+                    <article class="concierge-card"><h4>Обзор ЖК</h4><span>97% квартир обработано</span></article>
+                    <article class="concierge-card"><h4>Перспектива Инжиниринг гарантийный сервис 412</h4><span>Окна • Электрика • Балкон</span></article>
+                    <article class="concierge-card accent"><h4>Следующий дедлайн</h4><span>12 апреля</span></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-bimcore">
+            <div class="variant-head light-text">
+                <div>
+                    <p class="variant-kicker">Вариант 19</p>
+                    <h2>BIM Core</h2>
+                </div>
+                <p class="variant-note">Инженерная система: слой данных, техничные панели, ассоциация с CAD/BIM-инструментами, без маркетингового глянца.</p>
+            </div>
+            <div class="service-shell bim-shell">
+                <div class="bim-toolbar"><span>MODEL</span><span>SECTIONS</span><span>ISSUES</span><span>EXPORT</span></div>
+                <div class="bim-grid">
+                    <article class="bim-panel wire"><h4>Section Matrix</h4><div class="matrix"><span>01</span><span>02</span><span>03</span><span>04</span><span>05</span><span>06</span></div></article>
+                    <article class="bim-panel"><h4>Issue Stream</h4><div class="detail-lines light"><span>1203: door adjustment</span><span>1504: balcony slope</span><span>1702: window leak</span></div></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-fieldkit">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 20</p>
+                    <h2>Field Kit</h2>
+                </div>
+                <p class="variant-note">Редизайн для выездной работы на площадке: крупные кнопки, заметные статусы, простая логика в перчатках и на солнце.</p>
+            </div>
+            <div class="service-shell field-shell">
+                <div class="field-controls"><span>Фото</span><span>Голос</span><span>Статус</span><span>Отправить</span></div>
+                <div class="field-card"><h4>Квартира 514</h4><div class="field-statuses"><span class="status-chip warn">Замечание</span><span class="status-chip late">Просрочка</span><span class="status-chip ok">В работе</span></div></div>
+                <div class="field-grid"><span class="field-cell">Окна</span><span class="field-cell">Электрика</span><span class="field-cell">Пол</span><span class="field-cell">Балкон</span></div>
+            </div>
+        </section>
+
+        <section class="variant variant-analyticshq">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 21</p>
+                    <h2>Analytics HQ</h2>
+                </div>
+                <p class="variant-note">Полный редизайн как BI-система: графики, тренды, SLA и качества по корпусам, а квартиры становятся drill-down уровнем.</p>
+            </div>
+            <div class="service-shell hq-shell">
+                <div class="hq-header"><h3>Quality Command Center</h3><p>Trend view for complexes, sections and contractors</p></div>
+                <div class="hq-panels">
+                    <article class="hq-card wide"><h4>Динамика замечаний</h4><div class="fake-chart"><span></span><span></span><span></span><span></span><span></span></div></article>
+                    <article class="hq-card"><h4>SLA</h4><strong>83%</strong></article>
+                    <article class="hq-card"><h4>Сложные квартиры</h4><strong>12</strong></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-docflow">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 22</p>
+                    <h2>DocFlow</h2>
+                </div>
+                <p class="variant-note">Сервис как система документов и актов: списки, протоколы, версии, подписи. Хорошо, если основной выход сервиса это документы.</p>
+            </div>
+            <div class="service-shell doc-shell">
+                <div class="doc-column ledger"><h4>Акты</h4><span>Акт 412.pdf</span><span>Акт 413.pdf</span><span>Журнал замечаний</span></div>
+                <div class="doc-column page"><h4>Предпросмотр документа</h4><div class="fake-page"><span>Квартира 412</span><span>Категория: Окна</span><span>Подпись: ожидается</span></div></div>
+            </div>
+        </section>
+
+        <section class="variant variant-softmobile">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 23</p>
+                    <h2>Soft Mobile Cloud</h2>
+                </div>
+                <p class="variant-note">Мягкий mobile-first сервис: карточки, облачные формы, ощущение потребительского приложения, а не внутреннего инструмента.</p>
+            </div>
+            <div class="service-shell softmobile-shell">
+                <div class="phone-mock">
+                    <div class="phone-screen">
+                        <div class="mobile-headline"><h4>Мои обходы</h4><span>Сегодня 6 квартир</span></div>
+                        <div class="mobile-stack"><div class="soft-card"><b>Кв. 412</b><span>Окна, Электрика</span></div><div class="soft-card"><b>Кв. 413</b><span>Без доступа</span></div><div class="soft-card accent"><b>Кв. 414</b><span>Просрочено</span></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-crmgrid">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 24</p>
+                    <h2>CRM Grid</h2>
+                </div>
+                <p class="variant-note">Редизайн как CRM-платформа: сущности, карточки, owner/contact/status, больше контроля над операционными процессами.</p>
+            </div>
+            <div class="service-shell crm-shell">
+                <div class="crm-table">
+                    <div class="crm-row crm-head"><span>Квартира</span><span>Ответственный</span><span>Статус</span><span>Срок</span></div>
+                    <div class="crm-row"><span>412</span><span>Иванов</span><span>В работе</span><span>14.04</span></div>
+                    <div class="crm-row"><span>413</span><span>Петров</span><span>Нет доступа</span><span>16.04</span></div>
+                    <div class="crm-row"><span>414</span><span>Сидоров</span><span>Просрочено</span><span>09.04</span></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant variant-brutalistx">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Вариант 25</p>
+                    <h2>Brutalist Utility</h2>
+                </div>
+                <p class="variant-note">Максимально прямой утилитарный редизайн: жёсткие линии, грубая типографика, почти no-nonsense интерфейс.</p>
+            </div>
+            <div class="service-shell brutal-shell">
+                <div class="brutal-banner">DUBROVKA DEFECTS / LIVE WORKBOARD</div>
+                <div class="brutal-grid">
+                    <article><h4>Объекты</h4><strong>12</strong></article>
+                    <article><h4>Секции</h4><strong>41</strong></article>
+                    <article><h4>Активные дефекты</h4><strong>24</strong></article>
+                    <article><h4>Просрочено</h4><strong>3</strong></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="variant stats-variants-showcase">
+            <div class="variant-head">
+                <div>
+                    <p class="variant-kicker">Новый блок</p>
+                    <h2>10 вариантов таблицы статистики</h2>
+                </div>
+                <p class="variant-note">От строгих отчётных листов до цветных дашбордов. Все ниже только про статистику, без сетки квартир.</p>
+            </div>
+            <div class="stats-catalog">
+                <article class="stats-card stats-card-ledger">
+                    <header><span>Вариант 1</span><h3>Ledger</h3></header>
+                    <table class="stats-mini-table">
+                        <tr><th>Статус</th><th>Кол-во</th><th>%</th></tr>
+                        <tr><td>С замечаниями</td><td>18</td><td>14%</td></tr>
+                        <tr><td>Приняты</td><td>67</td><td>52%</td></tr>
+                        <tr><td>Нет доступа</td><td>9</td><td>7%</td></tr>
+                    </table>
+                </article>
+
+                <article class="stats-card stats-card-spectrum">
+                    <header><span>Вариант 2</span><h3>Spectrum</h3></header>
+                    <div class="stats-bars">
+                        <div><b>С замечаниями</b><span style="width: 34%"></span></div>
+                        <div><b>Приняты</b><span style="width: 72%"></span></div>
+                        <div><b>Вызов</b><span style="width: 16%"></span></div>
+                    </div>
+                </article>
+
+                <article class="stats-card stats-card-carbon dark">
+                    <header><span>Вариант 3</span><h3>Carbon</h3></header>
+                    <table class="stats-mini-table dark-table">
+                        <tr><th>Показатель</th><th>Значение</th></tr>
+                        <tr><td>Открытых замечаний</td><td>24</td></tr>
+                        <tr><td>За период</td><td>7</td></tr>
+                        <tr><td>За всё время</td><td>54</td></tr>
+                    </table>
+                </article>
+
+                <article class="stats-card stats-card-ticket">
+                    <header><span>Вариант 4</span><h3>Ticket Strip</h3></header>
+                    <div class="stats-ticket-row"><label>С замечаниями</label><strong>18</strong><em>14%</em></div>
+                    <div class="stats-ticket-row"><label>Приняты</label><strong>67</strong><em>52%</em></div>
+                    <div class="stats-ticket-row"><label>Нет доступа</label><strong>9</strong><em>7%</em></div>
+                </article>
+
+                <article class="stats-card stats-card-editorial">
+                    <header><span>Вариант 5</span><h3>Editorial</h3></header>
+                    <div class="stats-editorial-grid">
+                        <div><small>ЖК</small><strong>Перспектива</strong></div>
+                        <div><small>Период</small><strong>12.04.2026</strong></div>
+                        <div><small>Всего квартир</small><strong>128</strong></div>
+                    </div>
+                </article>
+
+                <article class="stats-card stats-card-signal">
+                    <header><span>Вариант 6</span><h3>Signal Lines</h3></header>
+                    <ul class="stats-signal-list">
+                        <li class="mint"><span>Приняты</span><b>67</b></li>
+                        <li class="rose"><span>С замечаниями</span><b>18</b></li>
+                        <li class="slate"><span>Нет доступа</span><b>9</b></li>
+                    </ul>
+                </article>
+
+                <article class="stats-card stats-card-blueprint dark">
+                    <header><span>Вариант 7</span><h3>Blueprint Stats</h3></header>
+                    <div class="stats-blueprint-grid">
+                        <div><small>Accepted</small><strong>67</strong></div>
+                        <div><small>Issues</small><strong>18</strong></div>
+                        <div><small>Calls</small><strong>11</strong></div>
+                        <div><small>No access</small><strong>9</strong></div>
+                    </div>
+                </article>
+
+                <article class="stats-card stats-card-soft">
+                    <header><span>Вариант 8</span><h3>Soft Board</h3></header>
+                    <div class="stats-soft-stack">
+                        <section><small>За период</small><strong>7 замечаний</strong></section>
+                        <section><small>За всё время</small><strong>41 квартира</strong></section>
+                        <section><small>Приняты</small><strong>67 квартир</strong></section>
+                    </div>
+                </article>
+
+                <article class="stats-card stats-card-gridline">
+                    <header><span>Вариант 9</span><h3>Gridline</h3></header>
+                    <div class="stats-gridline-table">
+                        <div>С замечаниями</div><div>18</div><div>14%</div>
+                        <div>Приняты</div><div>67</div><div>52%</div>
+                        <div>Вызов</div><div>11</div><div>8%</div>
+                    </div>
+                </article>
+
+                <article class="stats-card stats-card-neon dark">
+                    <header><span>Вариант 10</span><h3>Neon Pulse</h3></header>
+                    <div class="stats-neon-kpis">
+                        <div><small>Open</small><strong>24</strong></div>
+                        <div><small>Accepted</small><strong>67</strong></div>
+                        <div><small>Blocked</small><strong>9</strong></div>
+                    </div>
+                </article>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

@@ -451,12 +451,14 @@ async function loadComplexes() {
             const totalApts = c.apartments_count || 0;
             const defectCount = stats.defects || c.defects_count || 0;
             const propType = c.property_type || 'квартиры';
-            const isPerspective = c.name.toLowerCase().includes('перспектива');
-            const cardClass = isPerspective ? 'complex-card complex-card-red' : 'complex-card';
+            const cardClass = 'complex-card';
+            const address = c.address?.trim() || 'Адрес не указан';
             return `
                 <div class="${cardClass}" onclick="showComplexDetail(${c.id})">
-                    <div class="complex-card-name">${escapeHtml(c.name)}</div>
-                    <div class="complex-card-info">г. Москва, ул. Дубровская, д. 1</div>
+                    <div class="complex-card-body">
+                        <div class="complex-card-name">${escapeHtml(c.name)}</div>
+                        <div class="complex-card-info">${escapeHtml(address)}</div>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -1463,7 +1465,9 @@ function renderApartments(apartments) {
     if (state.sortByDefects) {
         const sortedBySection = {};
 
-        visibleApartments.forEach((apartment) => {
+        visibleApartments
+            .filter((apartment) => getApartmentBadgeCount(apartment, catFilter) > 0)
+            .forEach((apartment) => {
             const sectionNumber = apartment.section_number || 0;
             if (!sortedBySection[sectionNumber]) {
                 sortedBySection[sectionNumber] = [];
@@ -1474,6 +1478,19 @@ function renderApartments(apartments) {
         const sortedSectionNumbers = Object.keys(sortedBySection)
             .map(Number)
             .sort((a, b) => a - b);
+
+        if (!sortedSectionNumbers.length) {
+            const emptyState = getApartmentListEmptyState();
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">#</div>
+                    <h3>${emptyState.title}</h3>
+                    <p>Для выбранных фильтров нет квартир с открытыми замечаниями.</p>
+                </div>
+            `;
+            updateStatsPanel(apartments);
+            return;
+        }
 
         container.innerHTML = `
             <div class="sections-grid sections-grid-sorted">
@@ -1721,7 +1738,7 @@ async function showApartmentDetail(id) {
         const active = defects.filter(d => !['ready','rejected'].includes(d.status));
         const done = defects.filter(d => ['ready','rejected'].includes(d.status));
         
-        const fullSubtitle = `${aptSubtitle} | Активных: ${active.length} | Готовых: ${done.length}`;
+        const fullSubtitle = `${aptSubtitle} • Активных: ${active.length} • Готовых: ${done.length}`;
         setPageTitle(`${propLabel} ${apt.number}`, fullSubtitle);
         
         // Set status buttons
@@ -2423,6 +2440,39 @@ document.addEventListener('keydown', (e) => {
 
 let statsDate = new Date().toISOString().split('T')[0];
 let statsMinDate = '';
+let statsMode = 'day';
+let statsRangeStart = statsDate;
+let statsRangeEnd = statsDate;
+
+function getStatsQueryString() {
+    const params = new URLSearchParams();
+    if (statsMode === 'range') {
+        params.set('start_date', statsRangeStart);
+        params.set('end_date', statsRangeEnd);
+    } else {
+        params.set('stat_date', statsDate);
+    }
+    return params.toString();
+}
+
+function formatStatsPeriodLabel(startDate, endDate) {
+    if (!startDate || !endDate) {
+        const today = new Date().toISOString().split('T')[0];
+        startDate = today;
+        endDate = today;
+    }
+    const formatDate = (d) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+    return startDate === endDate ? formatDate(startDate) : `${formatDate(startDate)} - ${formatDate(endDate)}`;
+}
+
+function formatStatsPercent(count, total) {
+    if (!total) return '0%';
+    return `${Math.round((count / total) * 1000) / 10}%`;
+}
+
+function refreshStatsModal() {
+    loadStats(document.getElementById('statsBody'), document.getElementById('statsModal'));
+}
 
 async function showStatsModal() {
     const modal = document.getElementById('statsModal');
@@ -2439,148 +2489,142 @@ async function showStatsModal() {
 
 async function loadStats(body, modal) {
     try {
-        const statsRes = await fetch(`/api/complexes/${state.currentComplex}/statistics?stat_date=${statsDate}`);
+        const statsRes = await fetch(`/api/complexes/${state.currentComplex}/statistics?${getStatsQueryString()}`);
+        if (!statsRes.ok) throw new Error(`Statistics request failed: ${statsRes.status}`);
         const stats = await statsRes.json();
         
         // Set min date from first defect
         statsMinDate = stats.first_defect_date || statsDate;
         
-        const accessStats = stats.by_access_status || [];
         const totalApartments = stats.total_apartments || 0;
-        
-        const ownerAccepted = accessStats.find(s => s.access_status === 'owner_accepted')?.count || 0;
-        const techAccepted = accessStats.find(s => s.access_status === 'tech_accepted')?.count || 0;
-        const noAccess = accessStats.find(s => s.access_status === 'no_access')?.count || 0;
-        const call = accessStats.find(s => s.access_status === 'call')?.count || 0;
-        const inProgress = accessStats.find(s => s.access_status === 'in_progress')?.count || 0;
-        const available = accessStats.find(s => s.access_status === 'available')?.count || 0;
-        
-        const withDefects = stats.with_defects || 0;
-        
-        const acceptedToday = stats.accepted_today || 0;
-        const defectsToday = stats.defects_today || 0;
-        const defectsWeek = stats.defects_week || 0;
-        const acceptedWeek = stats.accepted_week || 0;
-        
-        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
-        
-        const formatDate = (d) => {
-            const date = new Date(d);
-            return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-        };
-        
+        const allTimeApartmentsWithDefects = stats.all_time_apartments_with_defects || 0;
+        const periodOpenDefects = stats.period_open_defects || 0;
+        const periodApartmentsWithDefects = stats.period_apartments_with_defects || 0;
+        const statusChangeRows = stats.period_status_changes || [];
+        const complexName = stats.complex_name || document.getElementById('jkName')?.textContent || 'ЖК';
+        const periodLabel = statsMode === 'range'
+            ? formatStatsPeriodLabel(statsRangeStart || stats.period_start, statsRangeEnd || stats.period_end)
+            : formatStatsPeriodLabel(statsDate || stats.period_start, statsDate || stats.period_end);
+
+        const getStatusChangeCount = (status) => statusChangeRows.find((row) => row.access_status === status)?.count || 0;
+        const acceptedChanges = statusChangeRows
+            .filter((row) => ['owner_accepted', 'tech_accepted'].includes(row.access_status))
+            .reduce((sum, row) => sum + row.count, 0);
+        const noAccessChanges = getStatusChangeCount('no_access');
+        const callChanges = getStatusChangeCount('call');
+        const isApartmentType = state.currentPropertyType === 'апартаменты';
+
         const statRows = [
             {
-                label: 'Принято',
-                value: ownerAccepted + techAccepted,
-                week: `+${acceptedWeek}`,
-                today: `+${acceptedToday}`,
-                tone: 'accepted'
-            },
-            {
                 label: 'С замечаниями',
-                value: withDefects > 0 ? withDefects : 0,
-                week: `+${defectsWeek}`,
-                today: defectsToday > 0 ? `+${defectsToday}` : '0',
+                value: periodApartmentsWithDefects > 0 ? periodApartmentsWithDefects : 0,
+                percent: formatStatsPercent(periodApartmentsWithDefects, totalApartments),
+                showPercent: true,
                 tone: 'defects'
             },
             {
+                label: 'Приняты',
+                value: acceptedChanges,
+                percent: formatStatsPercent(acceptedChanges, totalApartments),
+                showPercent: true,
+                tone: 'accepted'
+            },
+            {
                 label: 'Нет доступа',
-                value: noAccess,
-                week: '-',
-                today: '-',
+                value: noAccessChanges,
+                percent: formatStatsPercent(noAccessChanges, totalApartments),
+                showPercent: true,
                 tone: 'no-access'
             },
             {
-                label: 'Вызванные',
-                value: call,
-                week: '-',
-                today: '-',
+                label: 'Вызов',
+                value: callChanges,
+                percent: formatStatsPercent(callChanges, totalApartments),
+                showPercent: true,
                 tone: 'call'
-            },
-            {
-                label: 'В работе',
-                value: inProgress,
-                week: '-',
-                today: '-',
-                tone: 'progress'
-            },
-            {
-                label: 'Доступны',
-                value: available,
-                week: '-',
-                today: '-',
-                tone: 'available'
             }
         ];
 
         body.innerHTML = `
-            <div class="stats-panel-head">
-                <div>
-                    <span class="stats-label">Срез по ${propName}</span>
-                    <div class="stats-date">${formatDate(statsDate)}</div>
+            <div class="stats-shell stats-shell-ticket">
+                <div class="stats-ticket-head">
+                    <div class="stats-ticket-copy">
+                        <div class="stats-ticket-title">${complexName}</div>
+                        <span class="stats-ticket-period">${periodLabel}</span>
+                    </div>
+                    <div class="stats-ticket-head-actions">
+                        <button class="btn btn-secondary btn-compact" onclick="printStatsReport()">Печать</button>
+                        <button class="btn btn-secondary btn-compact" onclick="exportStatsPdf()">PDF</button>
+                    </div>
+                    <div class="stats-ticket-total">
+                        <span>${isApartmentType ? 'Апартаментов' : 'Квартир'}</span>
+                        <strong>${totalApartments}</strong>
+                    </div>
                 </div>
-                <div class="stats-total-card">
-                    <span class="stats-total-label">Всего</span>
-                    <strong class="stats-total">${totalApartments}</strong>
-                </div>
-            </div>
 
-            <div class="stats-date-picker">
-                <label for="statsDateInput">Дата отчета</label>
-                <input type="date" id="statsDateInput" 
-                    value="${statsDate}" 
-                    min="${statsMinDate}"
-                    max="${new Date().toISOString().split('T')[0]}"
-                    onchange="changeStatsDate(this.value)">
-            </div>
-
-            <div class="stats-summary-grid">
-                <div class="stats-summary-card stats-summary-card-accent">
-                    <span class="stats-summary-label">Принято</span>
-                    <strong class="stats-summary-value">${ownerAccepted + techAccepted}</strong>
-                    <span class="stats-summary-meta">+${acceptedToday} сегодня</span>
+                <div class="stats-toolbar stats-toolbar-ticket">
+                    <div class="stats-mode-switch">
+                        <button class="pill ${statsMode === 'day' ? 'active' : ''}" onclick="setStatsMode('day')">День</button>
+                        <button class="pill ${statsMode === 'range' ? 'active' : ''}" onclick="setStatsMode('range')">Период</button>
+                    </div>
+                    <div class="stats-date-range">
+                        ${statsMode === 'range' ? `
+                            <label class="stats-date-picker" for="statsDateStart">
+                                <span>С</span>
+                                <input type="date" id="statsDateStart" value="${statsRangeStart}" min="${statsMinDate}" max="${new Date().toISOString().split('T')[0]}" onchange="changeStatsRange('start', this.value)" oninput="changeStatsRange('start', this.value)">
+                            </label>
+                            <label class="stats-date-picker" for="statsDateEnd">
+                                <span>По</span>
+                                <input type="date" id="statsDateEnd" value="${statsRangeEnd}" min="${statsMinDate}" max="${new Date().toISOString().split('T')[0]}" onchange="changeStatsRange('end', this.value)" oninput="changeStatsRange('end', this.value)">
+                            </label>
+                        ` : `
+                            <label class="stats-date-picker" for="statsDateInput">
+                                <span>Дата</span>
+                                <input type="date" id="statsDateInput" value="${statsDate}" min="${statsMinDate}" max="${new Date().toISOString().split('T')[0]}" onchange="changeStatsDate(this.value)" oninput="changeStatsDate(this.value)">
+                            </label>
+                        `}
+                    </div>
                 </div>
-                <div class="stats-summary-card">
-                    <span class="stats-summary-label">С замечаниями</span>
-                    <strong class="stats-summary-value">${withDefects}</strong>
-                    <span class="stats-summary-meta">+${defectsWeek} за неделю</span>
-                </div>
-            </div>
 
-            <div class="stats-list">
-                ${statRows.map((row) => `
-                    <div class="stats-list-item stats-list-item-${row.tone}">
-                        <div class="stats-list-main">
-                            <span class="stats-list-name">${row.label}</span>
-                            <strong class="stats-list-value">${row.value}</strong>
+                <div class="stats-ticket-layout">
+                    <aside class="stats-ticket-summary">
+                        <div class="stats-ticket-summary-card accent-teal">
+                            <span>Открытых замечаний</span>
+                            <strong>${periodOpenDefects}</strong>
+                            <em>${stats.period_mode === 'range' ? 'За период' : 'За день'}</em>
                         </div>
-                        <div class="stats-list-meta">
-                            <span>Неделя ${row.week}</span>
-                            <span>Сегодня ${row.today}</span>
+                        <div class="stats-ticket-summary-card accent-rose">
+                            <span>С замечаниями за все время</span>
+                            <strong>${allTimeApartmentsWithDefects}</strong>
+                            <em>${formatStatsPercent(allTimeApartmentsWithDefects, totalApartments)} от общего числа</em>
+                        </div>
+                    </aside>
+
+                    <div class="stats-ticket-panel stats-ticket-card">
+                        <div class="stats-ticket-list">
+                            ${statRows.map((row) => `
+                                <div class="stats-ticket-row stats-ticket-row-${row.tone}">
+                                    <label>${row.label}</label>
+                                    <strong>${row.value}</strong>
+                                    <em>${row.percent}</em>
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
-                `).join('')}
-            </div>
+                </div>
 
-            <div class="stats-actions">
-                <button class="btn btn-primary" onclick="printStatsReport()">
-                    Печать отчета
-                </button>
             </div>
         `;
-        
-        // Update date input constraints
-        const dateInput = document.getElementById('statsDateInput');
-        if (dateInput) {
-            dateInput.min = statsMinDate;
-            dateInput.max = new Date().toISOString().split('T')[0];
-        }
-        
+
         modal.classList.add('active');
     } catch (err) {
         console.error('Stats error:', err);
-        body.innerHTML = '<p>Ошибка загрузки статистики</p>';
+        body.innerHTML = `
+            <div class="stats-error-state">
+                <strong>Не удалось загрузить статистику</strong>
+                <span>Попробуйте открыть окно еще раз.</span>
+            </div>
+        `;
         modal.classList.add('active');
     }
 }
@@ -2602,37 +2646,67 @@ function changeStatsDate(newDate) {
     }
     
     statsDate = newDate;
-    const body = document.getElementById('statsBody');
-    const modal = document.getElementById('statsModal');
-    loadStats(body, modal);
+    statsRangeStart = newDate;
+    statsRangeEnd = newDate;
+    refreshStatsModal();
+}
+
+function setStatsMode(mode) {
+    statsMode = mode;
+    if (mode === 'day') {
+        statsDate = statsRangeEnd || statsRangeStart || statsDate;
+    } else {
+        statsRangeStart = statsRangeStart || statsDate;
+        statsRangeEnd = statsRangeEnd || statsDate;
+    }
+    refreshStatsModal();
+}
+
+function changeStatsRange(edge, newDate) {
+    const maxDate = new Date().toISOString().split('T')[0];
+    if (newDate < statsMinDate || newDate > maxDate) {
+        loadStats(document.getElementById('statsBody'), document.getElementById('statsModal'));
+        return;
+    }
+    if (edge === 'start') {
+        statsRangeStart = newDate;
+        if (statsRangeEnd < statsRangeStart) statsRangeEnd = newDate;
+    } else {
+        statsRangeEnd = newDate;
+        if (statsRangeStart > statsRangeEnd) statsRangeStart = newDate;
+    }
+    refreshStatsModal();
 }
 
 function printStatsReport() {
-    const statsRes = fetch(`/api/complexes/${state.currentComplex}/statistics?stat_date=${statsDate}`).then(r => r.json());
+    const statsRes = fetch(`/api/complexes/${state.currentComplex}/statistics?${getStatsQueryString()}`).then(r => r.json());
     
     statsRes.then(stats => {
-        const accessStats = stats.by_access_status || [];
         const totalApartments = stats.total_apartments || 0;
-        const acceptedToday = stats.accepted_today || 0;
-        const defectsToday = stats.defects_today || 0;
-        const defectsWeek = stats.defects_week || 0;
-        const acceptedWeek = stats.accepted_week || 0;
-        
-        const ownerAccepted = accessStats.find(s => s.access_status === 'owner_accepted')?.count || 0;
-        const techAccepted = accessStats.find(s => s.access_status === 'tech_accepted')?.count || 0;
-        const noAccess = accessStats.find(s => s.access_status === 'no_access')?.count || 0;
-        const call = accessStats.find(s => s.access_status === 'call')?.count || 0;
-        const inProgress = accessStats.find(s => s.access_status === 'in_progress')?.count || 0;
-        const available = accessStats.find(s => s.access_status === 'available')?.count || 0;
-        
-        const withDefects = stats.with_defects || 0;
-        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
-        const jkName = document.getElementById('jkName').textContent;
-        
-        const formatDate = (d) => {
-            const date = new Date(d);
-            return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-        };
+        const periodApartmentsWithDefects = stats.period_apartments_with_defects || 0;
+        const allTimeApartmentsWithDefects = stats.all_time_apartments_with_defects || 0;
+        const jkName = stats.complex_name || document.getElementById('jkName').textContent;
+        const statusChangeRows = stats.period_status_changes || [];
+        const periodLabel = statsMode === 'range'
+            ? formatStatsPeriodLabel(statsRangeStart || stats.period_start, statsRangeEnd || stats.period_end)
+            : formatStatsPeriodLabel(statsDate || stats.period_start, statsDate || stats.period_end);
+        const acceptedCount = statusChangeRows
+            .filter((row) => ['owner_accepted', 'tech_accepted'].includes(row.access_status))
+            .reduce((sum, row) => sum + row.count, 0);
+        const noAccessCount = statusChangeRows.find((row) => row.access_status === 'no_access')?.count || 0;
+        const callCount = statusChangeRows.find((row) => row.access_status === 'call')?.count || 0;
+        const rows = [
+            ['С замечаниями', periodApartmentsWithDefects, formatStatsPercent(periodApartmentsWithDefects, totalApartments)],
+            ['Приняты', acceptedCount, formatStatsPercent(acceptedCount, totalApartments)],
+            ['Нет доступа', noAccessCount, formatStatsPercent(noAccessCount, totalApartments)],
+            ['Вызов', callCount, formatStatsPercent(callCount, totalApartments)],
+        ].map((row) => `
+            <tr>
+                <td>${row[0]}</td>
+                <td>${row[1]}</td>
+                <td>${row[2]}</td>
+            </tr>
+        `).join('');
         
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
@@ -2642,107 +2716,58 @@ function printStatsReport() {
                 <title>Отчет - ${jkName}</title>
                 <style>
                     * { box-sizing: border-box; }
-                    body { font-family: Arial, sans-serif; padding: 30px; max-width: 800px; margin: 0 auto; }
-                    h1 { font-size: 22px; margin-bottom: 5px; }
-                    .report-date { color: #666; margin-bottom: 20px; font-size: 14px; }
-                    .summary { background: #f5f5f5; padding: 20px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-                    .summary-left { text-align: left; }
-                    .summary-label { font-size: 13px; color: #666; }
-                    .summary-date { font-size: 16px; color: #333; font-weight: 500; margin-top: 4px; }
-                    .summary-value { font-size: 36px; font-weight: bold; color: #2563eb; }
-                    table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+                    body { font-family: Arial, sans-serif; padding: 24px; max-width: 900px; margin: 0 auto; color: #111; }
+                    h1 { font-size: 26px; margin-bottom: 6px; }
+                    .report-date { color: #555; margin-bottom: 18px; font-size: 14px; }
+                    .summary { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 24px; border: 1px solid #111; }
+                    .summary-box { padding: 16px; border-right: 1px solid #111; }
+                    .summary-box:last-child { border-right: none; }
+                    .summary-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 6px; }
+                    .summary-value { font-size: 32px; font-weight: bold; }
+                    .summary-meta { font-size: 13px; color: #444; margin-top: 4px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
                     th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-                    th { background: #f8f9fa; font-weight: 600; font-size: 13px; }
-                    th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align: right; }
-                    .stat-value { text-align: right; font-weight: 600; }
-                    .stat-week, .stat-today { text-align: right; color: #16a34a; font-weight: 600; }
-                    .row-accepted { background: #d4edda; }
-                    .row-defects { background: #fff3cd; }
-                    .row-no-access { background: #f8d7da; }
-                    .row-call { background: #cce5ff; }
-                    .row-progress { background: #e2e3e5; }
-                    .changes { display: flex; gap: 30px; margin-bottom: 25px; }
-                    .change-box { flex: 1; background: #f0f9ff; padding: 15px; border-radius: 8px; text-align: center; }
-                    .change-title { font-size: 12px; color: #666; margin-bottom: 5px; }
-                    .change-value { font-size: 24px; font-weight: bold; color: #0369a1; }
+                    th { background: #111; color: #fff; font-weight: 700; font-size: 12px; text-transform: uppercase; }
                     .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; }
                     @media print { body { padding: 0; } }
                 </style>
             </head>
             <body>
-                <h1>ЖК "${jkName}"</h1>
-                <p class="report-date">Отчет на ${formatDate(statsDate)}</p>
+                <h1>${jkName}</h1>
+                <p class="report-date">Период: ${periodLabel}</p>
                 
                 <div class="summary">
-                    <div class="summary-left">
-                        <div class="summary-label">${propName}</div>
-                        <div class="summary-date">${formatDate(statsDate)}</div>
+                    <div class="summary-box">
+                        <div class="summary-label">Квартир</div>
+                        <div class="summary-value">${totalApartments}</div>
                     </div>
-                    <div class="summary-value">${totalApartments}</div>
+                    <div class="summary-box">
+                        <div class="summary-label">С замечаниями</div>
+                        <div class="summary-value">${periodApartmentsWithDefects}</div>
+                        <div class="summary-meta">${formatStatsPercent(periodApartmentsWithDefects, totalApartments)} от общего числа</div>
+                    </div>
+                    <div class="summary-box">
+                        <div class="summary-label">С замечаниями за все время</div>
+                        <div class="summary-value">${allTimeApartmentsWithDefects}</div>
+                        <div class="summary-meta">${formatStatsPercent(allTimeApartmentsWithDefects, totalApartments)} от общего числа квартир</div>
+                    </div>
                 </div>
                 
                 <table>
                     <thead>
                         <tr>
                             <th>Статус</th>
-                            <th style="text-align:right;">Всего</th>
-                            <th style="text-align:right;">За неделю</th>
-                            <th style="text-align:right;">За сегодня</th>
+                            <th>Количество</th>
+                            <th>% от общего</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr class="row-accepted">
-                            <td>Принято</td>
-                            <td class="stat-value">${ownerAccepted + techAccepted}</td>
-                            <td class="stat-week">+${acceptedWeek}</td>
-                            <td class="stat-today">+${acceptedToday}</td>
-                        </tr>
-                        <tr class="row-defects">
-                            <td>С замечаниями</td>
-                            <td class="stat-value">${withDefects > 0 ? withDefects : 0}</td>
-                            <td class="stat-week">+${defectsWeek}</td>
-                            <td class="stat-today">${defectsToday > 0 ? '+' + defectsToday : '0'}</td>
-                        </tr>
-                        <tr class="row-no-access">
-                            <td>Нет доступа</td>
-                            <td class="stat-value">${noAccess}</td>
-                            <td class="stat-week">-</td>
-                            <td class="stat-today">-</td>
-                        </tr>
-                        <tr class="row-call">
-                            <td>Вызваные квартиры</td>
-                            <td class="stat-value">${call}</td>
-                            <td class="stat-week">-</td>
-                            <td class="stat-today">-</td>
-                        </tr>
-                        <tr class="row-progress">
-                            <td>В работе</td>
-                            <td class="stat-value">${inProgress}</td>
-                            <td class="stat-week">-</td>
-                            <td class="stat-today">-</td>
-                        </tr>
-                        <tr>
-                            <td>Доступны</td>
-                            <td class="stat-value">${available}</td>
-                            <td class="stat-week">-</td>
-                            <td class="stat-today">-</td>
-                        </tr>
+                        ${rows}
                     </tbody>
                 </table>
                 
-                <div class="changes">
-                    <div class="change-box">
-                        <div class="change-title">За неделю принято</div>
-                        <div class="change-value">+${acceptedWeek}</div>
-                    </div>
-                    <div class="change-box">
-                        <div class="change-title">За неделю замечаний</div>
-                        <div class="change-value">+${defectsWeek}</div>
-                    </div>
-                </div>
-                
                 <div class="footer">
-                    Сформировано системой "Приемка квартир"
+                    Сформировано системой "Перспектива Инжиниринг гарантийный сервис"
                 </div>
             </body>
             </html>
@@ -2752,8 +2777,12 @@ function printStatsReport() {
     });
 }
 
+function exportStatsPdf() {
+    window.open(`/api/complexes/${state.currentComplex}/statistics/pdf?${getStatsQueryString()}`, '_blank');
+}
+
 function closeStatsModal(event) {
-    if (!event || event.target.id === 'statsModal') {
+    if (!event || event.target === event.currentTarget || event.target.id === 'statsModal') {
         document.getElementById('statsModal').classList.remove('active');
     }
 }
