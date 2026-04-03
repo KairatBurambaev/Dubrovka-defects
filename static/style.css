@@ -6635,6 +6635,38 @@ body {
   gap: clamp(10px, 1.4vw, 18px);
 }
 
+@media (min-width: 769px) {
+  .sections-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: flex-start;
+  }
+
+  .section-group-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .section-card,
+  .section-group {
+    flex: 0 0 auto;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .section-body,
+  .floor-apts {
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .floor-row {
+    grid-template-columns: 48px max-content;
+  }
+}
+
 .section-card,
 .section-group {
   background:
