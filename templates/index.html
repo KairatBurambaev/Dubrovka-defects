@@ -93,9 +93,10 @@
                     <button class="status-item" data-status="no_access" onclick="setStatus('no_access')">
                         <span>Нет доступа</span>
                     </button>
-                    <button class="status-item" data-status="complex" onclick="setStatus('complex')">
-                        <span>Сложные</span>
-                    </button>
+                        <button class="status-item" data-status="complex" onclick="setStatus('complex')">
+                            <span>Сложные</span>
+                        </button>
+                    </div>
                 </div>
             </header>
             
@@ -120,7 +121,7 @@
             <!-- Create Complex -->
             <section id="tab-create-complex" class="tab-panel">
                 <div class="create-complex-container">
-                    <div class="form create-complex-form">
+                    <form id="createComplexForm" class="form create-complex-form">
                         <div class="form-header">
                             <h2>Новый комплекс</h2>
                         </div>
@@ -152,9 +153,9 @@
                         </div>
                         <div class="form-footer">
                             <button type="button" class="btn" onclick="goHome()">Отмена</button>
-                            <button type="button" class="btn btn-primary" onclick="submitComplexForm()">Создать комплекс</button>
+                            <button type="submit" class="btn btn-primary">Создать комплекс</button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             </section>
 
@@ -197,13 +198,16 @@
                         <div class="panel">
                             <div class="panel-header">
                                 <span class="panel-title">Замечания</span>
-                                <button class="btn btn-sm" onclick="printDefects()">Печать</button>
+                                <div>
+                                    <button class="btn btn-sm" onclick="showAddDefectForm()">Добавить</button>
+                                    <button class="btn btn-sm" onclick="printDefects()">Печать</button>
+                                </div>
                             </div>
                             <div id="defectsList"></div>
                         </div>
                     </div>
 
-                    <div class="detail-main">
+                    <div class="detail-main"></div>
                 </div>
             </section>
 

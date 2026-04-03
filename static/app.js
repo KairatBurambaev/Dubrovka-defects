@@ -32,8 +32,26 @@ document.addEventListener('DOMContentLoaded', () => {
     loadComplexes();
     setupForms();
     setupEventListeners();
-    document.body.classList.add('page-home');
+    setBodyViewClass('complexes');
+    updateMobileFilterIndicator('');
+    updateMobileFilterButtons('');
 });
+
+function setBodyViewClass(tab) {
+    document.body.classList.remove(
+        'page-home',
+        'page-create-complex',
+        'page-complex-detail',
+        'page-apartment-detail',
+        'page-add-defect'
+    );
+
+    if (tab === 'complexes') document.body.classList.add('page-home');
+    if (tab === 'create-complex') document.body.classList.add('page-create-complex');
+    if (tab === 'complex-detail') document.body.classList.add('page-complex-detail');
+    if (tab === 'apartment-detail') document.body.classList.add('page-apartment-detail');
+    if (tab === 'add-defect') document.body.classList.add('page-add-defect');
+}
 
 // Cache DOM elements
 function cacheElements() {
@@ -136,13 +154,11 @@ function showTab(tab) {
     newPanel.classList.add('active');
     
     state.currentTab = tab;
+    setBodyViewClass(tab);
     
     // Toggle body class for create-complex
     if (tab === 'create-complex') {
-        document.body.classList.add('page-create-complex');
         initCreateComplexForm();
-    } else {
-        document.body.classList.remove('page-create-complex');
     }
     
     const pageTitle = document.getElementById('pageTitle');
@@ -159,7 +175,6 @@ function showTab(tab) {
     const titleSecondary = document.getElementById('titleSecondary');
     
     if (tab === 'complexes') {
-        document.body.classList.add('page-home');
         updateHeader(false, true);
         if (adminMode) {
             if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'inline-flex';
@@ -172,7 +187,6 @@ function showTab(tab) {
         // Show инжиниринг only on main page
         if (titleSecondary) titleSecondary.style.display = 'block';
     } else {
-        document.body.classList.remove('page-home');
         // Hide инжиниринг on other pages
         if (titleSecondary) titleSecondary.style.display = 'none';
     }
@@ -829,9 +843,13 @@ async function showComplexDetail(id) {
                         return a.section_number - b.section_number;
                     })
                     .map(s => {
+                        const sectionLabel = hasMultipleBuildings
+                            ? `Корпус ${s.building_number || 1} • Секция ${s.section_number}`
+                            : `Секция ${s.section_number}`;
+
                         return `
-                            <div class="filter-item" data-section="${s.id}" onclick="toggleSectionFilter(${s.id})">
-                                <span>Секция ${s.section_number}</span>
+                            <div class="filter-item" data-section="${s.id}" data-label="${sectionLabel}" onclick="toggleSectionFilter(${s.id})">
+                                <span>${sectionLabel}</span>
                             </div>
                         `;
                     }).join('');
@@ -1006,7 +1024,7 @@ function handleFilterChange() {
         items.forEach(item => item.classList.remove('selected'));
         filterBtnText.textContent = 'Все секции';
     } else if (selectedCount === 1) {
-        const selectedSection = selectedItems[0].textContent;
+        const selectedSection = selectedItems[0].dataset.label || selectedItems[0].textContent.trim();
         filterBtnText.textContent = selectedSection;
     } else {
         filterBtnText.textContent = `Выбрано: ${selectedCount}`;
@@ -1193,7 +1211,12 @@ async function loadApartments() {
         if (state.accessFilter === 'defects') {
             apts = apts.filter(countsAsDefectApartment);
         } else if (state.accessFilter) {
-            apts = apts.filter(a => a.access_status === state.accessFilter);
+            apts = apts.filter(a => {
+                if (state.accessFilter === 'owner_accepted') {
+                    return isAcceptedApartment(a);
+                }
+                return a.access_status === state.accessFilter;
+            });
         }
         
         if (searchNumbers) {
@@ -1201,7 +1224,7 @@ async function loadApartments() {
         }
         
         // Update subtitle with displayed count
-        const propName = state.currentPropertyType === 'апартаменты' ? 'квартир' : 'квартир';
+        const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
         const pageSubtitle = document.getElementById('pageSubtitle');
         if (pageSubtitle) {
             pageSubtitle.textContent = `${apts.length} ${propName}`;
@@ -1243,6 +1266,8 @@ function setAccessFilter(filter) {
     // Update mobile filter indicator and buttons
     updateMobileFilterIndicator(state.accessFilter);
     updateMobileFilterButtons(state.accessFilter);
+    const mobileStatusFilter = document.getElementById('mobileStatusFilter');
+    if (mobileStatusFilter) mobileStatusFilter.value = state.accessFilter;
     
     // Update current filter index for swipe
     const index = FILTERS.indexOf(state.accessFilter);
@@ -1303,7 +1328,7 @@ function updateStatsPanel(apartments) {
         if (apartments) {
             apartments.forEach(a => {
                 if (a.access_status === 'available') available++;
-                else if (a.access_status === 'owner_accepted') accepted++;
+                else if (isAcceptedApartment(a)) accepted++;
                 else if (a.access_status === 'call') call++;
                 else if (a.access_status === 'no_access') noAccess++;
                 if (countsAsDefectApartment(a)) defects++;
@@ -1322,7 +1347,7 @@ function updateStatsPanel(apartments) {
 
 function buildSectionSummary(apartments) {
     const total = apartments.length;
-    const accepted = apartments.filter(a => a.access_status === 'owner_accepted').length;
+    const accepted = apartments.filter(isAcceptedApartment).length;
     const defects = apartments.filter(countsAsDefectApartment).length;
     const noAccess = apartments.filter(a => a.access_status === 'no_access').length;
     const overdue = apartments.filter(a => getDeadlineClass(a) === 'apt-deadline-passed').length;
@@ -1372,7 +1397,7 @@ function renderApartmentTile(apartment, propFull, catFilter) {
     const deadlineClass = getDeadlineClass(apartment);
     const cls = getApartmentClass(apartment.access_status, apartment.active_defects_count);
     const badgeCount = getApartmentBadgeCount(apartment, catFilter);
-    const badge = (badgeCount > 0 && apartment.access_status !== 'owner_accepted') ? `<span class="apt-badge">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
+    const badge = (badgeCount > 0 && !isAcceptedApartment(apartment)) ? `<span class="apt-badge">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
     const tooltip = `${propFull === 'апартамент' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
 
     return `
@@ -1648,7 +1673,7 @@ function toggleApartmentSort() {
 // Get apartment CSS class based on status and defects
 function getApartmentClass(status, defects) {
     // Принята - зелёная ячейка
-    if (status === 'owner_accepted') {
+    if (ACCEPTED_ACCESS_STATUSES.includes(status)) {
         return 'apt apt-owner_accepted';
     }
     // Вызов - фиолетовая ячейка
@@ -1722,14 +1747,14 @@ async function showApartmentDetail(id) {
         
         if (!apt) {
             const propType = state.currentPropertyType;
-            const propLabel = propType === 'апартаменты' ? 'Апартаменты' : 'Квартира';
+            const propLabel = propType === 'апартаменты' ? 'Апартамент' : 'Квартира';
             showToast(`${propLabel} не найден(а)`, 'error');
             return;
         }
         
         state.currentApartmentData = apt;
         const propType = state.currentPropertyType;
-        const propLabel = propType === 'апартаменты' ? 'Апартаменты' : 'Квартира';
+        const propLabel = propType === 'апартаменты' ? 'Апартамент' : 'Квартира';
         
         const complexSections = state.currentComplexData?.sections || [];
         const hasMultipleBuildings = new Set(complexSections.map(s => s.building_number || 1)).size > 1;
