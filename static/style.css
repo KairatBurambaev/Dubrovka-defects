@@ -2103,6 +2103,276 @@ h1 {
   overflow-x: auto;
 }
 
+.defect-categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.defect-category-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.defect-category-card:hover {
+  background: var(--gray-lightest);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.defect-category-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--warning-subtle);
+}
+
+.defect-category-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: var(--warning);
+}
+
+.defect-category-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.defect-category-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.count-total {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.count-open {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--danger);
+  color: white;
+}
+
+.defects-by-category {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.defect-category-section {
+  display: none;
+}
+
+.defect-category-section.expanded {
+  display: block;
+}
+
+.defect-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 10px 10px 0 0;
+}
+
+.defects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.defect-compact-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.defect-compact-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.defect-compact-date {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  min-width: 70px;
+}
+
+.defect-compact-window {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-subtle);
+  padding: 2px 8px;
+  border-radius: 4px;
+  min-width: 40px;
+  text-align: center;
+}
+
+.defect-restoration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--success);
+  background: var(--success-subtle);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.defect-restoration-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+.defect-edit-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-subtle);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.defect-edit-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--primary);
+}
+
+.defect-edit-btn:hover {
+  background: var(--primary);
+}
+
+.defect-edit-btn:hover svg {
+  stroke: white;
+}
+
+.defect-compact-desc {
+  flex: 1;
+  min-width: 200px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.defect-compact-contractor {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 100px;
+}
+
+.defect-compact-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.defect-compact-status.badge-new { background: var(--danger-subtle); color: var(--danger); }
+.defect-compact-status.badge-recorded { background: var(--warning-subtle); color: var(--warning); }
+.defect-compact-status.badge-assigned { background: var(--info-subtle); color: var(--info); }
+.defect-compact-status.badge-in_progress { background: var(--primary-subtle); color: var(--primary); }
+.defect-compact-status.badge-ready_for_acceptance { background: #e0e7ff; color: #4338ca; }
+.defect-compact-status.badge-accepted { background: var(--success-subtle); color: var(--success); }
+.defect-compact-status.badge-cancelled { background: var(--gray-lighter); color: var(--gray); }
+
+.defect-photos-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--primary-subtle);
+}
+
+.defect-photos-toggle:hover {
+  background: var(--primary-light);
+  color: white;
+}
+
+.photos-count {
+  font-weight: 600;
+}
+
+.defect-photos-container {
+  margin-top: 6px;
+}
+
+.defect-photos-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.defect-photos-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 40px;
+}
+
+.defect-photos-grid {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.defect-photo-thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: transform 0.15s ease;
+}
+
+.defect-photo-thumb:hover {
+  transform: scale(1.05);
+}
+
 .defect-category-group {
   display: flex;
   flex-direction: column;
@@ -2512,6 +2782,100 @@ h1 {
   background: #e2e8f0;
 }
 
+.defects-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.defects-table th {
+  text-align: left;
+  padding: 10px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.defects-table td {
+  padding: 8px;
+  border-bottom: 1px solid #e7edf4;
+  vertical-align: middle;
+}
+
+.defects-category-row {
+  background: #f1f5f9;
+}
+
+.defects-category-row td {
+  padding: 10px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.defects-category-label {
+  font-weight: 700;
+  color: #334155;
+  font-size: 13px;
+}
+
+.defect-cell-date {
+  width: 80px;
+  white-space: nowrap;
+  color: #64748b;
+}
+
+.defect-cell-window {
+  width: 60px;
+  white-space: nowrap;
+}
+
+.defect-cell-desc {
+  min-width: 150px;
+}
+
+.defect-cell-desc textarea {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  resize: none;
+}
+
+.defect-cell-contractor {
+  width: 120px;
+}
+
+.defect-cell-contractor select {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.defect-cell-comment {
+  width: 120px;
+}
+
+.defect-cell-comment input {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.defect-cell-status {
+  width: 100px;
+  text-align: center;
+}
+
 .defect-row-text,
 .table-input {
   font-size: 13px;
@@ -2536,18 +2900,6 @@ h1 {
 .table-input:focus {
   border-color: #3b82f6;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
-}
-
-.defect-cell-status {
-  display: flex;
-  align-items: center;
-  min-height: 36px;
-}
-
-.defect-cell-comment {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 .defect-form {
@@ -2609,6 +2961,52 @@ h1 {
 
 .form-grid-3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--gray-lighter);
+  transition: 0.3s;
+  border-radius: 26px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--success);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(22px);
 }
 
 .form-field-lg textarea {
@@ -3171,6 +3569,12 @@ body.page-create-complex .mobile-filter-buttons {
   gap: 16px;
   padding: 20px;
   background: rgba(255, 255, 255, 0.96);
+}
+
+.defect-modal {
+  width: 600px;
+  max-width: 95vw;
+  padding: 20px;
 }
 
 .photo-modal-stage {

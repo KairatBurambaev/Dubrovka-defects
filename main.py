@@ -42,6 +42,7 @@ CATEGORIES = [
 ]
 
 STATUSES = {
+    "new": "Новое",
     "recorded": "Зафиксировано",
     "in_progress": "В работе",
     "on_review": "На проверке",
@@ -365,6 +366,7 @@ def init_db():
             apartment_id INTEGER NOT NULL,
             category TEXT NOT NULL,
             window_number INTEGER,
+            restoration INTEGER DEFAULT 0,
             variant_number TEXT DEFAULT '',
             project_name TEXT DEFAULT '',
             materials_info TEXT DEFAULT '',
@@ -375,6 +377,7 @@ def init_db():
             status TEXT DEFAULT 'recorded',
             contractor_id INTEGER,
             contractor_name TEXT DEFAULT '',
+            executor TEXT DEFAULT '',
             deadline DATE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -387,6 +390,7 @@ def init_db():
             defect_id INTEGER NOT NULL,
             filename TEXT NOT NULL,
             original_name TEXT,
+            photo_type TEXT DEFAULT 'before',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (defect_id) REFERENCES defects(id) ON DELETE CASCADE
         );
@@ -949,7 +953,7 @@ async def get_defects(apartment_id: int):
     for row in rows:
         d = dict(row)
         photos = conn.execute(
-            "SELECT id, filename FROM photos WHERE defect_id = ?",
+            "SELECT id, filename, photo_type FROM photos WHERE defect_id = ?",
             (d["id"],)
         ).fetchall()
         d["photos"] = [dict(p) for p in photos]
@@ -1000,7 +1004,10 @@ async def create_defect(
     comment_text: str = Form(""),
     deadline: str = Form(None),
     window_number: int = Form(None),
-    photos: List[UploadFile] = File(default=[])
+    executor: str = Form(""),
+    restoration: int = Form(0),
+    photos: List[UploadFile] = File(default=[]),
+    photo_types: List[str] = Form(default=[])
 ):
     if category not in CATEGORIES:
         raise HTTPException(status_code=400, detail="Неверная категория")
@@ -1035,14 +1042,13 @@ async def create_defect(
 
     cursor = conn.execute("""
         INSERT INTO defects (
-            apartment_id, category, window_number, variant_number, project_name, materials_info,
-            cost_amount, labor_cost, comment_text, description, status, contractor_id, contractor_name, deadline
+            apartment_id, category, window_number, restoration, executor,
+            description, status, deadline
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        apartment_id, category, window_number, variant_number.strip(), project_name.strip(), materials_info.strip(),
-        cost_amount.strip(), labor_cost.strip(), comment_text.strip(), description, status,
-        resolved_contractor_id, resolved_contractor_name, deadline
+        apartment_id, category, window_number, restoration, executor.strip(),
+        description, status, deadline
     ))
     defect_id = cursor.lastrowid
     
@@ -1055,7 +1061,7 @@ async def create_defect(
         )
     
     # Сохраняем фото
-    for photo in photos:
+    for idx, photo in enumerate(photos):
         if photo.filename:
             ext = Path(photo.filename).suffix.lower()
             if ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.mov']:
@@ -1068,9 +1074,10 @@ async def create_defect(
                 content = await photo.read()
                 f.write(content)
             
+            photo_type = photo_types[idx] if idx < len(photo_types) else 'before'
             conn.execute(
-                "INSERT INTO photos (defect_id, filename, original_name) VALUES (?, ?, ?)",
-                (defect_id, unique_name, photo.filename)
+                "INSERT INTO photos (defect_id, filename, original_name, photo_type) VALUES (?, ?, ?, ?)",
+                (defect_id, unique_name, photo.filename, photo_type)
             )
     
     conn.commit()
@@ -1242,6 +1249,25 @@ async def update_defect_status(defect_id: int, status: str = Form(...)):
     return {"message": "Статус обновлен"}
 
 
+@app.get("/api/defects/{defect_id}")
+async def get_defect(defect_id: int):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Замечание не найдено")
+    
+    d = dict(row)
+    photos = conn.execute(
+        "SELECT id, filename, photo_type FROM photos WHERE defect_id = ?",
+        (defect_id,)
+    ).fetchall()
+    d["photos"] = [dict(p) for p in photos]
+    
+    conn.close()
+    return d
+
+
 @app.put("/api/defects/{defect_id}/meta")
 async def update_defect_meta(
     defect_id: int,
@@ -1255,7 +1281,11 @@ async def update_defect_meta(
     cost_amount: str = Form(""),
     labor_cost: str = Form(""),
     comment_text: str = Form(""),
-    deadline: str = Form(None)
+    deadline: str = Form(None),
+    executor: str = Form(""),
+    restoration: int = Form(0),
+    photos: List[UploadFile] = File(default=[]),
+    photo_types: List[str] = Form(default=[])
 ):
     conn = get_db()
     defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
@@ -1291,25 +1321,49 @@ async def update_defect_meta(
         """
         UPDATE defects
         SET contractor_id = ?, contractor_name = ?, description = ?, variant_number = ?, project_name = ?,
-            materials_info = ?, cost_amount = ?, labor_cost = ?, comment_text = ?, deadline = ?, window_number = COALESCE(?, window_number),
+            materials_info = ?, cost_amount = ?, labor_cost = ?, comment_text = ?, deadline = ?, window_number = ?,
+            executor = ?, restoration = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
         """,
         (
             resolved_contractor_id,
             resolved_contractor_name,
-            description.strip(),
+            description.strip() if description else "",
             variant_number.strip(),
             project_name.strip(),
             materials_info.strip(),
             cost_amount.strip(),
             labor_cost.strip(),
             comment_text.strip(),
-            deadline or None,
+            deadline,
             normalized_window_number,
-            defect_id,
-        ),
+            executor.strip(),
+            restoration,
+            defect_id
+        )
     )
+    
+    # Handle new photos
+    for idx, photo in enumerate(photos):
+        if photo.filename:
+            ext = Path(photo.filename).suffix.lower()
+            if ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+                continue
+            
+            unique_name = f"{uuid.uuid4().hex}{ext}"
+            file_path = UPLOAD_DIR / unique_name
+            
+            with open(file_path, "wb") as f:
+                content = await photo.read()
+                f.write(content)
+            
+            photo_type = photo_types[idx] if idx < len(photo_types) else 'before'
+            conn.execute(
+                "INSERT INTO photos (defect_id, filename, original_name, photo_type) VALUES (?, ?, ?, ?)",
+                (defect_id, unique_name, photo.filename, photo_type)
+            )
+    
     conn.commit()
     conn.close()
 
