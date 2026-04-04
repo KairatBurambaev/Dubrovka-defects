@@ -42,11 +42,25 @@ CATEGORIES = [
 ]
 
 STATUSES = {
-    "new": "Новое",
+    "recorded": "Зафиксировано",
     "in_progress": "В работе",
-    "ready": "Готово",
-    "rejected": "Отклонено"
+    "on_review": "На проверке",
+    "completed": "Выполнено",
+    "rejected": "Отклонено",
+    "rework": "Отправленно на доработку"
 }
+
+STATUS_MIGRATION = {
+    "new": "recorded",
+    "assigned": "in_progress",
+    "ready": "completed",
+    "ready_for_acceptance": "on_review",
+    "accepted": "completed",
+    "cancelled": "rejected"
+}
+
+CLOSED_DEFECT_STATUSES = ("completed", "rejected")
+ACTIVE_DEFECT_STATUSES = tuple(status for status in STATUSES if status not in CLOSED_DEFECT_STATUSES)
 
 TEMPLATES = {
     "Стены/Пол/Потолок": [
@@ -266,6 +280,47 @@ def normalize_sections_payload(sections_data):
     return normalized_sections
 
 
+def migrate_defect_statuses(conn, table_name):
+    for old_status, new_status in STATUS_MIGRATION.items():
+        conn.execute(
+            f"UPDATE {table_name} SET status = ? WHERE status = ?",
+            (new_status, old_status),
+        )
+
+
+def build_status_sort_case(column_name: str = "status"):
+    return f"""
+        CASE {column_name}
+            WHEN 'recorded' THEN 1
+            WHEN 'in_progress' THEN 2
+            WHEN 'rework' THEN 3
+            WHEN 'on_review' THEN 4
+            WHEN 'completed' THEN 5
+            WHEN 'rejected' THEN 6
+            ELSE 7
+        END
+    """
+
+
+def ensure_contractor(conn, contractor_name: Optional[str]):
+    cleaned_name = (contractor_name or "").strip()
+    if not cleaned_name:
+        return None, ""
+
+    existing = conn.execute(
+        "SELECT id, name FROM contractors WHERE lower(name) = lower(?)",
+        (cleaned_name,),
+    ).fetchone()
+    if existing:
+        return existing["id"], existing["name"]
+
+    cursor = conn.execute(
+        "INSERT INTO contractors (name) VALUES (?)",
+        (cleaned_name,),
+    )
+    return cursor.lastrowid, cleaned_name
+
+
 def init_db():
     conn = get_db()
     conn.executescript("""
@@ -310,12 +365,21 @@ def init_db():
             apartment_id INTEGER NOT NULL,
             category TEXT NOT NULL,
             window_number INTEGER,
+            variant_number TEXT DEFAULT '',
+            project_name TEXT DEFAULT '',
+            materials_info TEXT DEFAULT '',
+            cost_amount TEXT DEFAULT '',
+            labor_cost TEXT DEFAULT '',
+            comment_text TEXT DEFAULT '',
             description TEXT NOT NULL,
-            status TEXT DEFAULT 'new',
+            status TEXT DEFAULT 'recorded',
+            contractor_id INTEGER,
+            contractor_name TEXT DEFAULT '',
             deadline DATE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (apartment_id) REFERENCES apartments(id) ON DELETE CASCADE
+            FOREIGN KEY (apartment_id) REFERENCES apartments(id) ON DELETE CASCADE,
+            FOREIGN KEY (contractor_id) REFERENCES contractors(id) ON DELETE SET NULL
         );
         
         CREATE TABLE IF NOT EXISTS photos (
@@ -350,7 +414,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             defect_id INTEGER NOT NULL,
             text TEXT NOT NULL,
-            status TEXT DEFAULT 'new',
+            status TEXT DEFAULT 'recorded',
             sort_order INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -364,6 +428,12 @@ def init_db():
             new_status TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (apartment_id) REFERENCES apartments(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS contractors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
     """)
     
@@ -401,6 +471,32 @@ def init_db():
         conn.commit()
     except:
         pass  # Колонка уже существует
+
+    try:
+        conn.execute("ALTER TABLE defects ADD COLUMN contractor_name TEXT DEFAULT ''")
+        conn.commit()
+    except:
+        pass
+
+    try:
+        conn.execute("ALTER TABLE defects ADD COLUMN contractor_id INTEGER")
+        conn.commit()
+    except:
+        pass
+
+    for column_name in [
+        "variant_number TEXT DEFAULT ''",
+        "project_name TEXT DEFAULT ''",
+        "materials_info TEXT DEFAULT ''",
+        "cost_amount TEXT DEFAULT ''",
+        "labor_cost TEXT DEFAULT ''",
+        "comment_text TEXT DEFAULT ''",
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE defects ADD COLUMN {column_name}")
+            conn.commit()
+        except:
+            pass
     
     # Миграция: добавляем колонку access_status если её нет
     try:
@@ -441,6 +537,25 @@ def init_db():
             FOREIGN KEY (item_id) REFERENCES defect_items(id) ON DELETE CASCADE
         )
     """)
+
+    migrate_defect_statuses(conn, "defects")
+    migrate_defect_statuses(conn, "defect_items")
+
+    legacy_contractors = conn.execute(
+        "SELECT DISTINCT contractor_name FROM defects WHERE trim(COALESCE(contractor_name, '')) != ''"
+    ).fetchall()
+    for row in legacy_contractors:
+        ensure_contractor(conn, row[0])
+
+    defects_without_link = conn.execute(
+        "SELECT id, contractor_name FROM defects WHERE contractor_id IS NULL AND trim(COALESCE(contractor_name, '')) != ''"
+    ).fetchall()
+    for row in defects_without_link:
+        contractor_id, contractor_name = ensure_contractor(conn, row["contractor_name"])
+        conn.execute(
+            "UPDATE defects SET contractor_id = ?, contractor_name = ? WHERE id = ?",
+            (contractor_id, contractor_name, row["id"]),
+        )
     conn.commit()
     
     conn.close()
@@ -499,7 +614,7 @@ async def get_complexes():
             SELECT COUNT(*)
             FROM defects d
             JOIN apartments a ON d.apartment_id = a.id
-            WHERE a.complex_id = ? AND d.status NOT IN ('ready', 'rejected')
+            WHERE a.complex_id = ? AND d.status NOT IN ('completed', 'rejected')
         """, (c["id"],)).fetchone()[0]
         
         access_stats = conn.execute("""
@@ -700,12 +815,16 @@ async def get_apartments(
     
     query = """
         SELECT a.*, s.section_number, s.building_number,
-               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('ready', 'rejected')) as active_defects_count,
+               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected')) as active_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id) as total_defects,
-               (SELECT MIN(deadline) FROM defects WHERE apartment_id = a.id AND status NOT IN ('ready', 'rejected')) as earliest_deadline,
-               (SELECT MIN(created_at) FROM defects WHERE apartment_id = a.id AND status NOT IN ('ready', 'rejected')) as earliest_defect_created,
+               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'recorded') as recorded_defects_count,
+               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'in_progress') as in_progress_defects_count,
+               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'rework') as rework_defects_count,
+               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'on_review') as on_review_defects_count,
+               (SELECT MIN(deadline) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected')) as earliest_deadline,
+               (SELECT MIN(created_at) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected')) as earliest_defect_created,
                CASE 
-                    WHEN (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('ready', 'rejected')) = 0 
+                    WHEN (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected')) = 0 
                          AND (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id) > 0
                     THEN 1
                     ELSE 0
@@ -787,11 +906,26 @@ async def get_floors(complex_id: int):
 async def get_complex_defects(complex_id: int):
     conn = get_db()
     rows = conn.execute("""
-        SELECT d.*, a.number as apartment_number, a.section_id
+        SELECT d.*, a.number as apartment_number, a.section_id,
+               COALESCE(c.name, d.contractor_name, '') as contractor_name,
+               c.id as contractor_id
         FROM defects d
         JOIN apartments a ON d.apartment_id = a.id
+        LEFT JOIN contractors c ON d.contractor_id = c.id
         WHERE a.complex_id = ?
-        ORDER BY a.section_id, a.number, d.created_at DESC
+        ORDER BY a.section_id, a.number,
+                 CASE d.status
+                    WHEN 'recorded' THEN 1
+                    WHEN 'in_progress' THEN 2
+                    WHEN 'rework' THEN 3
+                    WHEN 'on_review' THEN 4
+                    WHEN 'completed' THEN 5
+                    WHEN 'rejected' THEN 6
+                    ELSE 7
+                 END,
+                 d.deadline IS NULL,
+                 d.deadline,
+                 d.created_at DESC
     """, (complex_id,)).fetchall()
     conn.close()
     return [dict(row) for row in rows]
@@ -801,7 +935,13 @@ async def get_complex_defects(complex_id: int):
 async def get_defects(apartment_id: int):
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM defects WHERE apartment_id = ? ORDER BY created_at DESC",
+        f"""
+        SELECT d.*, COALESCE(c.name, d.contractor_name, '') as contractor_name, c.id as contractor_id
+        FROM defects d
+        LEFT JOIN contractors c ON d.contractor_id = c.id
+        WHERE d.apartment_id = ?
+        ORDER BY {build_status_sort_case('d.status')}, d.deadline IS NULL, d.deadline, d.created_at DESC
+        """,
         (apartment_id,)
     ).fetchall()
     
@@ -813,6 +953,10 @@ async def get_defects(apartment_id: int):
             (d["id"],)
         ).fetchall()
         d["photos"] = [dict(p) for p in photos]
+        d["comments_count"] = conn.execute(
+            "SELECT COUNT(*) FROM comments WHERE defect_id = ?",
+            (d["id"],)
+        ).fetchone()[0]
         d["status_label"] = STATUSES.get(d["status"], d["status"])
         
         # Получаем пункты замечания
@@ -845,12 +989,24 @@ async def create_defect(
     apartment_id: int,
     category: str = Form(...),
     description: str = Form(...),
+    status: str = Form("recorded"),
+    contractor_id: str = Form(None),
+    contractor_name: str = Form(""),
+    variant_number: str = Form(""),
+    project_name: str = Form(""),
+    materials_info: str = Form(""),
+    cost_amount: str = Form(""),
+    labor_cost: str = Form(""),
+    comment_text: str = Form(""),
     deadline: str = Form(None),
     window_number: int = Form(None),
     photos: List[UploadFile] = File(default=[])
 ):
     if category not in CATEGORIES:
         raise HTTPException(status_code=400, detail="Неверная категория")
+
+    if status not in STATUSES:
+        raise HTTPException(status_code=400, detail="Неверный этап замечания")
     
     # Автоматически ставим дедлайн +2 месяца если не указан
     if not deadline:
@@ -864,19 +1020,38 @@ async def create_defect(
     if not apt:
         conn.close()
         raise HTTPException(status_code=404, detail="Квартира не найдена")
-    
+
+    resolved_contractor_id = int(contractor_id) if contractor_id else None
+    resolved_contractor_name = ""
+    if contractor_name.strip():
+        resolved_contractor_id, resolved_contractor_name = ensure_contractor(conn, contractor_name)
+    elif resolved_contractor_id:
+        contractor = conn.execute("SELECT id, name FROM contractors WHERE id = ?", (resolved_contractor_id,)).fetchone()
+        if not contractor:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Подрядчик не найден")
+        resolved_contractor_id = contractor["id"]
+        resolved_contractor_name = contractor["name"]
+
     cursor = conn.execute("""
-        INSERT INTO defects (apartment_id, category, window_number, description, deadline)
-        VALUES (?, ?, ?, ?, ?)
-    """, (apartment_id, category, window_number, description, deadline))
+        INSERT INTO defects (
+            apartment_id, category, window_number, variant_number, project_name, materials_info,
+            cost_amount, labor_cost, comment_text, description, status, contractor_id, contractor_name, deadline
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        apartment_id, category, window_number, variant_number.strip(), project_name.strip(), materials_info.strip(),
+        cost_amount.strip(), labor_cost.strip(), comment_text.strip(), description, status,
+        resolved_contractor_id, resolved_contractor_name, deadline
+    ))
     defect_id = cursor.lastrowid
     
     # Парсим пункты из описания (каждая строка = отдельный пункт)
     lines = [line.strip() for line in description.split('\n') if line.strip()]
     for idx, line in enumerate(lines):
         conn.execute(
-            "INSERT INTO defect_items (defect_id, text, sort_order) VALUES (?, ?, ?)",
-            (defect_id, line, idx)
+            "INSERT INTO defect_items (defect_id, text, status, sort_order) VALUES (?, ?, ?, ?)",
+            (defect_id, line, status, idx)
         )
     
     # Сохраняем фото
@@ -926,8 +1101,8 @@ async def add_defect_item(defect_id: int, text: str = Form(...)):
     ).fetchone()[0] or 0
     
     cursor = conn.execute(
-        "INSERT INTO defect_items (defect_id, text, sort_order) VALUES (?, ?, ?)",
-        (defect_id, text.strip(), max_order + 1)
+        "INSERT INTO defect_items (defect_id, text, status, sort_order) VALUES (?, ?, ?, ?)",
+        (defect_id, text.strip(), 'recorded', max_order + 1)
     )
     item_id = cursor.lastrowid
     
@@ -1055,15 +1230,90 @@ async def delete_item_comment(comment_id: int):
 async def update_defect_status(defect_id: int, status: str = Form(...)):
     if status not in STATUSES:
         raise HTTPException(status_code=400, detail="Неверный статус")
-    
+
     conn = get_db()
-    conn.execute("""
-        UPDATE defects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-    """, (status, defect_id))
+    conn.execute(
+        "UPDATE defects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (status, defect_id),
+    )
     conn.commit()
     conn.close()
     
     return {"message": "Статус обновлен"}
+
+
+@app.put("/api/defects/{defect_id}/meta")
+async def update_defect_meta(
+    defect_id: int,
+    contractor_id: str = Form(None),
+    contractor_name: str = Form(""),
+    description: str = Form(""),
+    window_number: Optional[str] = Form(None),
+    variant_number: str = Form(""),
+    project_name: str = Form(""),
+    materials_info: str = Form(""),
+    cost_amount: str = Form(""),
+    labor_cost: str = Form(""),
+    comment_text: str = Form(""),
+    deadline: str = Form(None)
+):
+    conn = get_db()
+    defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    if not defect:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Замечание не найдено")
+
+    resolved_contractor_id = int(contractor_id) if contractor_id else None
+    resolved_contractor_name = ""
+    if contractor_name.strip():
+        resolved_contractor_id, resolved_contractor_name = ensure_contractor(conn, contractor_name)
+    elif resolved_contractor_id:
+        contractor = conn.execute("SELECT id, name FROM contractors WHERE id = ?", (resolved_contractor_id,)).fetchone()
+        if not contractor:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Подрядчик не найден")
+        resolved_contractor_id = contractor["id"]
+        resolved_contractor_name = contractor["name"]
+
+    normalized_window_number = None
+    if window_number is not None:
+        normalized_window_number = window_number.strip()
+        if normalized_window_number:
+            try:
+                normalized_window_number = int(normalized_window_number)
+            except ValueError:
+                conn.close()
+                raise HTTPException(status_code=400, detail="Номер окна должен быть числом")
+        else:
+            normalized_window_number = None
+
+    conn.execute(
+        """
+        UPDATE defects
+        SET contractor_id = ?, contractor_name = ?, description = ?, variant_number = ?, project_name = ?,
+            materials_info = ?, cost_amount = ?, labor_cost = ?, comment_text = ?, deadline = ?, window_number = COALESCE(?, window_number),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        (
+            resolved_contractor_id,
+            resolved_contractor_name,
+            description.strip(),
+            variant_number.strip(),
+            project_name.strip(),
+            materials_info.strip(),
+            cost_amount.strip(),
+            labor_cost.strip(),
+            comment_text.strip(),
+            deadline or None,
+            normalized_window_number,
+            defect_id,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    return {"message": "Данные замечания обновлены"}
 
 
 @app.delete("/api/defects/{defect_id}")
@@ -1146,6 +1396,25 @@ async def get_categories():
     return {"categories": CATEGORIES}
 
 
+@app.get("/api/contractors")
+async def get_contractors():
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, name, created_at FROM contractors ORDER BY lower(name), id"
+    ).fetchall()
+    conn.close()
+    return {"contractors": [dict(row) for row in rows]}
+
+
+@app.post("/api/contractors")
+async def create_contractor(name: str = Form(...)):
+    conn = get_db()
+    contractor_id, contractor_name = ensure_contractor(conn, name)
+    conn.commit()
+    conn.close()
+    return {"id": contractor_id, "name": contractor_name}
+
+
 @app.get("/api/templates/{category}")
 async def get_templates(category: str):
     if category not in TEMPLATES:
@@ -1222,7 +1491,7 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         JOIN defects d ON a.id = d.apartment_id
         WHERE a.complex_id = ?
           AND a.access_status NOT IN ('owner_accepted', 'tech_accepted')
-          AND d.status NOT IN ('ready', 'rejected')
+          AND d.status NOT IN ('completed', 'rejected')
         """,
         (complex_id,),
     ).fetchone()[0]
@@ -1264,7 +1533,7 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         FROM defects d
         JOIN apartments a ON d.apartment_id = a.id
         WHERE a.complex_id = ?
-          AND d.status NOT IN ('ready', 'rejected')
+          AND d.status NOT IN ('completed', 'rejected')
           AND date(d.created_at) BETWEEN ? AND ?
         """,
         (complex_id, period_start.isoformat(), period_end.isoformat()),
@@ -1276,7 +1545,7 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         FROM apartments a
         JOIN defects d ON a.id = d.apartment_id
         WHERE a.complex_id = ?
-          AND d.status NOT IN ('ready', 'rejected')
+          AND d.status NOT IN ('completed', 'rejected')
           AND date(d.created_at) BETWEEN ? AND ?
         """,
         (complex_id, period_start.isoformat(), period_end.isoformat()),
@@ -1558,6 +1827,38 @@ async def add_comment(
     return {"id": comment_id, "message": "Комментарий добавлен"}
 
 
+@app.put("/api/comments/{comment_id}")
+async def update_comment(
+    comment_id: int,
+    text: str = Form(...),
+    author: str = Form(...),
+):
+    cleaned_text = text.strip()
+    cleaned_author = author.strip()
+    if not cleaned_text:
+        raise HTTPException(status_code=400, detail="Комментарий не может быть пустым")
+    if not cleaned_author:
+        raise HTTPException(status_code=400, detail="Автор не указан")
+
+    conn = get_db()
+    comment = conn.execute("SELECT id, author FROM comments WHERE id = ?", (comment_id,)).fetchone()
+    if not comment:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Комментарий не найден")
+    if (comment["author"] or "").strip() != cleaned_author:
+        conn.close()
+        raise HTTPException(status_code=403, detail="Редактировать комментарий может только автор")
+
+    conn.execute(
+        "UPDATE comments SET text = ? WHERE id = ?",
+        (cleaned_text, comment_id),
+    )
+    conn.commit()
+    conn.close()
+
+    return {"message": "Комментарий обновлен"}
+
+
 @app.delete("/api/comments/{comment_id}")
 async def delete_comment(comment_id: int):
     conn = get_db()
@@ -1678,10 +1979,12 @@ async def export_complex_pdf(complex_id: int, section_id: Optional[int] = None):
     stats_data = [
         ["Статус", "Значение"],
         ["Всего замечаний", str(total_defects)],
-        ["Новых", str(by_status.get('new', 0))],
+        ["Зафиксировано", str(by_status.get('recorded', 0))],
         ["В работе", str(by_status.get('in_progress', 0))],
-        ["Готово", str(by_status.get('ready', 0))],
-        ["Отклонено", str(by_status.get('rejected', 0))]
+        ["На проверке", str(by_status.get('on_review', 0))],
+        ["Выполнено", str(by_status.get('completed', 0))],
+        ["Отклонено", str(by_status.get('rejected', 0))],
+        ["Отправленно на доработку", str(by_status.get('rework', 0))]
     ]
     
     stats_table = Table(stats_data, colWidths=[8*cm, 4*cm])

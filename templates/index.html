@@ -213,34 +213,103 @@
 
             <!-- Add Defect -->
             <section id="tab-add-defect" class="tab-panel">
-                <form id="addDefectForm" class="form">
-                    <div class="form-field">
-                        <label>Категория</label>
-                        <select id="defectCategory" required><option value="">Выберите</option></select>
-                    </div>
-                    <div class="form-field" id="windowGroup" style="display:none;">
-                        <label>Номер окна</label>
-                        <input type="number" id="windowNumber" min="1">
-                    </div>
-                    <div class="form-field" id="templatesGroup" style="display:none;">
-                        <label>Шаблоны</label>
-                        <div id="templatesList" class="chips"></div>
-                    </div>
-                    <div class="form-field">
-                        <label>Описание</label>
-                        <textarea id="defectDescription" rows="4" required></textarea>
-                    </div>
-                    <div class="form-field">
-                        <label>Срок</label>
-                        <input type="date" id="defectDeadline">
-                    </div>
-                    <div class="form-field">
-                        <label>Фото</label>
-                        <div class="upload-zone" id="fileUploadArea">
-                            <input type="file" id="defectPhotos" multiple accept="image/*" hidden>
-                            Перетащите фото или нажмите для выбора
+                <form id="addDefectForm" class="form defect-form">
+                    <div class="form-header defect-form-header">
+                        <div>
+                            <h2>Новое замечание</h2>
+                            <p>Заполните строку замечания и рабочие параметры для дальнейшей отработки.</p>
                         </div>
-                        <div id="previewGrid" class="previews"></div>
+                    </div>
+
+                    <div class="defect-form-section">
+                        <div class="defect-form-section-title">Основа</div>
+                        <div class="form-grid form-grid-3">
+                            <div class="form-field">
+                                <label>Категория</label>
+                                <select id="defectCategory" required><option value="">Выберите</option></select>
+                            </div>
+                            <div class="form-field" id="windowGroup" style="display:none;">
+                                <label>Номер окна</label>
+                                <input type="number" id="windowNumber" min="1">
+                            </div>
+                            <div class="form-field">
+                                <label>Этап замечания</label>
+                                <select id="defectStatus" required>
+                                    <option value="recorded">Зафиксировано с собственником</option>
+                                    <option value="assigned">Назначено подрядчику</option>
+                                    <option value="in_progress">В работе</option>
+                                    <option value="ready_for_acceptance">Готово к сдаче</option>
+                                    <option value="accepted">Сдано</option>
+                                    <option value="cancelled">Снято</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-field" id="templatesGroup" style="display:none;">
+                            <label>Шаблоны</label>
+                            <div id="templatesList" class="chips"></div>
+                        </div>
+                        <div class="form-field form-field-lg">
+                            <label>Замечание</label>
+                            <textarea id="defectDescription" rows="4" required placeholder="Опишите замечание понятной рабочей формулировкой"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="defect-form-section">
+                        <div class="defect-form-section-title">Ресурсы</div>
+                        <div class="form-grid form-grid-3">
+                            <div class="form-field">
+                                <label>Вид/Ал. номер</label>
+                                <input type="text" id="defectVariantNumber" placeholder="061">
+                            </div>
+                            <div class="form-field">
+                                <label>Проект</label>
+                                <input type="text" id="defectProjectName" placeholder="Проект / узел">
+                            </div>
+                        </div>
+                        <div class="form-grid form-grid-3">
+                            <div class="form-field">
+                                <label>Стоимость</label>
+                                <input type="text" id="defectCostAmount" placeholder="0">
+                            </div>
+                            <div class="form-field">
+                                <label>Затраты на работу</label>
+                                <input type="text" id="defectLaborCost" placeholder="0">
+                            </div>
+                            <div class="form-field">
+                                <label>Комментарий</label>
+                                <input type="text" id="defectCommentText" placeholder="Примечание">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="defect-form-section">
+                        <div class="defect-form-section-title">Исполнение</div>
+                        <div class="form-grid form-grid-2">
+                            <div class="form-field">
+                                <label>Ответственный подрядчик</label>
+                                <div class="contractor-row">
+                                    <select id="defectContractorId" class="select">
+                                        <option value="">Не назначен</option>
+                                    </select>
+                                    <button type="button" class="btn btn-secondary" onclick="addContractorPrompt('create')">Новый подрядчик</button>
+                                </div>
+                            </div>
+                            <div class="form-field">
+                                <label>Срок</label>
+                                <input type="date" id="defectDeadline">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="defect-form-section">
+                        <div class="defect-form-section-title">Фото</div>
+                        <div class="form-field">
+                            <div class="upload-zone" id="fileUploadArea">
+                                <input type="file" id="defectPhotos" multiple accept="image/*" hidden>
+                                Перетащите фото или нажмите для выбора
+                            </div>
+                            <div id="previewGrid" class="previews"></div>
+                        </div>
                     </div>
                     <div class="form-footer">
                         <button type="button" class="btn" onclick="backToApartment()">Отмена</button>
@@ -252,9 +321,14 @@
     </div>
 
     <div id="photoModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content photo-modal-content">
             <button class="modal-close" onclick="closeModal()">×</button>
-            <img id="modalImg" src="" alt="">
+            <button id="photoModalPrev" class="photo-modal-nav photo-modal-prev" type="button" onclick="changePhoto(-1)">‹</button>
+            <div class="photo-modal-stage">
+                <img id="modalImg" src="" alt="">
+                <div id="photoModalCounter" class="photo-modal-counter"></div>
+            </div>
+            <button id="photoModalNext" class="photo-modal-nav photo-modal-next" type="button" onclick="changePhoto(1)">›</button>
         </div>
     </div>
 
@@ -268,6 +342,20 @@
             <div class="modal-footer">
                 <input type="text" id="commentInput" placeholder="Комментарий...">
                 <button class="btn btn-primary btn-sm" onclick="submitComment()">→</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="defectCommentsModal" class="modal">
+        <div class="modal-content modal-sm defect-comments-modal">
+            <div class="modal-header">
+                <h3>Комментарии замечания</h3>
+                <button class="modal-close" onclick="closeDefectComments()">×</button>
+            </div>
+            <div class="modal-body defect-comments-body" id="defectCommentsBody"></div>
+            <div class="modal-footer defect-comments-footer">
+                <textarea id="defectCommentInput" placeholder="Напишите комментарий"></textarea>
+                <button class="btn btn-primary btn-sm" onclick="submitDefectComment()">Сохранить</button>
             </div>
         </div>
     </div>

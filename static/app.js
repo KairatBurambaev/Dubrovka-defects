@@ -8,7 +8,11 @@ const state = {
     currentApartment: null,
     currentApartmentData: null,
     currentDefect: null,
+    currentDefectCommentId: null,
+    currentDefectComments: [],
+    editingDefectCommentId: null,
     categories: [],
+    contractors: [],
     currentItemId: null,
     accessFilter: '',
     sortByDefects: false,
@@ -20,7 +24,28 @@ const state = {
 const FILTERS = ['', 'defects', 'call', 'owner_accepted', 'complex', 'no_access'];
 const FILTER_NAMES = ['Все', 'С замечаниями', 'Вызваные квартиры', 'Принята', 'Сложные', 'Нет доступа'];
 const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
+const DEFECT_STATUS_LABELS = {
+    recorded: 'Зафиксировано',
+    in_progress: 'В работе',
+    on_review: 'На проверке',
+    completed: 'Выполнено',
+    rejected: 'Отклонено',
+    rework: 'Отправленно на доработку'
+};
+const DEFECT_STATUS_ORDER = Object.keys(DEFECT_STATUS_LABELS);
+const DEFECT_STATUS_CLASSES = {
+    recorded: 'badge-recorded',
+    in_progress: 'badge-progress',
+    on_review: 'badge-on-review',
+    completed: 'badge-completed',
+    rejected: 'badge-rejected',
+    rework: 'badge-rework'
+};
+const CLOSED_DEFECT_STATUSES = ['completed', 'rejected'];
 let currentFilterIndex = 0;
+let photoModalItems = [];
+let photoModalIndex = 0;
+const defectAutosaveTimers = new Map();
 
 // DOM Elements cache
 const elements = {};
@@ -29,6 +54,7 @@ const elements = {};
 document.addEventListener('DOMContentLoaded', () => {
     cacheElements();
     loadCategories();
+    loadContractors();
     loadComplexes();
     setupForms();
     setupEventListeners();
@@ -139,6 +165,30 @@ function setupEventListeners() {
             setAccessFilter(filter);
         });
     });
+
+    if (elements.defectsList) {
+        elements.defectsList.addEventListener('input', (e) => {
+            const row = e.target.closest('.defect-row');
+            if (row) {
+                markDefectRowDirty(row);
+                scheduleDefectAutosave(row);
+            }
+        });
+        elements.defectsList.addEventListener('change', (e) => {
+            const row = e.target.closest('.defect-row');
+            if (row) {
+                markDefectRowDirty(row);
+                scheduleDefectAutosave(row);
+            }
+            if (e.target.matches('.status-select')) {
+                const badge = row?.querySelector('.defect-status-badge');
+                if (badge) {
+                    badge.className = `defect-status-badge ${getDefectStatusBadgeClass(e.target.value)}`;
+                    badge.textContent = getDefectStatusLabel(e.target.value);
+                }
+            }
+        });
+    }
 }
 
 // Navigation with animations
@@ -373,6 +423,59 @@ async function loadCategories() {
         }
     } catch (err) {
         console.error('Error loading categories:', err);
+    }
+}
+
+async function loadContractors(selectedId = '') {
+    try {
+        const res = await fetch('/api/contractors');
+        const data = await res.json();
+        state.contractors = data.contractors || [];
+
+        const select = document.getElementById('defectContractorId');
+        if (select) select.innerHTML = renderContractorOptions(selectedId);
+    } catch (err) {
+        console.error('Error loading contractors:', err);
+    }
+}
+
+function renderContractorOptions(selectedId = '') {
+    const normalizedId = String(selectedId || '');
+    return [
+        '<option value="">Не назначен</option>',
+        ...state.contractors.map(contractor => `
+            <option value="${contractor.id}" ${String(contractor.id) === normalizedId ? 'selected' : ''}>${escapeHtml(contractor.name)}</option>
+        `)
+    ].join('');
+}
+
+async function addContractorPrompt(context = 'create', defectId = null) {
+    const name = prompt('Название подрядчика');
+    if (!name || !name.trim()) return;
+
+    try {
+        const formData = new FormData();
+        formData.append('name', name.trim());
+        const res = await fetch('/api/contractors', {
+            method: 'POST',
+            body: formData
+        });
+        const contractor = await res.json();
+        await loadContractors(contractor.id);
+
+        if (context === 'create') {
+            const select = document.getElementById('defectContractorId');
+            if (select) select.value = String(contractor.id);
+        }
+
+        if (context === 'defect' && defectId) {
+            const select = document.getElementById(`defectContractor_${defectId}`);
+            if (select) select.innerHTML = renderContractorOptions(contractor.id);
+        }
+
+        showToast('Подрядчик добавлен', 'success');
+    } catch (err) {
+        showToast('Ошибка добавления подрядчика', 'error');
     }
 }
 
@@ -1188,9 +1291,10 @@ async function loadApartments() {
             
             state.currentDefects.forEach(d => {
                 if (catFilter && d.category !== catFilter) return;
-                if (statusFilter === 'new' && d.status !== 'new') return;
-                if (statusFilter === 'in_progress' && d.status !== 'in_progress') return;
-                if (statusFilter === 'ready' && !['ready','rejected'].includes(d.status)) return;
+                if (statusFilter === 'recorded' && d.status !== 'recorded') return;
+                if (statusFilter === 'in_progress' && !['in_progress', 'rework'].includes(d.status)) return;
+                if (statusFilter === 'on_review' && d.status !== 'on_review') return;
+                if (statusFilter === 'completed' && !isClosedDefectStatus(d.status)) return;
                 filteredIds.add(d.apartment_id);
             });
             apts = apts.filter(a => filteredIds.has(a.id));
@@ -1314,6 +1418,58 @@ function isAcceptedApartment(apartment) {
     return ACCEPTED_ACCESS_STATUSES.includes(apartment?.access_status);
 }
 
+function isClosedDefectStatus(status) {
+    return CLOSED_DEFECT_STATUSES.includes(status);
+}
+
+function getDefectStatusLabel(status) {
+    return DEFECT_STATUS_LABELS[status] || status;
+}
+
+function getDefectStatusBadgeClass(status) {
+    return DEFECT_STATUS_CLASSES[status] || 'badge-recorded';
+}
+
+function getStoredCommentAuthor() {
+    const storageKey = 'dubrovkaDefectsCommentAuthor';
+    try {
+        return localStorage.getItem(storageKey) || '';
+    } catch (err) {
+        return '';
+    }
+}
+
+function getCurrentCommentAuthor(forcePrompt = false) {
+    let author = getStoredCommentAuthor();
+
+    if (!author || forcePrompt) {
+        const entered = prompt('Введите ваше имя для комментариев:', author || '');
+        if (!entered || !entered.trim()) return '';
+        author = entered.trim();
+        try {
+            localStorage.setItem(storageKey, author);
+        } catch (err) {
+            // ignore storage errors
+        }
+    }
+
+    return author;
+}
+
+function renderDefectStatusOptions(currentStatus) {
+    return Object.entries(DEFECT_STATUS_LABELS).map(([value, label]) => `
+        <option value="${value}" ${currentStatus === value ? 'selected' : ''}>${label}</option>
+    `).join('');
+}
+
+function getApartmentWorkflowClass(apartment) {
+    if (!apartment) return '';
+    if (Number(apartment.on_review_defects_count || 0) > 0) return 'apt apt-ready_for_acceptance';
+    if (Number(apartment.in_progress_defects_count || 0) > 0 || Number(apartment.rework_defects_count || 0) > 0) return 'apt apt-in_progress';
+    if (Number(apartment.recorded_defects_count || 0) > 0) return 'apt apt-defects';
+    return '';
+}
+
 function countsAsDefectApartment(apartment) {
     return !isAcceptedApartment(apartment) && Number(apartment?.active_defects_count || 0) > 0;
 }
@@ -1388,17 +1544,25 @@ function formatApartmentBadgeCount(count) {
 function getApartmentBadgeCount(apartment, catFilter) {
     let badgeCount = apartment.active_defects_count || 0;
     if (catFilter && state.currentDefects.length) {
-        badgeCount = state.currentDefects.filter(d => d.apartment_id === apartment.id && d.category === catFilter && d.status !== 'ready' && d.status !== 'rejected').length;
+        badgeCount = state.currentDefects.filter(d => d.apartment_id === apartment.id && d.category === catFilter && !isClosedDefectStatus(d.status)).length;
     }
     return badgeCount;
 }
 
 function renderApartmentTile(apartment, propFull, catFilter) {
     const deadlineClass = getDeadlineClass(apartment);
-    const cls = getApartmentClass(apartment.access_status, apartment.active_defects_count);
+    const defectWorkflowClass = getApartmentWorkflowClass(apartment);
+    const cls = defectWorkflowClass || getApartmentClass(apartment.access_status, apartment.active_defects_count);
     const badgeCount = getApartmentBadgeCount(apartment, catFilter);
     const badge = (badgeCount > 0 && !isAcceptedApartment(apartment)) ? `<span class="apt-badge">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
-    const tooltip = `${propFull === 'апартамент' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
+    const phaseLabel = Number(apartment.on_review_defects_count || 0) > 0
+        ? 'на проверке'
+        : (Number(apartment.in_progress_defects_count || 0) > 0 || Number(apartment.rework_defects_count || 0) > 0)
+            ? 'в работе'
+            : Number(apartment.recorded_defects_count || 0) > 0
+                ? 'зафиксировано'
+                : '';
+    const tooltip = `${propFull === 'апартамент' ? 'Апартамент' : 'Квартира'} ${apartment.number}${phaseLabel ? ` • ${phaseLabel}` : ''}`;
 
     return `
         <div class="apt-wrap">
@@ -1649,7 +1813,7 @@ function getDefectBadgeCount(aptId) {
     }
     
     // Count defects only for selected category
-    return state.currentDefects.filter(d => d.apartment_id === aptId && d.category === catFilter && d.status !== 'ready' && d.status !== 'rejected').length;
+    return state.currentDefects.filter(d => d.apartment_id === aptId && d.category === catFilter && !isClosedDefectStatus(d.status)).length;
 }
 
 function renderFloorRow(floorApts, floor, propFull) {
@@ -1763,10 +1927,10 @@ async function showApartmentDetail(id) {
             ? `Корпус ${apt.building_number} • Секция ${apt.section_number} • Этаж ${apt.floor}`
             : `Секция ${apt.section_number} • Этаж ${apt.floor}`;
         
-        const active = defects.filter(d => !['ready','rejected'].includes(d.status));
-        const done = defects.filter(d => ['ready','rejected'].includes(d.status));
+        const active = defects.filter(d => !isClosedDefectStatus(d.status));
+        const done = defects.filter(d => isClosedDefectStatus(d.status));
         
-        const fullSubtitle = `${aptSubtitle} • Активных: ${active.length} • Готовых: ${done.length}`;
+        const fullSubtitle = `${aptSubtitle} • Активных: ${active.length} • Закрытых: ${done.length}`;
         setPageTitle(`${propLabel} ${apt.number}`, fullSubtitle);
         
         // Set status buttons
@@ -1840,12 +2004,10 @@ async function saveStatus(status) {
             // Update apartment card in list
             const apt = document.querySelector(`.apt[data-id="${state.currentApartment}"]`);
             if (apt && state.currentApartmentData) {
-                const defects = state.currentApartmentData.active_defects_count || 0;
-                const newClass = getApartmentClass(status, defects);
+                state.currentApartmentData.access_status = status;
+                const newClass = getApartmentWorkflowClass(state.currentApartmentData) || getApartmentClass(status, state.currentApartmentData.active_defects_count || 0);
                 apt.className = `apt ${newClass}`;
             }
-            
-            state.currentApartmentData.access_status = status;
         } else {
             showToast('Ошибка сохранения', 'error');
         }
@@ -1918,6 +2080,140 @@ async function saveComment() {
 }
 
 // Defects
+function getCategoryIcon(category) {
+    const icons = {
+        'Стены/Пол/Потолок': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 10h6"/><path d="M9 14h6"/></svg>',
+        'Окна': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 4v16"/><path d="M4 12h16"/></svg>',
+        'Двери': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V5a2 2 0 0 1 2-2h8v18"/><path d="M10 12h.01"/></svg>',
+        'Сантехника': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h7a4 4 0 0 1 4 4v1H9"/><path d="M9 9v4a3 3 0 0 0 6 0V9"/><path d="M5 9h14"/></svg>',
+        'Электрика': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 6 14h5l-1 8 7-12h-5z"/></svg>',
+        'Отопление': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v10a4 4 0 1 0 8 0V3"/><path d="M12 3v12"/></svg>',
+        'Вентиляция': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h7"/><path d="M13 12h7"/><path d="M12 4v7"/><path d="M12 13v7"/><circle cx="12" cy="12" r="2"/></svg>',
+        'Балкон/Лоджия': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V9h12v11"/><path d="M9 9V5h6v4"/></svg>',
+        'Другое': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 1 1 5.8 1c-.4 1.2-1.9 1.8-2.4 2.5-.3.4-.4.8-.4 1.5"/><path d="M12 17h.01"/></svg>'
+    };
+
+    return icons[category] || icons['Другое'];
+}
+
+function getCategoryKey(category) {
+    return String(category || '').replace(/[^a-zA-Z0-9_-]+/g, '_');
+}
+
+function isImageFilename(filename) {
+    return /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(String(filename || ''));
+}
+
+function isVideoFilename(filename) {
+    return /\.(mp4|mov|webm)$/i.test(String(filename || ''));
+}
+
+function renderDefectMedia(photos) {
+    if (!photos?.length) return '';
+
+    const imageUrls = photos
+        .filter(photo => !isVideoFilename(photo.filename))
+        .map(photo => `/uploads/${encodeURIComponent(photo.filename)}`);
+    let imageIndex = -1;
+
+    return `
+        <div class="defect-media-grid">
+            ${photos.map(photo => {
+                const url = `/uploads/${encodeURIComponent(photo.filename)}`;
+                if (isVideoFilename(photo.filename)) {
+                    return `
+                        <a class="defect-media-card" href="${url}" target="_blank" rel="noopener noreferrer">
+                            <video class="defect-media-thumb" src="${url}" preload="metadata" muted playsinline></video>
+                        </a>
+                    `;
+                }
+
+                imageIndex += 1;
+
+                return `
+                    <button type="button" class="defect-media-card" onclick='openDefectPhoto(${JSON.stringify(imageUrls)}, ${imageIndex})'>
+                        <img class="defect-media-thumb" src="${url}" alt="Фото замечания">
+                    </button>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function markDefectRowDirty(row) {
+    row.classList.add('is-dirty');
+}
+
+function markDefectRowClean(row) {
+    row.classList.remove('is-dirty');
+}
+
+function scheduleDefectAutosave(row) {
+    const defectId = row?.dataset?.defectId;
+    if (!defectId) return;
+
+    const prevTimer = defectAutosaveTimers.get(defectId);
+    if (prevTimer) clearTimeout(prevTimer);
+
+    const timer = setTimeout(() => {
+        defectAutosaveTimers.delete(defectId);
+        saveDefectMeta(defectId, { silentSuccess: true });
+    }, 700);
+
+    defectAutosaveTimers.set(defectId, timer);
+}
+
+function renderDefectCard(d, index) {
+    const summaryText = d.items?.length
+        ? d.items.map(item => escapeHtml(item.text)).join('; ')
+        : escapeHtml(d.description);
+    const fixedAt = formatDate(d.created_at);
+    const windowNumber = d.window_number ?? '';
+    const mediaHtml = renderDefectMedia(d.photos);
+    const statusLabel = getDefectStatusLabel(d.status);
+    const statusBadgeClass = getDefectStatusBadgeClass(d.status);
+    const windowChipText = windowNumber ? `Окно ${escapeHtml(windowNumber)}` : 'Окно не указано';
+    const commentsCount = Number(d.comments_count || 0);
+
+    return `
+        <div class="defect-row defect-row-card" data-defect-id="${d.id}" style="animation: slideIn 0.25s ease ${index * 0.03}s both;">
+            <div class="defect-card-main">
+                <div class="defect-card-head defect-card-field-full">
+                    <div class="defect-card-meta-chips">
+                        <span class="defect-meta-chip">${fixedAt || 'Дата не указана'}</span>
+                        <span class="defect-meta-chip">${windowChipText}</span>
+                    </div>
+                    <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id})">${statusLabel}</button>
+                </div>
+                <div class="defect-card-field defect-card-field-description defect-card-field-full">
+                    <label class="defect-card-label" for="defectDescription_${d.id}">Замечание</label>
+                    <textarea id="defectDescription_${d.id}" class="input table-input defect-description-input" placeholder="Замечание" rows="3">${summaryText}</textarea>
+                    ${mediaHtml}
+                </div>
+                <div class="defect-card-field defect-card-field-contractor">
+                    <label class="defect-card-label" for="defectContractor_${d.id}">Исполнитель</label>
+                    <select id="defectContractor_${d.id}" class="select table-input">
+                        ${renderContractorOptions(d.contractor_id || '')}
+                    </select>
+                </div>
+                <div class="defect-card-field defect-card-field-comment">
+                    <div class="defect-card-field-topline">
+                        <label class="defect-card-label" for="defectCommentText_${d.id}">Комментарий</label>
+                        <button type="button" class="btn btn-sm btn-secondary btn-compact" data-defect-comments-btn="${d.id}" onclick="showDefectComments(${d.id})">Диалог${commentsCount ? ` (${commentsCount})` : ''}</button>
+                    </div>
+                    <textarea id="defectCommentText_${d.id}" class="input table-input defect-comment-input" placeholder="Комментарий" rows="3">${escapeHtml(d.comment_text || '')}</textarea>
+                </div>
+            </div>
+            <input type="hidden" id="defectStatus_${d.id}" value="${escapeHtml(d.status)}">
+            <input type="hidden" id="defectVariantNumber_${d.id}" value="${escapeHtml(d.variant_number || '')}">
+            <input type="hidden" id="defectProjectName_${d.id}" value="${escapeHtml(d.project_name || '')}">
+            <input type="hidden" id="defectCostAmount_${d.id}" value="${escapeHtml(d.cost_amount || '')}">
+            <input type="hidden" id="defectMaterialsInfo_${d.id}" value="${escapeHtml(d.materials_info || '')}">
+            <input type="hidden" id="defectDeadline_${d.id}" value="${d.deadline || ''}">
+        </div>
+    `;
+}
+
 function renderDefects(defects) {
     const container = elements.defectsList;
     if (!container) return;
@@ -1926,81 +2222,86 @@ function renderDefects(defects) {
         container.innerHTML = `
             <div class="empty-state">
                 <h3>Нет замечаний</h3>
+                <button class="btn btn-sm btn-primary" onclick="showAddDefectForm()">Добавить замечание</button>
             </div>
         `;
         return;
     }
     
-    const badges = { 
-        'new': 'badge-new', 
-        'in_progress': 'badge-progress', 
-        'ready': 'badge-ready', 
-        'rejected': 'badge-rejected' 
-    };
-    
-    const labels = { 
-        'new': 'Новое', 
-        'in_progress': 'В работе', 
-        'ready': 'Готово', 
-        'rejected': 'Отклонено' 
-    };
-    
-    container.innerHTML = defects.map((d, index) => `
-        <div class="defect-item" style="animation: slideIn 0.3s ease ${index * 0.05}s both;">
-            <div class="defect-head">
-                <div class="defect-head-left">
-                    <span class="badge ${badges[d.status]}">${labels[d.status]}</span>
-                    <span class="badge badge-cat">${escapeHtml(d.category)}</span>
+    const grouped = defects.reduce((acc, defect) => {
+        if (!acc[defect.category]) acc[defect.category] = [];
+        acc[defect.category].push(defect);
+        return acc;
+    }, {});
+
+    const orderedCategories = state.categories.filter(category => grouped[category]?.length);
+    const extraCategories = Object.keys(grouped).filter(category => !orderedCategories.includes(category));
+    const categories = [...orderedCategories, ...extraCategories];
+
+    let defectIndex = 0;
+    container.innerHTML = categories.map(category => {
+        const categoryDefects = grouped[category] || [];
+        return `
+            <section class="defect-category-group">
+                <div class="defect-category-header">
+                    <div class="defect-category-title-wrap">
+                        <span class="defect-category-icon">${getCategoryIcon(category)}</span>
+                        <div>
+                            <div class="defect-category-title">${escapeHtml(category)}</div>
+                            <div class="defect-category-subtitle">${categoryDefects.length} ${pluralize(categoryDefects.length, 'строка', 'строки', 'строк')}</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-sm btn-secondary" onclick='showAddDefectForm(${JSON.stringify(category)})'>Добавить</button>
                 </div>
-                <span class="defect-date">${formatDate(d.created_at)}</span>
-            </div>
-            <div class="defect-body">
-                ${d.photos?.length ? `
-                    <div class="defect-imgs">
-                        ${d.photos.map(p => `
-                            <img src="/uploads/${escapeHtml(p.filename)}" 
-                                 onclick="showPhoto('/uploads/${escapeHtml(p.filename)}')" 
-                                 loading="lazy">
-                        `).join('')}
-                    </div>
-                ` : ''}
-                ${d.items?.length ? `
-                    <div class="items-list">
-                        ${d.items.map((item, i) => `
-                            <div class="item-row">
-                                <select onchange="updateItemStatus(${item.id}, this.value)" class="status-select">
-                                    <option value="new" ${item.status === 'new' ? 'selected' : ''}>Новое</option>
-                                    <option value="in_progress" ${item.status === 'in_progress' ? 'selected' : ''}>В работе</option>
-                                    <option value="ready" ${item.status === 'ready' ? 'selected' : ''}>Готово</option>
-                                    <option value="rejected" ${item.status === 'rejected' ? 'selected' : ''}>Отклонено</option>
-                                </select>
-                                <span class="item-text">${i + 1}. ${escapeHtml(item.text)}</span>
-                                <div class="actions">
-                                    <button class="btn-icon cmt" onclick="showComments(${item.id})" title="Комментарии">
-                                        [Ком] ${item.comments?.length || 0}
-                                    </button>
-                                    <button class="btn-icon del" onclick="deleteItem(${item.id})" title="Удалить">×</button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                ` : `<p class="defect-desc">${escapeHtml(d.description)}</p>`}
-                ${d.deadline ? `<p class="defect-deadline">📅 Срок: ${formatDate(d.deadline)}</p>` : ''}
-            </div>
-            <div class="defect-foot">
-                <select onchange="updateDefectStatus(${d.id}, this.value)" class="status-select">
-                    <option value="new" ${d.status === 'new' ? 'selected' : ''}>Новое</option>
-                    <option value="in_progress" ${d.status === 'in_progress' ? 'selected' : ''}>В работе</option>
-                    <option value="ready" ${d.status === 'ready' ? 'selected' : ''}>Готово</option>
-                    <option value="rejected" ${d.status === 'rejected' ? 'selected' : ''}>Отклонено</option>
-                </select>
-                <button class="btn btn-sm btn-danger" onclick="deleteDefect(${d.id})">Удалить</button>
-            </div>
-        </div>
-    `).join('');
+                <div class="defect-category-list">
+                    ${categoryDefects.map(defect => renderDefectCard(defect, defectIndex++)).join('')}
+                </div>
+            </section>
+        `;
+    }).join('');
 }
 
 async function updateDefectStatus(id, status) {
+    try {
+        await fetch(`/api/defects/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `status=${status}`
+        });
+        return true;
+    } catch (err) {
+        showToast('Ошибка обновления', 'error');
+        return false;
+    }
+}
+
+async function cycleDefectStatus(id) {
+    const statusInput = document.getElementById(`defectStatus_${id}`);
+    const badge = document.querySelector(`.defect-row[data-defect-id="${id}"] .defect-status-badge`);
+    const currentStatus = statusInput?.value || DEFECT_STATUS_ORDER[0];
+    const currentIndex = Math.max(DEFECT_STATUS_ORDER.indexOf(currentStatus), 0);
+    const nextStatus = DEFECT_STATUS_ORDER[(currentIndex + 1) % DEFECT_STATUS_ORDER.length];
+
+    if (statusInput) statusInput.value = nextStatus;
+    if (badge) {
+        badge.className = `defect-status-badge ${getDefectStatusBadgeClass(nextStatus)}`;
+        badge.textContent = getDefectStatusLabel(nextStatus);
+    }
+
+    const ok = await updateDefectStatus(id, nextStatus);
+    if (!ok) {
+        if (statusInput) statusInput.value = currentStatus;
+        if (badge) {
+            badge.className = `defect-status-badge ${getDefectStatusBadgeClass(currentStatus)}`;
+            badge.textContent = getDefectStatusLabel(currentStatus);
+        }
+        return;
+    }
+
+    showToast('Статус обновлен', 'success');
+}
+
+async function updateDefectStatusLegacy(id, status) {
     try {
         await fetch(`/api/defects/${id}`, {
             method: 'PUT',
@@ -2027,15 +2328,54 @@ async function deleteDefect(id) {
     }
 }
 
+async function saveDefectMeta(id, options = {}) {
+    const { silentSuccess = false } = options;
+    const contractorField = document.getElementById(`defectContractor_${id}`);
+    const contractorId = contractorField ? contractorField.value : null;
+    const deadline = document.getElementById(`defectDeadline_${id}`)?.value || '';
+    const description = document.getElementById(`defectDescription_${id}`)?.value.trim() || '';
+    const windowNumberField = document.getElementById(`defectWindowNumber_${id}`);
+    const windowNumber = windowNumberField ? windowNumberField.value.trim() : null;
+    const variantNumber = document.getElementById(`defectVariantNumber_${id}`)?.value.trim() || '';
+    const projectName = document.getElementById(`defectProjectName_${id}`)?.value.trim() || '';
+    const materialsInfo = document.getElementById(`defectMaterialsInfo_${id}`)?.value.trim() || '';
+    const costAmount = document.getElementById(`defectCostAmount_${id}`)?.value.trim() || '';
+    const laborCost = document.getElementById(`defectLaborCost_${id}`)?.value.trim() || '';
+    const commentText = document.getElementById(`defectCommentText_${id}`)?.value.trim() || '';
+    const status = document.getElementById(`defectStatus_${id}`)?.value || '';
+
+    try {
+        if (status) {
+            await fetch(`/api/defects/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `status=${encodeURIComponent(status)}`
+            });
+        }
+        const metaBody = `${contractorId !== null ? `contractor_id=${encodeURIComponent(contractorId)}&` : ''}${windowNumber !== null ? `window_number=${encodeURIComponent(windowNumber)}&` : ''}deadline=${encodeURIComponent(deadline)}&variant_number=${encodeURIComponent(variantNumber)}&project_name=${encodeURIComponent(projectName)}&materials_info=${encodeURIComponent(materialsInfo)}&cost_amount=${encodeURIComponent(costAmount)}&labor_cost=${encodeURIComponent(laborCost)}&comment_text=${encodeURIComponent(commentText)}&contractor_name=&description=${encodeURIComponent(description)}`;
+        await fetch(`/api/defects/${id}/meta`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: metaBody
+        });
+        const row = document.querySelector(`.defect-row[data-defect-id="${id}"]`);
+        if (row) markDefectRowClean(row);
+        if (!silentSuccess) showToast('Данные замечания обновлены', 'success');
+    } catch (err) {
+        showToast('Ошибка сохранения', 'error');
+    }
+}
+
 // Items
 async function updateItemStatus(id, status) {
     try {
-        await fetch(`/api/items/${id}`, {
+        await fetch(`/api/defects/items/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `status=${status}`
         });
         showToast('Сохранено', 'success');
+        showApartmentDetail(state.currentApartment);
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
     }
@@ -2049,7 +2389,7 @@ function editItem(id, el) {
     
     input.onblur = async () => {
         if (input.value.trim()) {
-            await fetch(`/api/items/${id}`, {
+            await fetch(`/api/defects/items/${id}/text`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `text=${encodeURIComponent(input.value.trim())}`
@@ -2070,7 +2410,7 @@ async function deleteItem(id) {
     if (!confirm('Удалить пункт?')) return;
     
     try {
-        await fetch(`/api/items/${id}`, { method: 'DELETE' });
+        await fetch(`/api/defects/items/${id}`, { method: 'DELETE' });
         showApartmentDetail(state.currentApartment);
     } catch (err) {
         showToast('Ошибка удаления', 'error');
@@ -2089,7 +2429,7 @@ function showComments(itemId) {
 
 async function loadComments(itemId) {
     try {
-        const res = await fetch(`/api/items/${itemId}/comments`);
+        const res = await fetch(`/api/defects/items/${itemId}/comments`);
         const comments = await res.json();
         
         const commentsBody = document.getElementById('commentsBody');
@@ -2098,7 +2438,7 @@ async function loadComments(itemId) {
                 <div class="comment-item">
                     <div class="comment-author">
                         ${escapeHtml(c.author)} 
-                        <span class="comment-date">${formatDate(c.created_at)}</span>
+                        <span class="comment-date">${formatDateTime(c.created_at)}</span>
                     </div>
                     <div class="comment-text">${escapeHtml(c.text)}</div>
                 </div>
@@ -2116,7 +2456,7 @@ async function submitComment() {
     if (!text || !state.currentItemId) return;
     
     try {
-        await fetch(`/api/items/${state.currentItemId}/comments`, {
+        await fetch(`/api/defects/items/${state.currentItemId}/comments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `text=${encodeURIComponent(text)}`
@@ -2134,11 +2474,152 @@ function closeComments() {
     if (modal) modal.classList.remove('active');
 }
 
+function canEditDefectComment(comment) {
+    const currentAuthor = getStoredCommentAuthor();
+    return Boolean(currentAuthor) && currentAuthor === String(comment?.author || '').trim();
+}
+
+function updateDefectCommentsButton(defectId, count) {
+    const button = document.querySelector(`[data-defect-comments-btn="${defectId}"]`);
+    if (button) {
+        button.textContent = `Диалог${count ? ` (${count})` : ''}`;
+    }
+}
+
+function renderDefectComments() {
+    const commentsBody = document.getElementById('defectCommentsBody');
+    if (!commentsBody) return;
+
+    const comments = state.currentDefectComments || [];
+    commentsBody.innerHTML = comments.map(comment => {
+        const isEditing = state.editingDefectCommentId === comment.id;
+        const canEdit = canEditDefectComment(comment);
+
+        if (isEditing) {
+            return `
+                <div class="comment-item defect-comment-item is-editing">
+                    <div class="comment-author">${escapeHtml(comment.author)} <span class="comment-date">${formatDateTime(comment.created_at)}</span></div>
+                    <textarea id="editDefectComment_${comment.id}" class="input defect-comment-edit-input" rows="3">${escapeHtml(comment.text)}</textarea>
+                    <div class="comment-actions">
+                        <button class="btn btn-primary btn-sm" onclick="saveEditedDefectComment(${comment.id})">Сохранить</button>
+                        <button class="btn btn-sm" onclick="cancelEditDefectComment()">Отмена</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="comment-item defect-comment-item">
+                <div class="comment-head-row">
+                    <div class="comment-author">${escapeHtml(comment.author)} <span class="comment-date">${formatDateTime(comment.created_at)}</span></div>
+                    ${canEdit ? `<button class="btn btn-sm btn-secondary btn-compact" onclick="startEditDefectComment(${comment.id})">Редактировать</button>` : ''}
+                </div>
+                <div class="comment-text">${escapeHtml(comment.text)}</div>
+            </div>
+        `;
+    }).join('') || '<p class="empty-comments">Комментариев пока нет</p>';
+}
+
+async function loadDefectComments(defectId) {
+    try {
+        const res = await fetch(`/api/defects/${defectId}/comments`);
+        const comments = await res.json();
+        state.currentDefectComments = comments;
+        renderDefectComments();
+        updateDefectCommentsButton(defectId, comments.length);
+    } catch (err) {
+        showToast('Ошибка загрузки комментариев', 'error');
+    }
+}
+
+function showDefectComments(defectId) {
+    state.currentDefectCommentId = defectId;
+    state.editingDefectCommentId = null;
+    const modal = document.getElementById('defectCommentsModal');
+    if (modal) modal.classList.add('active');
+    loadDefectComments(defectId);
+}
+
+async function submitDefectComment() {
+    const defectId = state.currentDefectCommentId;
+    const input = document.getElementById('defectCommentInput');
+    const text = input?.value.trim();
+    const author = getCurrentCommentAuthor(true);
+
+    if (!defectId || !text) return;
+    if (!author) {
+        showToast('Нужно указать имя автора', 'warning');
+        return;
+    }
+
+    try {
+        await fetch(`/api/defects/${defectId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `text=${encodeURIComponent(text)}&author=${encodeURIComponent(author)}`
+        });
+
+        if (input) input.value = '';
+        await loadDefectComments(defectId);
+    } catch (err) {
+        showToast('Ошибка сохранения комментария', 'error');
+    }
+}
+
+function startEditDefectComment(commentId) {
+    state.editingDefectCommentId = commentId;
+    renderDefectComments();
+}
+
+function cancelEditDefectComment() {
+    state.editingDefectCommentId = null;
+    renderDefectComments();
+}
+
+async function saveEditedDefectComment(commentId) {
+    const author = getCurrentCommentAuthor(true);
+    const input = document.getElementById(`editDefectComment_${commentId}`);
+    const text = input?.value.trim();
+
+    if (!author || !text) return;
+
+    try {
+        const res = await fetch(`/api/comments/${commentId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `text=${encodeURIComponent(text)}&author=${encodeURIComponent(author)}`
+        });
+
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            showToast(error.detail || 'Ошибка сохранения комментария', 'error');
+            return;
+        }
+
+        state.editingDefectCommentId = null;
+        await loadDefectComments(state.currentDefectCommentId);
+    } catch (err) {
+        showToast('Ошибка сохранения комментария', 'error');
+    }
+}
+
+function closeDefectComments() {
+    const modal = document.getElementById('defectCommentsModal');
+    if (modal) modal.classList.remove('active');
+    state.currentDefectCommentId = null;
+    state.currentDefectComments = [];
+    state.editingDefectCommentId = null;
+}
+
 // Add Defect Form
-function showAddDefectForm() {
+function showAddDefectForm(prefillCategory = '') {
     showTab('add-defect');
     const form = document.getElementById('addDefectForm');
     if (form) form.reset();
+    const statusInput = document.getElementById('defectStatus');
+    if (statusInput) statusInput.value = 'recorded';
+    const contractorInput = document.getElementById('defectContractorId');
+    if (contractorInput) contractorInput.value = '';
     
     const windowGroup = document.getElementById('windowGroup');
     const templatesGroup = document.getElementById('templatesGroup');
@@ -2147,6 +2628,12 @@ function showAddDefectForm() {
     if (windowGroup) windowGroup.style.display = 'none';
     if (templatesGroup) templatesGroup.style.display = 'none';
     if (previewGrid) previewGrid.innerHTML = '';
+
+    const categoryInput = document.getElementById('defectCategory');
+    if (categoryInput) {
+        categoryInput.value = prefillCategory || '';
+        handleCategoryChange();
+    }
 }
 
 function handleFileSelect(e) {
@@ -2176,6 +2663,14 @@ async function handleAddDefect(e) {
     
     const category = document.getElementById('defectCategory')?.value;
     const description = document.getElementById('defectDescription')?.value.trim();
+    const status = document.getElementById('defectStatus')?.value || 'recorded';
+    const contractorId = document.getElementById('defectContractorId')?.value || '';
+    const variantNumber = document.getElementById('defectVariantNumber')?.value.trim() || '';
+    const projectName = document.getElementById('defectProjectName')?.value.trim() || '';
+    const materialsInfo = document.getElementById('defectMaterialsInfo')?.value.trim() || '';
+    const costAmount = document.getElementById('defectCostAmount')?.value.trim() || '';
+    const laborCost = document.getElementById('defectLaborCost')?.value.trim() || '';
+    const commentText = document.getElementById('defectCommentText')?.value.trim() || '';
     
     if (!category || !description) {
         showToast('Заполните все обязательные поля', 'warning');
@@ -2189,6 +2684,14 @@ async function handleAddDefect(e) {
         const formData = new FormData();
         formData.append('category', category);
         formData.append('description', description);
+        formData.append('status', status);
+        if (contractorId) formData.append('contractor_id', contractorId);
+        formData.append('variant_number', variantNumber);
+        formData.append('project_name', projectName);
+        formData.append('materials_info', materialsInfo);
+        formData.append('cost_amount', costAmount);
+        formData.append('labor_cost', laborCost);
+        formData.append('comment_text', commentText);
         
         if (windowNumber) formData.append('window_number', windowNumber);
         if (deadline) formData.append('deadline', deadline);
@@ -2218,16 +2721,42 @@ async function handleAddDefect(e) {
 
 // Photo Modal
 function showPhoto(src) {
+    openDefectPhoto([src], 0);
+}
+
+function openDefectPhoto(urls, index = 0) {
+    photoModalItems = Array.isArray(urls) ? urls.filter(Boolean) : [];
+    if (!photoModalItems.length) return;
+
+    photoModalIndex = Math.min(Math.max(index, 0), photoModalItems.length - 1);
+    syncPhotoModal();
+}
+
+function syncPhotoModal() {
     const modalImg = document.getElementById('modalImg');
     const photoModal = document.getElementById('photoModal');
-    
-    if (modalImg) modalImg.src = src;
+    const counter = document.getElementById('photoModalCounter');
+    const prevBtn = document.getElementById('photoModalPrev');
+    const nextBtn = document.getElementById('photoModalNext');
+
+    if (modalImg) modalImg.src = photoModalItems[photoModalIndex] || '';
+    if (counter) counter.textContent = photoModalItems.length > 1 ? `${photoModalIndex + 1} / ${photoModalItems.length}` : '';
+    if (prevBtn) prevBtn.disabled = photoModalItems.length <= 1;
+    if (nextBtn) nextBtn.disabled = photoModalItems.length <= 1;
     if (photoModal) photoModal.classList.add('active');
+}
+
+function changePhoto(direction) {
+    if (photoModalItems.length <= 1) return;
+    photoModalIndex = (photoModalIndex + direction + photoModalItems.length) % photoModalItems.length;
+    syncPhotoModal();
 }
 
 function closeModal() {
     const photoModal = document.getElementById('photoModal');
     if (photoModal) photoModal.classList.remove('active');
+    photoModalItems = [];
+    photoModalIndex = 0;
 }
 
 // CSV Export
@@ -2310,8 +2839,19 @@ function formatDate(str) {
     });
 }
 
+function formatDateTime(str) {
+    if (!str) return '';
+    return new Date(str).toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 function isOverdue(deadline, status) {
-    if (['ready', 'rejected'].includes(status)) return false;
+    if (isClosedDefectStatus(status)) return false;
     return new Date(deadline) < new Date();
 }
 
@@ -2372,10 +2912,12 @@ async function printDefects() {
         const propType = state.currentPropertyType;
         const propLabel = propType === 'апартаменты' ? 'Апартамент' : 'Квартира';
         const statusLabels = {
-            'new': 'Новое',
-            'in_progress': 'В работе',
-            'ready': 'Готово',
-            'rejected': 'Отклонено'
+            recorded: 'Зафиксировано',
+            in_progress: 'В работе',
+            on_review: 'На проверке',
+            completed: 'Выполнено',
+            rejected: 'Отклонено',
+            rework: 'Отправленно на доработку'
         };
         
         let html = `
@@ -2392,10 +2934,12 @@ async function printDefects() {
                     .defect:last-child{border-bottom:none}
                     .defect-header{display:flex;gap:10px;margin-bottom:8px}
                     .badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:bold}
-                    .badge-new{background:#fee2e2;color:#991b1b}
-                    .badge-progress{background:#fef3c7;color:#92400e}
-                    .badge-ready{background:#dcfce7;color:#166534}
-                    .badge-rejected{background:#f3f4f6;color:#374151}
+                     .badge-recorded{background:#fff7ed;color:#c2410c}
+                     .badge-progress{background:#fef3c7;color:#92400e}
+                     .badge-on_review{background:#ecfeff;color:#0f766e}
+                     .badge-completed{background:#dcfce7;color:#166534}
+                     .badge-rejected{background:#f3f4f6;color:#374151}
+                     .badge-rework{background:#fef2f2;color:#b91c1c}
                     .cat{background:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:10px}
                     .desc{line-height:1.5}
                     .items{margin-top:8px;padding-left:20px}
@@ -2418,6 +2962,7 @@ async function printDefects() {
                         <span class="cat">${escapeHtml(d.category)}</span>
                     </div>
                     <p class="desc">${escapeHtml(d.description)}</p>
+                    ${d.contractor_name ? `<p class="date">Подрядчик: ${escapeHtml(d.contractor_name)}</p>` : ''}
             `;
             
             if (d.items?.length) {
@@ -2453,6 +2998,17 @@ document.addEventListener('keydown', (e) => {
         document.querySelectorAll('.modal.active').forEach(modal => {
             modal.classList.remove('active');
         });
+    }
+
+    if (document.getElementById('photoModal')?.classList.contains('active')) {
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            changePhoto(-1);
+        }
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            changePhoto(1);
+        }
     }
     
     // Backspace to go back (when not in input)
