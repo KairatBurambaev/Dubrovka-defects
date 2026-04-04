@@ -2172,44 +2172,31 @@ function renderDefectCard(d, index) {
     const mediaHtml = renderDefectMedia(d.photos);
     const statusLabel = getDefectStatusLabel(d.status);
     const statusBadgeClass = getDefectStatusBadgeClass(d.status);
-    const windowChipText = windowNumber ? `Окно ${escapeHtml(windowNumber)}` : 'Окно не указано';
+    const windowChipText = windowNumber ? `Окно ${escapeHtml(windowNumber)}` : 'Без окна';
     const commentsCount = Number(d.comments_count || 0);
 
     return `
         <div class="defect-row defect-row-card" data-defect-id="${d.id}" style="animation: slideIn 0.25s ease ${index * 0.03}s both;">
-            <div class="defect-card-main">
-                <div class="defect-card-head defect-card-field-full">
-                    <div class="defect-card-meta-chips">
-                        <span class="defect-meta-chip">${fixedAt || 'Дата не указана'}</span>
-                        <span class="defect-meta-chip">${windowChipText}</span>
-                    </div>
-                    <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id})">${statusLabel}</button>
-                </div>
-                <div class="defect-card-field defect-card-field-description defect-card-field-full">
-                    <label class="defect-card-label" for="defectDescription_${d.id}">Замечание</label>
-                    <textarea id="defectDescription_${d.id}" class="input table-input defect-description-input" placeholder="Замечание" rows="3">${summaryText}</textarea>
-                    ${mediaHtml}
-                </div>
-                <div class="defect-card-field defect-card-field-contractor">
-                    <label class="defect-card-label" for="defectContractor_${d.id}">Исполнитель</label>
-                    <select id="defectContractor_${d.id}" class="select table-input">
-                        ${renderContractorOptions(d.contractor_id || '')}
-                    </select>
-                </div>
-                <div class="defect-card-field defect-card-field-comment">
-                    <div class="defect-card-field-topline">
-                        <label class="defect-card-label" for="defectCommentText_${d.id}">Комментарий</label>
-                        <button type="button" class="btn btn-sm btn-secondary btn-compact" data-defect-comments-btn="${d.id}" onclick="showDefectComments(${d.id})">Диалог${commentsCount ? ` (${commentsCount})` : ''}</button>
-                    </div>
-                    <textarea id="defectCommentText_${d.id}" class="input table-input defect-comment-input" placeholder="Комментарий" rows="3">${escapeHtml(d.comment_text || '')}</textarea>
+            <div class="defect-card-header">
+                <span class="defect-date">${fixedAt || 'Без даты'}</span>
+                <span class="defect-window">${windowChipText}</span>
+                <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id})">${statusLabel}</button>
+            </div>
+            <div class="defect-card-body">
+                <textarea id="defectDescription_${d.id}" class="input defect-textarea" placeholder="Опишите замечание" rows="2">${summaryText}</textarea>
+                ${mediaHtml}
+            </div>
+            <div class="defect-card-footer">
+                <select id="defectContractor_${d.id}" class="select defect-contractor-select">
+                    <option value="">Исполнитель</option>
+                    ${renderContractorOptions(d.contractor_id || '')}
+                </select>
+                <div class="defect-comment-wrap">
+                    <textarea id="defectCommentText_${d.id}" class="input defect-comment-input" placeholder="Комментарий" rows="1">${escapeHtml(d.comment_text || '')}</textarea>
+                    ${commentsCount ? `<button type="button" class="btn btn-xs btn-secondary" onclick="showDefectComments(${d.id})">💬 ${commentsCount}</button>` : ''}
                 </div>
             </div>
             <input type="hidden" id="defectStatus_${d.id}" value="${escapeHtml(d.status)}">
-            <input type="hidden" id="defectVariantNumber_${d.id}" value="${escapeHtml(d.variant_number || '')}">
-            <input type="hidden" id="defectProjectName_${d.id}" value="${escapeHtml(d.project_name || '')}">
-            <input type="hidden" id="defectCostAmount_${d.id}" value="${escapeHtml(d.cost_amount || '')}">
-            <input type="hidden" id="defectMaterialsInfo_${d.id}" value="${escapeHtml(d.materials_info || '')}">
-            <input type="hidden" id="defectDeadline_${d.id}" value="${d.deadline || ''}">
         </div>
     `;
 }
@@ -2332,15 +2319,7 @@ async function saveDefectMeta(id, options = {}) {
     const { silentSuccess = false } = options;
     const contractorField = document.getElementById(`defectContractor_${id}`);
     const contractorId = contractorField ? contractorField.value : null;
-    const deadline = document.getElementById(`defectDeadline_${id}`)?.value || '';
     const description = document.getElementById(`defectDescription_${id}`)?.value.trim() || '';
-    const windowNumberField = document.getElementById(`defectWindowNumber_${id}`);
-    const windowNumber = windowNumberField ? windowNumberField.value.trim() : null;
-    const variantNumber = document.getElementById(`defectVariantNumber_${id}`)?.value.trim() || '';
-    const projectName = document.getElementById(`defectProjectName_${id}`)?.value.trim() || '';
-    const materialsInfo = document.getElementById(`defectMaterialsInfo_${id}`)?.value.trim() || '';
-    const costAmount = document.getElementById(`defectCostAmount_${id}`)?.value.trim() || '';
-    const laborCost = document.getElementById(`defectLaborCost_${id}`)?.value.trim() || '';
     const commentText = document.getElementById(`defectCommentText_${id}`)?.value.trim() || '';
     const status = document.getElementById(`defectStatus_${id}`)?.value || '';
 
@@ -2352,7 +2331,7 @@ async function saveDefectMeta(id, options = {}) {
                 body: `status=${encodeURIComponent(status)}`
             });
         }
-        const metaBody = `${contractorId !== null ? `contractor_id=${encodeURIComponent(contractorId)}&` : ''}${windowNumber !== null ? `window_number=${encodeURIComponent(windowNumber)}&` : ''}deadline=${encodeURIComponent(deadline)}&variant_number=${encodeURIComponent(variantNumber)}&project_name=${encodeURIComponent(projectName)}&materials_info=${encodeURIComponent(materialsInfo)}&cost_amount=${encodeURIComponent(costAmount)}&labor_cost=${encodeURIComponent(laborCost)}&comment_text=${encodeURIComponent(commentText)}&contractor_name=&description=${encodeURIComponent(description)}`;
+        const metaBody = `contractor_id=${encodeURIComponent(contractorId || '')}&comment_text=${encodeURIComponent(commentText)}&description=${encodeURIComponent(description)}`;
         await fetch(`/api/defects/${id}/meta`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -2360,7 +2339,7 @@ async function saveDefectMeta(id, options = {}) {
         });
         const row = document.querySelector(`.defect-row[data-defect-id="${id}"]`);
         if (row) markDefectRowClean(row);
-        if (!silentSuccess) showToast('Данные замечания обновлены', 'success');
+        if (!silentSuccess) showToast('Сохранено', 'success');
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
     }

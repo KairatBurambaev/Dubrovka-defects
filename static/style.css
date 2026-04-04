@@ -2256,16 +2256,15 @@ h1 {
 }
 
 .defect-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
   border: 1px solid #e7edf4;
-  border-radius: 16px;
+  border-radius: 12px;
   background: #ffffff;
   min-width: 0;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
   transition: background-color 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
@@ -2279,8 +2278,81 @@ h1 {
   box-shadow: inset 3px 0 0 #f59e0b;
 }
 
-.defect-row:first-child {
-  border-top: 1px solid #e7edf4;
+.defect-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.defect-date {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.defect-window {
+  font-size: 12px;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.defect-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.defect-textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.defect-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.defect-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.defect-contractor-select {
+  flex: 1;
+  min-width: 120px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+}
+
+.defect-comment-wrap {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+}
+
+.defect-comment-input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  min-height: 36px;
 }
 
 .defect-cell {
