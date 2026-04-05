@@ -23,6 +23,14 @@ const state = {
 // Global filter constants
 const FILTERS = ['', 'defects', 'call', 'owner_accepted', 'complex', 'no_access'];
 const FILTER_NAMES = ['Все', 'С замечаниями', 'Вызваные квартиры', 'Принята', 'Сложные', 'Нет доступа'];
+const FILTER_INDEXES = {
+    '': 0,
+    'defects': 1,
+    'call': 2,
+    'owner_accepted': 3,
+    'complex': 4,
+    'no_access': 5
+};
 const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
 const DEFECT_STATUS_LABELS = {
     new: 'Новое',
@@ -1294,14 +1302,25 @@ async function loadApartments() {
         console.log('Fetching apartments from:', url);
         const res = await fetch(url);
         console.log('Fetch response:', res.status, res.ok);
+        if (!res.ok) {
+            throw new Error(`apartments request failed: ${res.status}`);
+        }
         let apts = await res.json();
         console.log('Loaded apartments:', apts.length);
         
         // Fetch defects for category-based badge counts and filtering
         const catFilter = document.getElementById('defectCategoryFilter')?.value;
         const statusFilter = document.getElementById('defectStatusFilter')?.value;
-        const defectsRes = await fetch(`/api/complexes/${state.currentComplex}/defects`);
-        state.currentDefects = await defectsRes.json();
+        try {
+            const defectsRes = await fetch(`/api/complexes/${state.currentComplex}/defects`);
+            if (!defectsRes.ok) {
+                throw new Error(`defects request failed: ${defectsRes.status}`);
+            }
+            state.currentDefects = await defectsRes.json();
+        } catch (defectsErr) {
+            console.error('Defects loading failed:', defectsErr);
+            state.currentDefects = [];
+        }
         
         // Filter apartments by defects if category filter is active
         if (catFilter || statusFilter) {
@@ -1354,6 +1373,7 @@ async function loadApartments() {
         
         renderApartments(apts);
     } catch (err) {
+        console.error('Apartments loading failed:', err);
         const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
         container.innerHTML = `
             <div class="empty-state">
@@ -1934,50 +1954,59 @@ async function showApartmentDetail(id) {
             return;
         }
         
-        state.currentApartmentData = apt;
+        state.currentApartmentData = { ...apt, defects };
         const propType = state.currentPropertyType;
         const propLabel = propType === 'апартаменты' ? 'Апартамент' : 'Квартира';
         
         const complexSections = state.currentComplexData?.sections || [];
         const hasMultipleBuildings = new Set(complexSections.map(s => s.building_number || 1)).size > 1;
-        
+
         const aptSubtitle = hasMultipleBuildings
-            ? `Корпус ${apt.building_number} • Секция ${apt.section_number} • Этаж ${apt.floor}`
+            ? `Корпус ${apt.building_number || 1} • Секция ${apt.section_number} • Этаж ${apt.floor}`
             : `Секция ${apt.section_number} • Этаж ${apt.floor}`;
-        
         const active = defects.filter(d => !isClosedDefectStatus(d.status));
         const done = defects.filter(d => isClosedDefectStatus(d.status));
+        setPageTitle(`${propLabel} ${apt.number}`, `${aptSubtitle} • Активных: ${active.length} • Закрытых: ${done.length}`);
         
-        const fullSubtitle = `${aptSubtitle} • Активных: ${active.length} • Закрытых: ${done.length}`;
-        setPageTitle(`${propLabel} ${apt.number}`, fullSubtitle);
-        
-        // Set status buttons
-        document.querySelectorAll('.status-item').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.dataset.status === apt.access_status) {
-                btn.classList.add('active');
-            }
-        });
-        
-        // Phone field
-        const phoneBlock = document.getElementById('phoneBlock');
-        const phoneInput = document.getElementById('phoneInput');
-        
-        if (phoneInput) phoneInput.value = apt.access_phone || '';
-        if (phoneBlock) {
-            phoneBlock.style.display = apt.access_status === 'by_phone' ? 'block' : 'none';
-        }
-        
-        // Comment field
-        const commentBlock = document.getElementById('commentBlock');
-        const commentInput = document.getElementById('complexCommentInput');
-        
-        if (commentInput) commentInput.value = apt.access_comment || '';
-        if (commentBlock) {
-            commentBlock.style.display = apt.access_status === 'complex' ? 'block' : 'none';
+        // Update header filters
+        const headerFilters = document.getElementById('headerFilters');
+        if (headerFilters) {
+            headerFilters.innerHTML = `
+                <div class="filter-group">
+                    <label for="statusFilter">Статус:</label>
+                    <select id="statusFilter">
+                        <option value="">Все статусы</option>
+                        ${state.currentFilter ? `<option value="${state.currentFilter}" selected>${FILTER_NAMES[FILTER_INDEXES[state.currentFilter]] || state.currentFilter}</option>` : ''}
+                        ${FILTERS.filter(f => f && f !== '').map(f => `<option value="${f}">${FILTER_NAMES[FILTER_INDEXES[f]]}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="defectCategoryFilter">Категория:</label>
+                    <select id="defectCategoryFilter">
+                        <option value="">Все категории</option>
+                        ${state.categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+                    </select>
+                </div>
+            `;
         }
         
         renderDefects(defects);
+        
+        // Add event listeners for filters
+        const statusFilter = document.getElementById('statusFilter');
+        if (statusFilter) {
+            statusFilter.addEventListener('change', () => {
+                state.currentFilter = statusFilter.value;
+                renderDefects(state.currentApartmentData?.defects || []);
+            });
+        }
+        
+        const defectCategoryFilter = document.getElementById('defectCategoryFilter');
+        if (defectCategoryFilter) {
+            defectCategoryFilter.addEventListener('change', () => {
+                renderDefects(state.currentApartmentData?.defects || []);
+            });
+        }
     } catch (err) {
         showToast('Ошибка загрузки', 'error');
         console.error(err);
@@ -2330,14 +2359,14 @@ function renderDefectCompactRow(d, index) {
     return `
         <div class="defect-compact-row" data-defect-id="${d.id}">
             <div class="defect-compact-main">
+                ${isDefectEditable(d) ? `<span class="defect-edit-btn" onclick="showDefectActionsForId(${d.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>` : ''}
+                ${isWindowCategory ? `<span class="defect-icon-chip">${windowChipText}</span>` : ''}
+                ${isRestoration ? `<span class="defect-restoration-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l6 6L19 7"/></svg></span>` : ''}
                 <span class="defect-compact-date">${fixedAt || '—'}</span>
-                ${windowChipText ? `<span class="defect-compact-window">${windowChipText}</span>` : ''}
-                ${isRestoration ? `<span class="defect-restoration-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Реставрация</span>` : ''}
                 <span class="defect-compact-desc">${summaryText}</span>
                 ${executorName ? `<span class="defect-compact-executor">👷 ${escapeHtml(executorName)}</span>` : ''}
                 ${hasBeforePhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('before', ${d.id}, event)">📷 До (${beforePhotos.length})</span>` : ''}
                 ${hasAfterPhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('after', ${d.id}, event)">📷 После (${afterPhotos.length})</span>` : ''}
-                ${isDefectEditable(d) ? `<span class="defect-edit-btn" onclick="showDefectActionsForId(${d.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>` : ''}
                 <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id})">${statusLabel}</span>
             </div>
             <input type="hidden" id="defectStatus_${d.id}" value="${escapeHtml(d.status)}">

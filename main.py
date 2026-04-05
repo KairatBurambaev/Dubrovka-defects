@@ -135,6 +135,14 @@ def has_column(conn, table_name, column_name):
     return any(row[1] == column_name for row in rows)
 
 
+def get_sections_building_number_expr(conn, alias: Optional[str] = None):
+    if not has_column(conn, "sections", "building_number"):
+        return "1"
+
+    prefix = f"{alias}." if alias else ""
+    return f"{prefix}building_number"
+
+
 def migrate_sections_to_sections_only(conn):
     if not has_column(conn, "sections", "building_number"):
         return
@@ -736,10 +744,11 @@ async def get_complex(complex_id: int):
         raise HTTPException(status_code=404, detail="ЖК не найден")
     
     complex_data = dict(row)
+    building_number_expr = get_sections_building_number_expr(conn)
     
     # Секции
     sections = conn.execute(
-        "SELECT *, building_number FROM sections WHERE complex_id = ? ORDER BY building_number, section_number",
+        f"SELECT *, {building_number_expr} AS building_number FROM sections WHERE complex_id = ? ORDER BY {building_number_expr}, section_number",
         (complex_id,)
     ).fetchall()
     complex_data["sections"] = [dict(s) for s in sections]
@@ -816,9 +825,10 @@ async def get_apartments(
     numbers: Optional[str] = None
 ):
     conn = get_db()
+    building_number_expr = get_sections_building_number_expr(conn, "s")
     
     query = """
-        SELECT a.*, s.section_number, s.building_number,
+        SELECT a.*, s.section_number, {building_number_expr} AS building_number,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected')) as active_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id) as total_defects,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'recorded') as recorded_defects_count,
@@ -836,7 +846,7 @@ async def get_apartments(
         FROM apartments a
         JOIN sections s ON a.section_id = s.id
         WHERE a.complex_id = ?
-    """
+    """.format(building_number_expr=building_number_expr)
     params = [complex_id]
     
     # Handle multiple section_ids (comma-separated)
@@ -875,8 +885,9 @@ async def get_apartments(
 @app.get("/api/complexes/{complex_id}/sections")
 async def get_sections(complex_id: int):
     conn = get_db()
+    building_number_expr = get_sections_building_number_expr(conn)
     rows = conn.execute(
-        "SELECT *, building_number FROM sections WHERE complex_id = ? ORDER BY building_number, section_number",
+        f"SELECT *, {building_number_expr} AS building_number FROM sections WHERE complex_id = ? ORDER BY {building_number_expr}, section_number",
         (complex_id,)
     ).fetchall()
     sections = []
