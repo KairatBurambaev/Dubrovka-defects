@@ -1025,6 +1025,13 @@ async def create_defect(
 
     if status not in STATUSES:
         raise HTTPException(status_code=400, detail="Неверный этап замечания")
+
+    normalized_variant_number = variant_number.strip()
+    if category == "Двери":
+        if normalized_variant_number not in {"Нар", "Вн"}:
+            raise HTTPException(status_code=400, detail="Для двери нужно выбрать Нар или Вн")
+    else:
+        normalized_variant_number = ""
     
     # Автоматически ставим дедлайн +2 месяца если не указан
     if not deadline:
@@ -1053,12 +1060,12 @@ async def create_defect(
 
     cursor = conn.execute("""
         INSERT INTO defects (
-            apartment_id, category, window_number, restoration, executor,
+            apartment_id, category, window_number, restoration, executor, variant_number,
             description, status, deadline
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        apartment_id, category, window_number, restoration, executor.strip(),
+        apartment_id, category, window_number, restoration, executor.strip(), normalized_variant_number,
         description, status, deadline
     ))
     defect_id = cursor.lastrowid
@@ -1260,6 +1267,25 @@ async def update_defect_status(defect_id: int, status: str = Form(...)):
     return {"message": "Статус обновлен"}
 
 
+@app.put("/api/defects/{defect_id}/restoration")
+async def update_defect_restoration(defect_id: int, restoration: int = Form(...)):
+    conn = get_db()
+    defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    if not defect:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Замечание не найдено")
+
+    normalized_restoration = 1 if restoration else 0
+    conn.execute(
+        "UPDATE defects SET restoration = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (normalized_restoration, defect_id),
+    )
+    conn.commit()
+    conn.close()
+
+    return {"message": "Признак реставрации обновлен", "restoration": normalized_restoration}
+
+
 @app.get("/api/defects/{defect_id}")
 async def get_defect(defect_id: int):
     conn = get_db()
@@ -1328,6 +1354,19 @@ async def update_defect_meta(
         else:
             normalized_window_number = None
 
+    normalized_variant_number = variant_number.strip()
+    if description is None:
+        description = ""
+
+    current_category_row = conn.execute("SELECT category FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    current_category = current_category_row[0] if current_category_row else ""
+    if current_category == "Двери":
+        if normalized_variant_number not in {"Нар", "Вн"}:
+            conn.close()
+            raise HTTPException(status_code=400, detail="Для двери нужно выбрать Нар или Вн")
+    else:
+        normalized_variant_number = ""
+
     conn.execute(
         """
         UPDATE defects
@@ -1340,8 +1379,8 @@ async def update_defect_meta(
         (
             resolved_contractor_id,
             resolved_contractor_name,
-            description.strip() if description else "",
-            variant_number.strip(),
+            description.strip(),
+            normalized_variant_number,
             project_name.strip(),
             materials_info.strip(),
             cost_amount.strip(),

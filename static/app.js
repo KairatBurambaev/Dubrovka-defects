@@ -493,6 +493,8 @@ function handleCategoryChange() {
     const cat = document.getElementById('defectCategory')?.value;
     const windowGroup = document.getElementById('windowGroup');
     const windowSelect = document.getElementById('windowNumber');
+    const doorSideGroup = document.getElementById('doorSideGroup');
+    const doorSideSelect = document.getElementById('doorSide');
     const restorationGroup = document.getElementById('restorationGroup');
     
     if (windowGroup) {
@@ -508,6 +510,19 @@ function handleCategoryChange() {
         } else {
             windowGroup.style.display = 'none';
             if (windowSelect) windowSelect.value = '';
+        }
+    }
+
+    if (doorSideGroup) {
+        if (cat === 'Двери') {
+            doorSideGroup.style.display = 'block';
+            if (doorSideSelect) doorSideSelect.required = true;
+        } else {
+            doorSideGroup.style.display = 'none';
+            if (doorSideSelect) {
+                doorSideSelect.value = '';
+                doorSideSelect.required = false;
+            }
         }
     }
     
@@ -1576,7 +1591,7 @@ function getApartmentListEmptyState() {
 }
 
 function formatApartmentBadgeCount(count) {
-    return count > 9 ? '9+' : String(count);
+    return String(count);
 }
 
 function getApartmentBadgeCount(apartment, catFilter) {
@@ -2255,6 +2270,11 @@ function renderDefects(defects) {
         <div class="defects-by-category">
             ${categories.map((category, idx) => {
                 const categoryDefects = grouped[category] || [];
+                const contractorNames = [...new Set(
+                    categoryDefects
+                        .map(defect => String(defect.contractor_name || '').trim())
+                        .filter(Boolean)
+                )];
                 const sortedDefects = category === 'Окна' 
                     ? [...categoryDefects].sort((a, b) => (a.window_number || 0) - (b.window_number || 0))
                     : categoryDefects;
@@ -2262,6 +2282,7 @@ function renderDefects(defects) {
                     <div class="defect-category-section expanded" id="defect-section-${idx}" data-category="${escapeHtml(category)}">
                         <div class="defect-section-header">
                             <span class="defects-category-label">${getCategoryIcon(category)} ${escapeHtml(category)}</span>
+                            ${contractorNames.length ? `<span class="defect-section-contractors">${escapeHtml(contractorNames.join(', '))}</span>` : ''}
                         </div>
                         <div class="defects-list">
                             ${sortedDefects.map((defect, defectIndex) => renderDefectCompactRow(defect, `${category}-${defectIndex}`)).join('')}
@@ -2290,7 +2311,14 @@ function renderDefectCompactRow(d, index) {
     const statusBadgeClass = getDefectStatusBadgeClass(d.status);
 
     const isWindowCategory = d.category === 'Окна';
+    const isDoorCategory = d.category === 'Двери';
     const windowChipText = isWindowCategory && windowNumber ? `Об${windowNumber}` : '';
+    const doorVariant = isDoorCategory ? String(d.variant_number || '').trim() : '';
+    const doorChipText = doorVariant === 'Нар'
+        ? 'Наружная'
+        : doorVariant === 'Вн'
+            ? 'Внутренняя'
+            : doorVariant;
     const isRestoration = d.restoration === 1;
 
     const contractorName = d.contractor_name || '—';
@@ -2319,17 +2347,18 @@ function renderDefectCompactRow(d, index) {
     };
 
     return `
-        <div class="defect-compact-row" data-defect-id="${d.id}">
+        <div class="defect-compact-row" data-defect-id="${d.id}" data-restoration="${isRestoration ? 1 : 0}">
             <div class="defect-compact-main">
-                ${isDefectEditable(d) ? `<span class="defect-edit-btn" onclick="showDefectActionsForId(${d.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>` : ''}
-                ${isWindowCategory ? `<span class="defect-icon-chip">${windowChipText}</span>` : ''}
-                ${isRestoration ? `<span class="defect-restoration-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l6 6L19 7"/></svg></span>` : ''}
+                ${isDefectEditable(d) ? `<span class="defect-edit-btn" onclick="event.stopPropagation(); showDefectActionsForId(${d.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>` : ''}
+                ${isWindowCategory ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${windowChipText}</span>` : ''}
+                ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${escapeHtml(doorChipText)}</span>` : ''}
+                ${isRestoration ? `<span class="defect-restoration-badge">Р</span>` : ''}
                 <span class="defect-compact-date">${fixedAt || '—'}</span>
                 <span class="defect-compact-desc">${summaryText}</span>
                 ${executorName ? `<span class="defect-compact-executor">👷 ${escapeHtml(executorName)}</span>` : ''}
                 ${hasBeforePhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('before', ${d.id}, event)">📷 До (${beforePhotos.length})</span>` : ''}
                 ${hasAfterPhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('after', ${d.id}, event)">📷 После (${afterPhotos.length})</span>` : ''}
-                <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id})">${statusLabel}</span>
+                <span class="defect-compact-status ${statusBadgeClass}" onclick="event.stopPropagation(); cycleDefectStatus(${d.id})">${statusLabel}</span>
             </div>
             <input type="hidden" id="defectStatus_${d.id}" value="${escapeHtml(d.status)}">
             <div class="defect-photos-container" id="photos-before-${d.id}" style="display:none;">
@@ -2340,6 +2369,42 @@ function renderDefectCompactRow(d, index) {
             </div>
         </div>
     `;
+}
+
+async function toggleDefectRestoration(id, event) {
+    event.stopPropagation();
+    const row = event.currentTarget?.closest('.defect-compact-row');
+    if (!row) return;
+
+    const current = Number(row.dataset.restoration || 0);
+    const next = current ? 0 : 1;
+
+    try {
+        await fetch(`/api/defects/${id}/restoration`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `restoration=${next}`
+        });
+
+        row.dataset.restoration = String(next);
+        const existingBadge = row.querySelector('.defect-restoration-badge');
+        if (next) {
+            if (!existingBadge) {
+                const dateNode = row.querySelector('.defect-compact-date');
+                if (dateNode) {
+                    dateNode.insertAdjacentHTML('beforebegin', '<span class="defect-restoration-badge">Р</span>');
+                }
+            }
+        } else if (existingBadge) {
+            existingBadge.remove();
+        }
+
+        const defect = state.currentApartmentData?.defects?.find(item => item.id === id);
+        if (defect) defect.restoration = next;
+        showToast(next ? 'Отмечена реставрация' : 'Реставрация снята', 'success');
+    } catch (err) {
+        showToast('Ошибка обновления', 'error');
+    }
 }
 
 function toggleDefectPhotos(type, id, event) {
@@ -2845,10 +2910,13 @@ async function editDefect(id) {
             windowSelect.disabled = false;
             windowSelect.value = defect.window_number || '';
         }
-        
-        if (defect.restoration) {
-            document.getElementById('defectRestoration').checked = true;
+
+        if (defect.category === 'Двери') {
+            const doorSideSelect = document.getElementById('doorSide');
+            if (doorSideSelect) doorSideSelect.value = defect.variant_number || '';
         }
+        
+        document.getElementById('defectRestoration').checked = Boolean(defect.restoration);
         
         // Show existing photos
         const previewGrid = document.getElementById('previewGridBefore');
@@ -2879,6 +2947,7 @@ async function saveDefectEdit() {
     const category = document.getElementById('defectCategory')?.value;
     const description = document.getElementById('defectDescription')?.value.trim();
     const windowNumber = document.getElementById('windowNumber')?.value;
+    const doorSide = document.getElementById('doorSide')?.value;
     const restoration = document.getElementById('defectRestoration')?.checked ? 1 : 0;
     
     if (!category || !description) {
@@ -2890,6 +2959,11 @@ async function saveDefectEdit() {
         showToast('Выберите номер оконного блока', 'warning');
         return;
     }
+
+    if (category === 'Двери' && !doorSide) {
+        showToast('Выберите часть двери: Нар или Вн', 'warning');
+        return;
+    }
     
     try {
         const formData = new FormData();
@@ -2899,6 +2973,7 @@ async function saveDefectEdit() {
         } else {
             formData.append('window_number', '');
         }
+        formData.append('variant_number', category === 'Двери' ? doorSide : '');
         formData.append('restoration', restoration);
         
         // Add new photos
@@ -2980,6 +3055,9 @@ async function handleAddDefect(e) {
     const category = document.getElementById('defectCategory')?.value;
     const description = document.getElementById('defectDescription')?.value.trim();
     const status = 'new';
+    const windowNumber = document.getElementById('windowNumber')?.value;
+    const doorSide = document.getElementById('doorSide')?.value;
+    const restoration = document.getElementById('defectRestoration')?.checked ? 1 : 0;
     
     console.log('Form values - category:', category, 'description:', description, 'apartment:', state.currentApartment);
     
@@ -2988,11 +3066,13 @@ async function handleAddDefect(e) {
         return;
     }
     
-    const windowNumber = document.getElementById('windowNumber')?.value;
-    const restoration = document.getElementById('defectRestoration')?.checked ? 1 : 0;
-    
     if (category === 'Окна' && !windowNumber) {
         showToast('Выберите номер оконного блока', 'warning');
+        return;
+    }
+
+    if (category === 'Двери' && !doorSide) {
+        showToast('Выберите часть двери: Нар или Вн', 'warning');
         return;
     }
     
@@ -3005,6 +3085,7 @@ async function handleAddDefect(e) {
         formData.append('status', status);
         
         if (windowNumber) formData.append('window_number', windowNumber);
+        if (category === 'Двери') formData.append('variant_number', doorSide);
         if (restoration) formData.append('restoration', restoration);
         
         const photosBefore = document.getElementById('defectPhotosBefore')?.files;

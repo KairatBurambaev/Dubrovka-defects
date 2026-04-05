@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9569">
-    <script src="/static/app.js?v=9442"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9570">
+    <script src="/static/app.js?v=9444"></script>
 </head>
 <body>
     <div class="app">
@@ -199,12 +199,6 @@
                              <div class="panel-header">
                                  <div class="panel-title-container">
                                      <span class="panel-title">Замечания</span>
-                                     <div class="category-filter">
-                                         <label>Категория:</label>
-                                         <select id="defectCategoryFilter">
-                                             <option value="">Все категории</option>
-                                         </select>
-                                     </div>
                                  </div>
                                  <div class="panel-actions">
                                      <button class="btn btn-sm" onclick="showAddDefectForm()">Добавить замечание</button>
@@ -233,12 +227,20 @@
                         <div class="form-grid form-grid-3">
                             <div class="form-field">
                                 <label>Категория</label>
-                                <select id="defectCategory" required><option value="">Выберите</option></select>
+                                <select id="defectCategory" required onchange="handleCategoryChange()"><option value="">Выберите</option></select>
                             </div>
                             <div class="form-field" id="windowGroup" style="display:none;">
                                 <label>Оконный блок (Об)</label>
                                 <select id="windowNumber">
                                     <option value="">Выберите</option>
+                                </select>
+                            </div>
+                            <div class="form-field" id="doorSideGroup" style="display:none;">
+                                <label>Часть двери</label>
+                                <select id="doorSide">
+                                    <option value="">Выберите</option>
+                                    <option value="Нар">Наружная</option>
+                                    <option value="Вн">Внутренняя</option>
                                 </select>
                             </div>
                             <div class="form-field" id="restorationGroup" style="display:none;">
