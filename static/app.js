@@ -303,7 +303,7 @@ function backToApartment() {
 
 function goBack() {
     if (state.currentApartment) {
-        goToApartmentList();
+        backToComplex();
     } else if (state.currentComplex) {
         showTab('complexes');
     }
@@ -1968,45 +1968,7 @@ async function showApartmentDetail(id) {
         const done = defects.filter(d => isClosedDefectStatus(d.status));
         setPageTitle(`${propLabel} ${apt.number}`, `${aptSubtitle} • Активных: ${active.length} • Закрытых: ${done.length}`);
         
-        // Update header filters
-        const headerFilters = document.getElementById('headerFilters');
-        if (headerFilters) {
-            headerFilters.innerHTML = `
-                <div class="filter-group">
-                    <label for="statusFilter">Статус:</label>
-                    <select id="statusFilter">
-                        <option value="">Все статусы</option>
-                        ${state.currentFilter ? `<option value="${state.currentFilter}" selected>${FILTER_NAMES[FILTER_INDEXES[state.currentFilter]] || state.currentFilter}</option>` : ''}
-                        ${FILTERS.filter(f => f && f !== '').map(f => `<option value="${f}">${FILTER_NAMES[FILTER_INDEXES[f]]}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="defectCategoryFilter">Категория:</label>
-                    <select id="defectCategoryFilter">
-                        <option value="">Все категории</option>
-                        ${state.categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
-                    </select>
-                </div>
-            `;
-        }
-        
         renderDefects(defects);
-        
-        // Add event listeners for filters
-        const statusFilter = document.getElementById('statusFilter');
-        if (statusFilter) {
-            statusFilter.addEventListener('change', () => {
-                state.currentFilter = statusFilter.value;
-                renderDefects(state.currentApartmentData?.defects || []);
-            });
-        }
-        
-        const defectCategoryFilter = document.getElementById('defectCategoryFilter');
-        if (defectCategoryFilter) {
-            defectCategoryFilter.addEventListener('change', () => {
-                renderDefects(state.currentApartmentData?.defects || []);
-            });
-        }
     } catch (err) {
         showToast('Ошибка загрузки', 'error');
         console.error(err);
