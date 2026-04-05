@@ -143,6 +143,180 @@ def get_sections_building_number_expr(conn, alias: Optional[str] = None):
     return f"{prefix}building_number"
 
 
+def normalize_defect_text_lines(text: str) -> List[str]:
+    if not text:
+        return []
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def ensure_defect_has_items(conn, defect_row):
+    existing_items = conn.execute(
+        "SELECT id FROM defect_items WHERE defect_id = ? LIMIT 1",
+        (defect_row["id"],)
+    ).fetchone()
+    if existing_items:
+        return
+
+    for index, line in enumerate(normalize_defect_text_lines(defect_row["description"])):
+        conn.execute(
+            "INSERT INTO defect_items (defect_id, text, status, sort_order) VALUES (?, ?, ?, ?)",
+            (defect_row["id"], line, defect_row["status"], index)
+        )
+
+
+def merge_defect_texts(*texts: str) -> str:
+    merged_lines = []
+    seen = set()
+    for text in texts:
+        for line in normalize_defect_text_lines(text):
+            key = line.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            merged_lines.append(line)
+    return "\n".join(merged_lines)
+
+
+def get_defect_status_rank(status: str) -> int:
+    try:
+        return list(STATUSES.keys()).index(status)
+    except ValueError:
+        return -1
+
+
+def merge_duplicate_window_and_door_defects(conn):
+    duplicate_groups = conn.execute(
+        f"""
+        SELECT apartment_id, category, window_number, variant_number, COUNT(*) AS defects_count
+        FROM defects
+        WHERE category IN ('Окна', 'Двери')
+          AND status NOT IN ({','.join('?' for _ in CLOSED_DEFECT_STATUSES)})
+        GROUP BY apartment_id, category, COALESCE(window_number, -1), COALESCE(variant_number, '')
+        HAVING COUNT(*) > 1
+        """,
+        CLOSED_DEFECT_STATUSES,
+    ).fetchall()
+
+    merged_groups = 0
+    for group in duplicate_groups:
+        defects = conn.execute(
+            """
+            SELECT *
+            FROM defects
+            WHERE apartment_id = ?
+              AND category = ?
+              AND COALESCE(window_number, -1) = COALESCE(?, -1)
+              AND COALESCE(variant_number, '') = COALESCE(?, '')
+              AND status NOT IN (?, ?)
+            ORDER BY datetime(created_at) ASC, id ASC
+            """,
+            (
+                group["apartment_id"],
+                group["category"],
+                group["window_number"],
+                group["variant_number"],
+                CLOSED_DEFECT_STATUSES[0],
+                CLOSED_DEFECT_STATUSES[1],
+            ),
+        ).fetchall()
+        if len(defects) < 2:
+            continue
+
+        keeper = defects[0]
+        duplicates = defects[1:]
+
+        for defect in defects:
+            ensure_defect_has_items(conn, defect)
+
+        merged_description = merge_defect_texts(*(defect["description"] for defect in defects))
+        merged_restoration = 1 if any(defect["restoration"] for defect in defects) else 0
+        merged_status = max(defects, key=lambda defect: get_defect_status_rank(defect["status"]))["status"]
+        merged_deadline = min(
+            (defect["deadline"] for defect in defects if defect["deadline"]),
+            default=keeper["deadline"],
+        )
+
+        contractor_id = keeper["contractor_id"]
+        contractor_name = keeper["contractor_name"] or ""
+        executor = keeper["executor"] or ""
+        comment_text = keeper["comment_text"] or ""
+        project_name = keeper["project_name"] or ""
+        materials_info = keeper["materials_info"] or ""
+        cost_amount = keeper["cost_amount"] or ""
+        labor_cost = keeper["labor_cost"] or ""
+
+        for defect in duplicates:
+            if contractor_id is None and defect["contractor_id"] is not None:
+                contractor_id = defect["contractor_id"]
+            if not contractor_name and defect["contractor_name"]:
+                contractor_name = defect["contractor_name"]
+            if not executor and defect["executor"]:
+                executor = defect["executor"]
+            if not comment_text and defect["comment_text"]:
+                comment_text = defect["comment_text"]
+            if not project_name and defect["project_name"]:
+                project_name = defect["project_name"]
+            if not materials_info and defect["materials_info"]:
+                materials_info = defect["materials_info"]
+            if not cost_amount and defect["cost_amount"]:
+                cost_amount = defect["cost_amount"]
+            if not labor_cost and defect["labor_cost"]:
+                labor_cost = defect["labor_cost"]
+
+        next_sort_order = conn.execute(
+            "SELECT COALESCE(MAX(sort_order), -1) FROM defect_items WHERE defect_id = ?",
+            (keeper["id"],)
+        ).fetchone()[0] + 1
+
+        for defect in duplicates:
+            items = conn.execute(
+                "SELECT id FROM defect_items WHERE defect_id = ? ORDER BY sort_order, id",
+                (defect["id"],)
+            ).fetchall()
+            for item in items:
+                conn.execute(
+                    "UPDATE defect_items SET defect_id = ?, sort_order = ? WHERE id = ?",
+                    (keeper["id"], next_sort_order, item["id"])
+                )
+                next_sort_order += 1
+
+            conn.execute("UPDATE photos SET defect_id = ? WHERE defect_id = ?", (keeper["id"], defect["id"]))
+            conn.execute("UPDATE comments SET defect_id = ? WHERE defect_id = ?", (keeper["id"], defect["id"]))
+
+        conn.execute(
+            """
+            UPDATE defects
+            SET description = ?, status = ?, restoration = ?, contractor_id = ?, contractor_name = ?,
+                executor = ?, comment_text = ?, project_name = ?, materials_info = ?, cost_amount = ?,
+                labor_cost = ?, deadline = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (
+                merged_description,
+                merged_status,
+                merged_restoration,
+                contractor_id,
+                contractor_name,
+                executor,
+                comment_text,
+                project_name,
+                materials_info,
+                cost_amount,
+                labor_cost,
+                merged_deadline,
+                keeper["id"],
+            )
+        )
+
+        conn.executemany(
+            "DELETE FROM defects WHERE id = ?",
+            [(defect["id"],) for defect in duplicates]
+        )
+        merged_groups += 1
+
+    return merged_groups
+
+
 def migrate_sections_to_sections_only(conn):
     if not has_column(conn, "sections", "building_number"):
         return
@@ -568,6 +742,8 @@ def init_db():
             "UPDATE defects SET contractor_id = ?, contractor_name = ? WHERE id = ?",
             (contractor_id, contractor_name, row["id"]),
         )
+
+    merge_duplicate_window_and_door_defects(conn)
     conn.commit()
     
     conn.close()
@@ -1028,8 +1204,8 @@ async def create_defect(
 
     normalized_variant_number = variant_number.strip()
     if category == "Двери":
-        if normalized_variant_number not in {"Нар", "Вн"}:
-            raise HTTPException(status_code=400, detail="Для двери нужно выбрать Нар или Вн")
+        if normalized_variant_number not in {"Нар", "Вн", "Общ."}:
+            raise HTTPException(status_code=400, detail="Для двери нужно выбрать Нар, Вн или Общ.")
     else:
         normalized_variant_number = ""
     
@@ -1058,17 +1234,57 @@ async def create_defect(
         resolved_contractor_id = contractor["id"]
         resolved_contractor_name = contractor["name"]
 
-    cursor = conn.execute("""
-        INSERT INTO defects (
-            apartment_id, category, window_number, restoration, executor, variant_number,
-            description, status, deadline
+    existing_defect = None
+    if category == "Окна":
+        existing_defect = conn.execute(
+            """
+            SELECT id, description, restoration
+            FROM defects
+            WHERE apartment_id = ? AND category = ? AND COALESCE(window_number, -1) = COALESCE(?, -1)
+              AND status NOT IN (?, ?)
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (apartment_id, category, window_number, CLOSED_DEFECT_STATUSES[0], CLOSED_DEFECT_STATUSES[1])
+        ).fetchone()
+    elif category == "Двери":
+        existing_defect = conn.execute(
+            """
+            SELECT id, description, restoration
+            FROM defects
+            WHERE apartment_id = ? AND category = ? AND COALESCE(variant_number, '') = ?
+              AND status NOT IN (?, ?)
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (apartment_id, category, normalized_variant_number, CLOSED_DEFECT_STATUSES[0], CLOSED_DEFECT_STATUSES[1])
+        ).fetchone()
+
+    if existing_defect:
+        defect_id = existing_defect["id"]
+        existing_description = (existing_defect["description"] or "").strip()
+        appended_description = description.strip()
+        merged_description = "\n".join(part for part in [existing_description, appended_description] if part)
+        conn.execute(
+            """
+            UPDATE defects
+            SET description = ?, restoration = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (merged_description, 1 if restoration or existing_defect["restoration"] else 0, defect_id)
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        apartment_id, category, window_number, restoration, executor.strip(), normalized_variant_number,
-        description, status, deadline
-    ))
-    defect_id = cursor.lastrowid
+    else:
+        cursor = conn.execute("""
+            INSERT INTO defects (
+                apartment_id, category, window_number, restoration, executor, variant_number,
+                description, status, deadline
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            apartment_id, category, window_number, restoration, executor.strip(), normalized_variant_number,
+            description, status, deadline
+        ))
+        defect_id = cursor.lastrowid
     
     # Парсим пункты из описания (каждая строка = отдельный пункт)
     lines = [line.strip() for line in description.split('\n') if line.strip()]
@@ -1257,6 +1473,11 @@ async def update_defect_status(defect_id: int, status: str = Form(...)):
         raise HTTPException(status_code=400, detail="Неверный статус")
 
     conn = get_db()
+    defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    if not defect:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Замечание не найдено")
+
     conn.execute(
         "UPDATE defects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (status, defect_id),
@@ -1361,9 +1582,9 @@ async def update_defect_meta(
     current_category_row = conn.execute("SELECT category FROM defects WHERE id = ?", (defect_id,)).fetchone()
     current_category = current_category_row[0] if current_category_row else ""
     if current_category == "Двери":
-        if normalized_variant_number not in {"Нар", "Вн"}:
+        if normalized_variant_number not in {"Нар", "Вн", "Общ."}:
             conn.close()
-            raise HTTPException(status_code=400, detail="Для двери нужно выбрать Нар или Вн")
+            raise HTTPException(status_code=400, detail="Для двери нужно выбрать Нар, Вн или Общ.")
     else:
         normalized_variant_number = ""
 

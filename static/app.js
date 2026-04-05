@@ -11,6 +11,7 @@ const state = {
     currentDefectCommentId: null,
     currentDefectComments: [],
     editingDefectCommentId: null,
+    currentStatusDefectId: null,
     categories: [],
     contractors: [],
     currentItemId: null,
@@ -42,6 +43,7 @@ const DEFECT_STATUS_LABELS = {
     rework: 'Отправленно на доработку'
 };
 const DEFECT_STATUS_ORDER = ['new', 'recorded', 'in_progress', 'on_review', 'completed', 'rejected', 'rework'];
+const AVAILABLE_DEFECT_STATUSES = ['new', 'recorded', 'in_progress', 'on_review', 'completed', 'rework'];
 const DEFECT_STATUS_CLASSES = {
     new: 'badge-new',
     recorded: 'badge-recorded',
@@ -502,6 +504,7 @@ function handleCategoryChange() {
             windowGroup.style.display = 'block';
             if (windowSelect) {
                 let options = '<option value="">Выберите</option>';
+                options += '<option value="0">Общ.</option>';
                 for (let i = 1; i <= 20; i++) {
                     options += `<option value="${i}">Об${i}</option>`;
                 }
@@ -529,6 +532,30 @@ function handleCategoryChange() {
     if (restorationGroup) {
         restorationGroup.style.display = (cat === 'Окна' || cat === 'Двери') ? 'block' : 'none';
     }
+}
+
+function getWindowChipText(windowNumber) {
+    if (windowNumber === 0 || windowNumber === '0') return 'Общ.';
+    if (windowNumber === null || windowNumber === undefined || windowNumber === '') return '';
+    return `Об${escapeHtml(windowNumber)}`;
+}
+
+function getDoorVariantLabel(variant) {
+    const normalized = String(variant || '').trim();
+    if (normalized === 'Нар') return 'Наружная';
+    if (normalized === 'Вн') return 'Внутренняя';
+    if (normalized === 'Общ.') return 'Общ.';
+    return normalized;
+}
+
+function getDefectSummaryText(defect) {
+    return defect.items?.length
+        ? defect.items.map((item) => item.text).join('\n')
+        : (defect.description || '');
+}
+
+function getDefectSummaryHtml(defect) {
+    return escapeHtml(getDefectSummaryText(defect)).replace(/\n/g, '<br>');
 }
 
 async function loadTemplates(category) {
@@ -1371,6 +1398,9 @@ async function loadApartments() {
                 if (state.accessFilter === 'owner_accepted') {
                     return isAcceptedApartment(a);
                 }
+                if (state.accessFilter === 'no_access') {
+                    return isNoAccessApartment(a);
+                }
                 return a.access_status === state.accessFilter;
             });
         }
@@ -1471,6 +1501,10 @@ function isAcceptedApartment(apartment) {
     return ACCEPTED_ACCESS_STATUSES.includes(apartment?.access_status);
 }
 
+function isNoAccessApartment(apartment) {
+    return ['no_access', 'by_phone'].includes(apartment?.access_status);
+}
+
 function isClosedDefectStatus(status) {
     return CLOSED_DEFECT_STATUSES.includes(status);
 }
@@ -1510,9 +1544,141 @@ function getCurrentCommentAuthor(forcePrompt = false) {
 }
 
 function renderDefectStatusOptions(currentStatus) {
-    return Object.entries(DEFECT_STATUS_LABELS).map(([value, label]) => `
-        <option value="${value}" ${currentStatus === value ? 'selected' : ''}>${label}</option>
+    return AVAILABLE_DEFECT_STATUSES.map((value) => `
+        <option value="${value}" ${currentStatus === value ? 'selected' : ''}>${getDefectStatusLabel(value)}</option>
     `).join('');
+}
+
+function renderDefectStatusButtons(currentStatus, defectId) {
+    return AVAILABLE_DEFECT_STATUSES.map((value) => `
+        <button
+            type="button"
+            class="defect-status-option ${currentStatus === value ? 'active' : ''}"
+            onclick="selectDefectStatus(${defectId}, '${value}')"
+        >
+            ${getDefectStatusLabel(value)}
+        </button>
+    `).join('');
+}
+
+function getDefectStatusBadgeElement(id) {
+    return document.querySelector(
+        `[data-defect-id="${id}"] .defect-status-badge, [data-defect-id="${id}"] .defect-compact-status`
+    );
+}
+
+function applyDefectStatusUI(id, status) {
+    const statusInput = document.getElementById(`defectStatus_${id}`);
+    const badge = getDefectStatusBadgeElement(id);
+
+    if (statusInput) statusInput.value = status;
+    if (!badge) return;
+
+    badge.className = badge.className.includes('defect-status-badge')
+        ? `defect-status-badge ${getDefectStatusBadgeClass(status)}`
+        : `defect-compact-status ${getDefectStatusBadgeClass(status)}`;
+    badge.textContent = getDefectStatusLabel(status);
+}
+
+function syncDefectStatusState(id, status) {
+    const defects = state.currentApartmentData?.defects;
+    if (Array.isArray(defects)) {
+        const defect = defects.find((item) => item.id === id);
+        if (defect) defect.status = status;
+    }
+
+    if (Array.isArray(state.currentDefects)) {
+        const defect = state.currentDefects.find((item) => item.id === id);
+        if (defect) defect.status = status;
+    }
+}
+
+function positionDefectStatusPopover(anchor) {
+    const popover = document.getElementById('defectStatusPopover');
+    if (!(popover instanceof HTMLElement)) return;
+
+    const width = popover.offsetWidth || 220;
+    const height = popover.offsetHeight || 0;
+    const margin = 8;
+    const gap = 8;
+    const rect = anchor?.getBoundingClientRect?.();
+
+    if (!rect) {
+        popover.style.left = `${Math.max((window.innerWidth - width) / 2, margin)}px`;
+        popover.style.top = `${Math.max((window.innerHeight - height) / 2, margin)}px`;
+        return;
+    }
+
+    const left = Math.min(
+        Math.max(rect.left, margin),
+        window.innerWidth - width - margin
+    );
+    const fitsBelow = rect.bottom + gap + height <= window.innerHeight - margin;
+    const top = fitsBelow
+        ? rect.bottom + gap
+        : Math.max(rect.top - height - gap, margin);
+
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+}
+
+function openDefectStatusModal(id, event) {
+    if (event) event.stopPropagation();
+
+    const modal = document.getElementById('defectStatusModal');
+    const body = document.getElementById('defectStatusBody');
+    const popover = document.getElementById('defectStatusPopover');
+    const statusInput = document.getElementById(`defectStatus_${id}`);
+    const currentStatus = statusInput?.value || DEFECT_STATUS_ORDER[0];
+    const anchor = event?.currentTarget;
+
+    state.currentStatusDefectId = id;
+    if (body) {
+        body.innerHTML = renderDefectStatusButtons(currentStatus, id);
+    }
+    if (modal) modal.classList.add('active');
+
+    if (popover) {
+        requestAnimationFrame(() => positionDefectStatusPopover(anchor));
+    }
+}
+
+function closeDefectStatusModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('defectStatusModal');
+    const popover = document.getElementById('defectStatusPopover');
+    if (modal) modal.classList.remove('active');
+    if (popover instanceof HTMLElement) {
+        popover.style.left = '';
+        popover.style.top = '';
+    }
+    state.currentStatusDefectId = null;
+}
+
+async function selectDefectStatus(id, status) {
+    const statusInput = document.getElementById(`defectStatus_${id}`);
+    const currentStatus = statusInput?.value || DEFECT_STATUS_ORDER[0];
+
+    if (currentStatus === status) {
+        closeDefectStatusModal();
+        return;
+    }
+
+    applyDefectStatusUI(id, status);
+
+    const ok = await updateDefectStatus(id, status);
+    if (!ok) {
+        applyDefectStatusUI(id, currentStatus);
+        return;
+    }
+
+    syncDefectStatusState(id, status);
+    closeDefectStatusModal();
+    showToast('Статус обновлен', 'success');
+}
+
+async function cycleDefectStatus(id, event) {
+    openDefectStatusModal(id, event);
 }
 
 function getApartmentWorkflowClass(apartment) {
@@ -1539,7 +1705,7 @@ function updateStatsPanel(apartments) {
                 if (a.access_status === 'available') available++;
                 else if (isAcceptedApartment(a)) accepted++;
                 else if (a.access_status === 'call') call++;
-                else if (a.access_status === 'no_access') noAccess++;
+                else if (isNoAccessApartment(a)) noAccess++;
                 if (countsAsDefectApartment(a)) defects++;
             });
         }
@@ -1558,7 +1724,7 @@ function buildSectionSummary(apartments) {
     const total = apartments.length;
     const accepted = apartments.filter(isAcceptedApartment).length;
     const defects = apartments.filter(countsAsDefectApartment).length;
-    const noAccess = apartments.filter(a => a.access_status === 'no_access').length;
+    const noAccess = apartments.filter(isNoAccessApartment).length;
     const overdue = apartments.filter(a => getDeadlineClass(a) === 'apt-deadline-passed').length;
 
     return [
@@ -1604,10 +1770,12 @@ function getApartmentBadgeCount(apartment, catFilter) {
 
 function renderApartmentTile(apartment, propFull, catFilter) {
     const deadlineClass = getDeadlineClass(apartment);
-    const defectWorkflowClass = getApartmentWorkflowClass(apartment);
-    const cls = defectWorkflowClass || getApartmentClass(apartment.access_status, apartment.active_defects_count);
+    const cls = getApartmentClass(apartment.access_status, apartment.active_defects_count);
+    const isAccepted = isAcceptedApartment(apartment);
     const badgeCount = getApartmentBadgeCount(apartment, catFilter);
-    const badge = (badgeCount > 0 && !isAcceptedApartment(apartment)) ? `<span class="apt-badge">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
+    const badge = (badgeCount > 0 && !isAccepted) ? `<span class="apt-badge">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
+    const onReviewCount = Number(apartment.on_review_defects_count || 0);
+    const reviewBadge = (onReviewCount > 0 && !isAccepted) ? `<span class="apt-badge apt-badge-review">${onReviewCount}</span>` : '';
     const phaseLabel = Number(apartment.on_review_defects_count || 0) > 0
         ? 'на проверке'
         : (Number(apartment.in_progress_defects_count || 0) > 0 || Number(apartment.rework_defects_count || 0) > 0)
@@ -1625,6 +1793,7 @@ function renderApartmentTile(apartment, propFull, catFilter) {
                  onclick="showApartmentDetail(${apartment.id})">
                 ${apartment.number}
                 ${badge}
+                ${reviewBadge}
             </div>
         </div>
     `;
@@ -2029,7 +2198,7 @@ async function saveStatus(status) {
             const apt = document.querySelector(`.apt[data-id="${state.currentApartment}"]`);
             if (apt && state.currentApartmentData) {
                 state.currentApartmentData.access_status = status;
-                const newClass = getApartmentWorkflowClass(state.currentApartmentData) || getApartmentClass(status, state.currentApartmentData.active_defects_count || 0);
+                const newClass = getApartmentClass(status, state.currentApartmentData.active_defects_count || 0);
                 apt.className = `apt ${newClass}`;
             }
         } else {
@@ -2188,15 +2357,13 @@ function scheduleDefectAutosave(row) {
 }
 
 function renderDefectCard(d, index) {
-    const summaryText = d.items?.length
-        ? d.items.map(item => escapeHtml(item.text)).join('; ')
-        : escapeHtml(d.description);
+    const summaryText = escapeHtml(getDefectSummaryText(d));
     const fixedAt = formatDate(d.created_at);
     const windowNumber = d.window_number ?? '';
     const mediaHtml = renderDefectMedia(d.photos);
     const statusLabel = getDefectStatusLabel(d.status);
     const statusBadgeClass = getDefectStatusBadgeClass(d.status);
-    const windowChipText = windowNumber ? `Окно ${escapeHtml(windowNumber)}` : 'Без окна';
+    const windowChipText = getWindowChipText(windowNumber) || 'Без окна';
     const commentsCount = Number(d.comments_count || 0);
 
     return `
@@ -2204,7 +2371,7 @@ function renderDefectCard(d, index) {
             <div class="defect-card-header">
                 <span class="defect-date">${fixedAt || 'Без даты'}</span>
                 <span class="defect-window">${windowChipText}</span>
-                <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id})">${statusLabel}</button>
+                <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</button>
             </div>
             <div class="defect-card-body">
                 <textarea id="defectDescription_${d.id}" class="input defect-textarea" placeholder="Опишите замечание" rows="2">${summaryText}</textarea>
@@ -2276,7 +2443,7 @@ function renderDefects(defects) {
                         .filter(Boolean)
                 )];
                 const sortedDefects = category === 'Окна' 
-                    ? [...categoryDefects].sort((a, b) => (a.window_number || 0) - (b.window_number || 0))
+                    ? [...categoryDefects].sort((a, b) => Number(a.window_number ?? 0) - Number(b.window_number ?? 0))
                     : categoryDefects;
                 return `
                     <div class="defect-category-section expanded" id="defect-section-${idx}" data-category="${escapeHtml(category)}">
@@ -2302,9 +2469,7 @@ function toggleCategoryDefects(category) {
 }
 
 function renderDefectCompactRow(d, index) {
-    const summaryText = d.items?.length
-        ? d.items.map(item => escapeHtml(item.text)).join('; ')
-        : escapeHtml(d.description);
+    const summaryHtml = getDefectSummaryHtml(d);
     const fixedAt = formatDate(d.created_at);
     const windowNumber = d.window_number ?? '';
     const statusLabel = getDefectStatusLabel(d.status);
@@ -2312,13 +2477,9 @@ function renderDefectCompactRow(d, index) {
 
     const isWindowCategory = d.category === 'Окна';
     const isDoorCategory = d.category === 'Двери';
-    const windowChipText = isWindowCategory && windowNumber ? `Об${windowNumber}` : '';
+    const windowChipText = isWindowCategory ? getWindowChipText(windowNumber) : '';
     const doorVariant = isDoorCategory ? String(d.variant_number || '').trim() : '';
-    const doorChipText = doorVariant === 'Нар'
-        ? 'Наружная'
-        : doorVariant === 'Вн'
-            ? 'Внутренняя'
-            : doorVariant;
+    const doorChipText = getDoorVariantLabel(doorVariant);
     const isRestoration = d.restoration === 1;
 
     const contractorName = d.contractor_name || '—';
@@ -2354,11 +2515,11 @@ function renderDefectCompactRow(d, index) {
                 ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${escapeHtml(doorChipText)}</span>` : ''}
                 ${isRestoration ? `<span class="defect-restoration-badge">Р</span>` : ''}
                 <span class="defect-compact-date">${fixedAt || '—'}</span>
-                <span class="defect-compact-desc">${summaryText}</span>
+                <span class="defect-compact-desc">${summaryHtml}</span>
                 ${executorName ? `<span class="defect-compact-executor">👷 ${escapeHtml(executorName)}</span>` : ''}
                 ${hasBeforePhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('before', ${d.id}, event)">📷 До (${beforePhotos.length})</span>` : ''}
                 ${hasAfterPhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('after', ${d.id}, event)">📷 После (${afterPhotos.length})</span>` : ''}
-                <span class="defect-compact-status ${statusBadgeClass}" onclick="event.stopPropagation(); cycleDefectStatus(${d.id})">${statusLabel}</span>
+                <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</span>
             </div>
             <input type="hidden" id="defectStatus_${d.id}" value="${escapeHtml(d.status)}">
             <div class="defect-photos-container" id="photos-before-${d.id}" style="display:none;">
@@ -2416,14 +2577,12 @@ function toggleDefectPhotos(type, id, event) {
 }
 
 function renderDefectRow(d, index) {
-    const summaryText = d.items?.length
-        ? d.items.map(item => escapeHtml(item.text)).join('; ')
-        : escapeHtml(d.description);
+    const summaryText = escapeHtml(getDefectSummaryText(d));
     const fixedAt = formatDate(d.created_at);
     const windowNumber = d.window_number ?? '';
     const statusLabel = getDefectStatusLabel(d.status);
     const statusBadgeClass = getDefectStatusBadgeClass(d.status);
-    const windowChipText = windowNumber || '—';
+    const windowChipText = getWindowChipText(windowNumber) || '—';
 
     return `
         <tr class="defect-row" data-defect-id="${d.id}">
@@ -2442,7 +2601,7 @@ function renderDefectRow(d, index) {
                 <input type="text" id="defectCommentText_${d.id}" class="table-input" placeholder="Комментарий" value="${escapeHtml(d.comment_text || '')}">
             </td>
             <td class="defect-cell-status">
-                <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id})">${statusLabel}</button>
+                <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</button>
             </td>
             <input type="hidden" id="defectStatus_${d.id}" value="${escapeHtml(d.status)}">
         </tr>
@@ -2451,42 +2610,28 @@ function renderDefectRow(d, index) {
 
 async function updateDefectStatus(id, status) {
     try {
-        await fetch(`/api/defects/${id}`, {
+        const response = await fetch(`/api/defects/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `status=${status}`
         });
+
+        if (!response.ok) {
+            let message = 'Ошибка обновления';
+            try {
+                const payload = await response.json();
+                if (payload?.detail) message = payload.detail;
+            } catch (err) {
+                // ignore invalid json
+            }
+            throw new Error(message);
+        }
+
         return true;
     } catch (err) {
-        showToast('Ошибка обновления', 'error');
+        showToast(err.message || 'Ошибка обновления', 'error');
         return false;
     }
-}
-
-async function cycleDefectStatus(id) {
-    const statusInput = document.getElementById(`defectStatus_${id}`);
-    const badge = document.querySelector(`.defect-row[data-defect-id="${id}"] .defect-status-badge, .defect-compact-row[data-defect-id="${id}"] .defect-compact-status`);
-    const currentStatus = statusInput?.value || DEFECT_STATUS_ORDER[0];
-    const currentIndex = Math.max(DEFECT_STATUS_ORDER.indexOf(currentStatus), 0);
-    const nextStatus = DEFECT_STATUS_ORDER[(currentIndex + 1) % DEFECT_STATUS_ORDER.length];
-
-    if (statusInput) statusInput.value = nextStatus;
-    if (badge) {
-        badge.className = `defect-compact-status ${getDefectStatusBadgeClass(nextStatus)}`;
-        badge.textContent = getDefectStatusLabel(nextStatus);
-    }
-
-    const ok = await updateDefectStatus(id, nextStatus);
-    if (!ok) {
-        if (statusInput) statusInput.value = currentStatus;
-        if (badge) {
-            badge.className = `defect-compact-status ${getDefectStatusBadgeClass(currentStatus)}`;
-            badge.textContent = getDefectStatusLabel(currentStatus);
-        }
-        return;
-    }
-
-    showToast('Статус обновлен', 'success');
 }
 
 async function updateDefectStatusLegacy(id, status) {
@@ -2908,7 +3053,7 @@ async function editDefect(id) {
         if (defect.category === 'Окна') {
             const windowSelect = document.getElementById('windowNumber');
             windowSelect.disabled = false;
-            windowSelect.value = defect.window_number || '';
+            windowSelect.value = defect.window_number ?? '';
         }
 
         if (defect.category === 'Двери') {
@@ -2961,7 +3106,7 @@ async function saveDefectEdit() {
     }
 
     if (category === 'Двери' && !doorSide) {
-        showToast('Выберите часть двери: Нар или Вн', 'warning');
+        showToast('Выберите часть двери: Нар, Вн или Общ.', 'warning');
         return;
     }
     
@@ -3072,7 +3217,7 @@ async function handleAddDefect(e) {
     }
 
     if (category === 'Двери' && !doorSide) {
-        showToast('Выберите часть двери: Нар или Вн', 'warning');
+        showToast('Выберите часть двери: Нар, Вн или Общ.', 'warning');
         return;
     }
     

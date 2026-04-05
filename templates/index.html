@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9570">
-    <script src="/static/app.js?v=9444"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9591">
+    <script src="/static/app.js?v=9449"></script>
 </head>
 <body>
     <div class="app">
@@ -223,7 +223,6 @@
             <div class="modal-body">
                 <form id="addDefectForm" class="form defect-form" onsubmit="handleDefectForm(event)">
                     <div class="defect-form-section">
-                        <div class="defect-form-section-title">Замечание</div>
                         <div class="form-grid form-grid-3">
                             <div class="form-field">
                                 <label>Категория</label>
@@ -241,6 +240,7 @@
                                     <option value="">Выберите</option>
                                     <option value="Нар">Наружная</option>
                                     <option value="Вн">Внутренняя</option>
+                                    <option value="Общ.">Общ.</option>
                                 </select>
                             </div>
                             <div class="form-field" id="restorationGroup" style="display:none;">
@@ -284,6 +284,15 @@
                 <button class="modal-close" onclick="closeDefectActionsModal()">×</button>
             </div>
             <div class="modal-body" id="defectActionsBody"></div>
+        </div>
+    </div>
+    <div id="defectStatusModal" class="modal status-popover" onclick="closeDefectStatusModal(event)">
+        <div id="defectStatusPopover" class="modal-content modal-sm status-popover-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Выберите статус</h3>
+                <button class="modal-close" onclick="closeDefectStatusModal()">×</button>
+            </div>
+            <div class="modal-body defect-status-modal-body" id="defectStatusBody"></div>
         </div>
     </div>
         </main>

@@ -2323,6 +2323,8 @@ h1 {
   min-width: 200px;
   font-size: 13px;
   color: var(--text);
+  white-space: normal;
+  line-height: 1.45;
 }
 
 .defect-compact-contractor {
@@ -2788,6 +2790,33 @@ h1 {
   color: #b91c1c;
 }
 
+.defect-status-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.defect-status-option {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.defect-status-option:hover,
+.defect-status-option.active {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+  color: var(--primary);
+}
+
 .defect-description-input,
 .defect-comment-input {
   min-height: 112px;
@@ -2991,10 +3020,10 @@ h1 {
 }
 
 .defect-form-section {
-  margin-top: 18px;
-  padding: 18px;
+  margin-top: 12px;
+  padding: 14px;
   border: 1px solid #edf1f5;
-  border-radius: 14px;
+  border-radius: 12px;
   background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
 }
 
@@ -3629,9 +3658,9 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .defect-modal {
-  width: 600px;
-  max-width: 95vw;
-  padding: 20px;
+  width: 520px;
+  max-width: min(92vw, 520px);
+  padding: 0;
 }
 
 .photo-modal-stage {
@@ -4479,6 +4508,60 @@ body.page-create-complex .mobile-filter-buttons {
 
 .modal-body { padding: 24px; }
 
+.defect-modal .modal-header {
+  padding: 16px 18px 0;
+}
+
+.defect-modal .modal-body {
+  padding: 14px 18px 18px;
+}
+
+.defect-form {
+  max-width: none;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.defect-form .form-footer {
+  margin-top: 14px;
+}
+
+.defect-form .upload-zone {
+  min-height: 88px;
+  padding: 14px;
+}
+
+.status-popover {
+  background: transparent;
+  padding: 0;
+}
+
+.status-popover.active {
+  display: block;
+}
+
+.status-popover-content {
+  position: fixed;
+  width: 220px;
+  max-width: calc(100vw - 16px);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.status-popover-content .modal-header {
+  padding: 12px 14px 0;
+}
+
+.status-popover-content .modal-header h3 {
+  font-size: 14px;
+}
+
+.status-popover-content .modal-body {
+  padding: 12px 14px 14px;
+}
+
 .defect-comments-modal {
   max-width: 640px;
 }
@@ -5172,10 +5255,11 @@ body.page-create-complex .mobile-filter-buttons {
 .apt-badge {
   position: absolute;
   top: -6px;
-  right: -6px;
+  left: -6px;
+  right: auto;
   width: 22px;
   height: 22px;
-  background: linear-gradient(135deg, #ff3b30, #ff6961);
+  background: #111111;
   color: var(--white);
   border-radius: 50%;
   font-size: 11px;
@@ -5184,6 +5268,16 @@ body.page-create-complex .mobile-filter-buttons {
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 4px rgba(255,59,48,0.4);
+}
+
+.apt-badge-review {
+  top: auto;
+  bottom: -6px;
+  left: -6px;
+  right: auto;
+  background: #bfdbfe !important;
+  color: #1e3a8a !important;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.22) !important;
 }
 
 /* ========== VARIANT: MINIMAL ========== */
@@ -7738,7 +7832,7 @@ body {
 }
 
 .apt.apt-call {
-  background: #E969A8 !important;
+  background: #E60042 !important;
   color: #ffffff !important;
 }
 
@@ -8007,6 +8101,16 @@ body {
   box-shadow: none;
 }
 
+.apt-badge-review {
+  top: auto !important;
+  right: auto !important;
+  left: -6px !important;
+  bottom: -3px !important;
+  background: #7DE3D6 !important;
+  color: #111111 !important;
+  box-shadow: none !important;
+}
+
 @media (min-width: 1400px) {
   .sections-grid {
     grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
@@ -8080,6 +8184,13 @@ body {
     min-width: 14px;
     height: 14px;
     font-size: 7px;
+  }
+
+  .apt-badge-review {
+    top: auto !important;
+    right: auto !important;
+    left: -6px !important;
+    bottom: -3px !important;
   }
 }
 
