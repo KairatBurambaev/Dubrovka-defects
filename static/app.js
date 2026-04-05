@@ -556,6 +556,10 @@ function getDoorVariantLabel(variant) {
     return normalized;
 }
 
+function getExecutorIcon() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20a8 8 0 0 1 16 0"/><circle cx="12" cy="8" r="4"/><path d="M19 6l1.5 1.5L22 6"/></svg>';
+}
+
 function getDefectSummaryText(defect) {
     return defect.items?.length
         ? defect.items.map((item) => item.text).join('\n')
@@ -1620,33 +1624,15 @@ function syncDefectStatusState(id, status) {
     }
 }
 
-function positionDefectStatusPopover(anchor) {
+function positionDefectStatusPopover() {
     const popover = document.getElementById('defectStatusPopover');
     if (!(popover instanceof HTMLElement)) return;
 
     const width = popover.offsetWidth || 220;
     const height = popover.offsetHeight || 0;
     const margin = 8;
-    const gap = 8;
-    const rect = anchor?.getBoundingClientRect?.();
-
-    if (!rect) {
-        popover.style.left = `${Math.max((window.innerWidth - width) / 2, margin)}px`;
-        popover.style.top = `${Math.max((window.innerHeight - height) / 2, margin)}px`;
-        return;
-    }
-
-    const left = Math.min(
-        Math.max(rect.left, margin),
-        window.innerWidth - width - margin
-    );
-    const fitsBelow = rect.bottom + gap + height <= window.innerHeight - margin;
-    const top = fitsBelow
-        ? rect.bottom + gap
-        : Math.max(rect.top - height - gap, margin);
-
-    popover.style.left = `${left}px`;
-    popover.style.top = `${top}px`;
+    popover.style.left = `${Math.max((window.innerWidth - width) / 2, margin)}px`;
+    popover.style.top = `${Math.max((window.innerHeight - height) / 2, margin)}px`;
 }
 
 function openDefectStatusModal(id, event) {
@@ -1657,8 +1643,6 @@ function openDefectStatusModal(id, event) {
     const popover = document.getElementById('defectStatusPopover');
     const statusInput = document.getElementById(`defectStatus_${id}`);
     const currentStatus = statusInput?.value || DEFECT_STATUS_ORDER[0];
-    const anchor = event?.currentTarget;
-
     state.currentStatusDefectId = id;
     if (body) {
         body.innerHTML = renderDefectStatusButtons(currentStatus, id);
@@ -1666,7 +1650,7 @@ function openDefectStatusModal(id, event) {
     if (modal) modal.classList.add('active');
 
     if (popover) {
-        requestAnimationFrame(() => positionDefectStatusPopover(anchor));
+        requestAnimationFrame(() => positionDefectStatusPopover());
     }
 }
 
@@ -2396,9 +2380,12 @@ function renderDefectCard(d, index) {
     return `
         <div class="defect-row defect-row-card" data-defect-id="${d.id}" style="animation: slideIn 0.25s ease ${index * 0.03}s both;">
             <div class="defect-card-header">
-                <span class="defect-date">${fixedAt || 'Без даты'}</span>
-                <span class="defect-window">${windowChipText}</span>
+                <div class="defect-card-header-meta">
+                    <span class="defect-date">${fixedAt || 'Без даты'}</span>
+                    <span class="defect-window">${windowChipText}</span>
+                </div>
                 <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</button>
+                <span class="defect-card-header-spacer" aria-hidden="true"></span>
             </div>
             <div class="defect-card-body">
                 <textarea id="defectDescription_${d.id}" class="input defect-textarea" placeholder="Опишите замечание" rows="2">${summaryText}</textarea>
@@ -2543,7 +2530,7 @@ function renderDefectCompactRow(d, index) {
                 ${isRestoration ? `<span class="defect-restoration-badge">Р</span>` : ''}
                 <span class="defect-compact-date">${fixedAt || '—'}</span>
                 <span class="defect-compact-desc">${summaryHtml}</span>
-                ${executorName ? `<span class="defect-compact-executor">👷 ${escapeHtml(executorName)}</span>` : ''}
+                ${executorName ? `<span class="defect-compact-executor"><span class="defect-compact-executor-icon">${getExecutorIcon()}</span>${escapeHtml(executorName)}</span>` : ''}
                 ${hasBeforePhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('before', ${d.id}, event)">📷 До (${beforePhotos.length})</span>` : ''}
                 ${hasAfterPhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('after', ${d.id}, event)">📷 После (${afterPhotos.length})</span>` : ''}
                 <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</span>

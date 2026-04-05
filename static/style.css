@@ -105,6 +105,10 @@
   }
 }
 
+body.page-apartment-detail .defect-card-header {
+  grid-template-columns: 1fr auto 1fr;
+}
+
 body.page-apartment-detail .header-right {
   flex: 1 1 auto;
   justify-content: center;
@@ -2475,6 +2479,31 @@ h1 {
   min-width: 100px;
 }
 
+.defect-compact-executor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.defect-compact-executor-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  flex: 0 0 auto;
+}
+
+.defect-compact-executor-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
 .defect-compact-status {
   font-size: 11px;
   font-weight: 600;
@@ -2731,10 +2760,22 @@ h1 {
 }
 
 .defect-card-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.defect-card-header-meta {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   flex-wrap: wrap;
+}
+
+.defect-card-header-spacer {
+  display: block;
 }
 
 .defect-date {
