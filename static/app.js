@@ -112,6 +112,7 @@ function cacheElements() {
     elements.statNoAccess = document.getElementById('statNoAccess');
     elements.statDefects = document.getElementById('statDefects');
     elements.defectFilterPanel = document.getElementById('defectFilterPanel');
+    elements.statsBtn = document.getElementById('statsBtn');
     elements.tabPanels = document.querySelectorAll('.tab-panel');
 }
 
@@ -296,6 +297,7 @@ function backToComplex() {
     }
     
     showTab('complex-detail');
+    updateHeader(true, false);
     loadApartments();
 }
 
@@ -336,6 +338,10 @@ function updateHeader(showBack, showAdd) {
     if (elements.backBtn) elements.backBtn.style.display = showBack ? 'inline-flex' : 'none';
     if (elements.addComplexBtn) {
         elements.addComplexBtn.style.display = showAdd ? 'inline-flex' : 'none';
+    }
+    if (elements.statsBtn) {
+        const showStats = state.currentTab === 'complex-detail' && !!state.currentComplex && !state.currentApartment;
+        elements.statsBtn.style.display = showStats ? 'inline-flex' : 'none';
     }
     if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'none';
     if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'none';
@@ -935,7 +941,6 @@ async function showComplexDetail(id) {
     console.log('=== showComplexDetail START ===', id);
     state.currentComplex = id;
     state.currentPropertyType = 'квартиры';
-    updateHeader(true, false);
     setPageTitle('Загрузка...', '');
     
     if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'none';
@@ -1038,6 +1043,7 @@ async function showComplexDetail(id) {
         
         console.log('Calling showTab complex-detail');
         showTab('complex-detail');
+        updateHeader(true, false);
         console.log('showTab done');
         
         console.log('Calling loadApartments');
@@ -2107,9 +2113,9 @@ function getDeadlineClass(apt) {
 async function showApartmentDetail(id) {
     state.currentApartment = id;
     state.currentApartmentData = null;
-    updateHeader(true, false);
     setPageTitle('Загрузка...', '');
     showTab('apartment-detail');
+    updateHeader(true, false);
     
     // Switch to apartment status toolbar
     const toolbarSearch = document.getElementById('toolbarSearch');

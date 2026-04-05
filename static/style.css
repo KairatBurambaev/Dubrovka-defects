@@ -36,6 +36,129 @@
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+@media (min-width: 1400px) {
+  .sections-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .section-group-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .section-card,
+  .section-group {
+    flex: 0 1 calc((100% - 36px) / 4);
+    width: calc((100% - 36px) / 4);
+    max-width: calc((100% - 36px) / 4);
+  }
+
+  .section-body,
+  .floor-apts {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .floor-row {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1100px) {
+  .header {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
+    align-items: start;
+    column-gap: 18px;
+  }
+
+  .header-center {
+    justify-content: center;
+    align-self: start;
+    margin-left: 0;
+    padding-left: clamp(8px, 1vw, 18px);
+    padding-right: clamp(8px, 1vw, 18px);
+  }
+
+  .header-filters,
+  .toolbar-filters,
+  .toolbar-search {
+    justify-content: flex-start;
+  }
+
+  .header-right {
+    justify-content: flex-end;
+    align-self: start;
+    overflow: visible;
+  }
+}
+
+@media (min-width: 769px) {
+  .sections-grid,
+  .section-group-grid {
+    justify-content: center;
+  }
+}
+
+body.page-apartment-detail .header-right {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+body.page-apartment-detail .toolbar-status {
+  justify-content: center;
+  margin: 0 auto;
+}
+
+body.page-apartment-detail .detail-grid {
+  gap: 8px;
+}
+
+body.page-apartment-detail .detail-content {
+  gap: 8px;
+}
+
+body.page-apartment-detail #defectsList {
+  gap: 8px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+body.page-apartment-detail .defects-by-category {
+  gap: 8px;
+}
+
+body.page-apartment-detail .defect-section-header {
+  padding: 10px 12px 6px;
+}
+
+body.page-apartment-detail .defects-list {
+  gap: 5px;
+  padding: 8px 10px 10px;
+}
+
+body.page-apartment-detail .defect-compact-row,
+body.page-apartment-detail .defect-row {
+  margin: 0;
+}
+
+body.page-apartment-detail .defect-compact-row {
+  padding: 8px 10px;
+}
+
+body.page-apartment-detail .defect-card-body {
+  gap: 6px;
+}
+
+body.page-apartment-detail .defect-card-footer {
+  gap: 8px;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { scroll-behavior: smooth; }
@@ -581,6 +704,13 @@ body {
   flex-shrink: 0;
 }
 
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .header-filters {
   display: flex;
   align-items: center;
@@ -634,7 +764,7 @@ body {
   flex-wrap: nowrap;
   align-items: center;
   gap: 10px;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -3770,25 +3900,28 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .pill-stats {
-    position: fixed;
-    right: 28px;
-    bottom: 28px;
-    z-index: 180;
-    height: 42px;
-    padding: 0 16px;
+    position: static;
+    z-index: auto;
+    height: 36px;
+    padding: 0 14px;
     border-radius: 999px;
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     border-color: #0f172a;
     color: #fff;
-    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.22);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
     font-size: 13px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .pill-stats:hover {
     background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
     border-color: #1e293b;
     color: #fff;
+}
+
+.complex-detail-toolbar {
+    justify-content: flex-end;
 }
 
 /* Stats Modal */
