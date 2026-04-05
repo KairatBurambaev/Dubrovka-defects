@@ -16,21 +16,23 @@ const state = {
     contractors: [],
     currentItemId: null,
     accessFilter: '',
+    defectsOnly: false,
     sortByDefects: false,
     loading: false,
     currentDefects: [] // Store defects for category filtering
 };
 
 // Global filter constants
-const FILTERS = ['', 'defects', 'call', 'owner_accepted', 'complex', 'no_access'];
-const FILTER_NAMES = ['Все', 'С замечаниями', 'Вызваные квартиры', 'Принята', 'Сложные', 'Нет доступа'];
+const FILTERS = ['', 'defects', 'in_progress', 'call', 'owner_accepted', 'complex', 'no_access'];
+const FILTER_NAMES = ['Все', 'С замечаниями', 'В работе', 'Вызваные квартиры', 'Принята', 'Сложные', 'Нет доступа'];
 const FILTER_INDEXES = {
     '': 0,
     'defects': 1,
-    'call': 2,
-    'owner_accepted': 3,
-    'complex': 4,
-    'no_access': 5
+    'in_progress': 2,
+    'call': 3,
+    'owner_accepted': 4,
+    'complex': 5,
+    'no_access': 6
 };
 const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
 const DEFECT_STATUS_LABELS = {
@@ -1385,21 +1387,15 @@ async function loadApartments() {
             apts = apts.filter(a => filteredIds.has(a.id));
         }
         
-        const activeDesktopFilter = document.querySelector('.pill.active[data-filter]')?.dataset.filter || '';
-        const activeMobileFilter = document.querySelector('.mobile-filter-btn.active[data-filter]')?.dataset.filter || '';
-        const syncedAccessFilter = activeDesktopFilter || activeMobileFilter || '';
-
-        if (state.accessFilter !== syncedAccessFilter) {
-            state.accessFilter = syncedAccessFilter;
-        }
-
         if (elements.defectFilterPanel) {
-            elements.defectFilterPanel.style.display = state.accessFilter === 'defects' ? 'flex' : 'none';
+            elements.defectFilterPanel.style.display = state.defectsOnly ? 'flex' : 'none';
         }
 
-        if (state.accessFilter === 'defects') {
+        if (state.defectsOnly) {
             apts = apts.filter(countsAsDefectApartment);
-        } else if (state.accessFilter) {
+        }
+
+        if (state.accessFilter) {
             apts = apts.filter(a => {
                 if (state.accessFilter === 'owner_accepted') {
                     return isAcceptedApartment(a);
@@ -1437,28 +1433,34 @@ async function loadApartments() {
 }
 
 function setAccessFilter(filter) {
-    // Если кнопка уже активна - снимаем фильтр (показываем все)
+    if (filter === 'defects') {
+        state.defectsOnly = !state.defectsOnly;
+        updateDesktopFilterButtons();
+        updateMobileFilterIndicator();
+        updateMobileFilterButtons();
+        if (elements.defectFilterPanel) {
+            elements.defectFilterPanel.style.display = state.defectsOnly ? 'flex' : 'none';
+        }
+        loadApartments();
+        return;
+    }
+
     const currentFilter = state.accessFilter;
     let nextFilter = filter;
     
     if (currentFilter === filter) {
         nextFilter = '';
         state.accessFilter = '';
-        document.querySelectorAll('.pill').forEach(chip => {
-            chip.classList.remove('active');
-        });
     } else {
         state.accessFilter = filter;
-        document.querySelectorAll('.pill').forEach(chip => {
-            chip.classList.toggle('active', chip.dataset.filter === filter);
-        });
     }
 
     const filterChanged = currentFilter !== nextFilter;
+    updateDesktopFilterButtons();
     
     // Update mobile filter indicator and buttons
-    updateMobileFilterIndicator(state.accessFilter);
-    updateMobileFilterButtons(state.accessFilter);
+    updateMobileFilterIndicator();
+    updateMobileFilterButtons();
     const mobileStatusFilter = document.getElementById('mobileStatusFilter');
     if (mobileStatusFilter) mobileStatusFilter.value = state.accessFilter;
     
@@ -1467,7 +1469,7 @@ function setAccessFilter(filter) {
     if (index >= 0) currentFilterIndex = index;
     
     if (elements.defectFilterPanel) {
-        elements.defectFilterPanel.style.display = state.accessFilter === 'defects' ? 'flex' : 'none';
+        elements.defectFilterPanel.style.display = state.defectsOnly ? 'flex' : 'none';
     }
     
     // Only reload if filter actually changed
@@ -1476,13 +1478,28 @@ function setAccessFilter(filter) {
     }
 }
 
-function updateMobileFilterIndicator(filter) {
+function updateDesktopFilterButtons() {
+    document.querySelectorAll('.pill[data-filter]').forEach((chip) => {
+        if (chip.dataset.filter === 'defects') {
+            chip.classList.toggle('active', state.defectsOnly);
+            return;
+        }
+        chip.classList.toggle('active', chip.dataset.filter === state.accessFilter);
+    });
+}
+
+function updateMobileFilterIndicator() {
     const indicator = document.getElementById('mobileFilterIndicator');
     if (indicator) {
-        const index = FILTERS.indexOf(filter);
-        const name = index >= 0 ? FILTER_NAMES[index] : 'Все';
+        const parts = [];
+        if (state.accessFilter) {
+            const index = FILTERS.indexOf(state.accessFilter);
+            parts.push(index >= 0 ? FILTER_NAMES[index] : state.accessFilter);
+        }
+        if (state.defectsOnly) parts.push('С замечаниями');
+        const name = parts.join(' + ') || 'Все';
         indicator.textContent = name;
-        indicator.classList.toggle('filter-active', Boolean(filter));
+        indicator.classList.toggle('filter-active', Boolean(state.accessFilter || state.defectsOnly));
         // Add animation class
         indicator.classList.add('filter-changed');
         setTimeout(() => {
@@ -1491,10 +1508,14 @@ function updateMobileFilterIndicator(filter) {
     }
 }
 
-function updateMobileFilterButtons(filter) {
+function updateMobileFilterButtons() {
     const buttons = document.querySelectorAll('.mobile-filter-btn');
     buttons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.filter === filter);
+        if (btn.dataset.filter === 'defects') {
+            btn.classList.toggle('active', state.defectsOnly);
+            return;
+        }
+        btn.classList.toggle('active', btn.dataset.filter === state.accessFilter);
     });
 }
 

@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9602">
-    <script src="/static/app.js?v=9453"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9603">
+    <script src="/static/app.js?v=9454"></script>
 </head>
 <body>
     <div class="app">
@@ -27,6 +27,7 @@
                     <select id="mobileStatusFilter" class="mobile-dropdown-filter" onchange="setAccessFilter(this.value)">
                         <option value="">Все</option>
                         <option value="defects">С замеч.</option>
+                        <option value="in_progress">В работе</option>
                         <option value="call">Вызов</option>
                         <option value="owner_accepted">Принята</option>
                         <option value="complex">Сложные</option>
@@ -63,6 +64,7 @@
                         <div class="pills" id="statusPills">
                             <button class="pill pill-sort" id="sortByDefectsBtn" onclick="toggleApartmentSort()">Сорт</button>
                             <button class="pill" data-filter="defects" onclick="setAccessFilter('defects')">С замеч.</button>
+                            <button class="pill" data-filter="in_progress" onclick="setAccessFilter('in_progress')">В работе</button>
                             <button class="pill" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
                             <button class="pill" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
                             <button class="pill" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
@@ -107,6 +109,7 @@
             <div class="mobile-filter-buttons" id="mobileFilterButtons">
                 <button class="mobile-filter-btn active" data-filter="">Все</button>
                 <button class="mobile-filter-btn" data-filter="defects">С замеч.</button>
+                <button class="mobile-filter-btn" data-filter="in_progress">В работе</button>
                 <button class="mobile-filter-btn" data-filter="call">Вызов</button>
                 <button class="mobile-filter-btn" data-filter="owner_accepted">Принята</button>
                 <button class="mobile-filter-btn" data-filter="complex">Сложные</button>
