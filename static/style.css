@@ -105,6 +105,94 @@
   }
 }
 
+@media (min-width: 769px) {
+  body.page-complex-detail .complex-detail-content {
+    padding: 0 20px 20px;
+  }
+
+  body.page-complex-detail .sections-grid {
+    gap: 16px;
+  }
+
+  body.page-complex-detail .section-header,
+  body.page-complex-detail .section-body-container,
+  body.page-complex-detail .section-group-header {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  body.page-complex-detail .section-heading.section-heading-simple {
+    align-items: center;
+  }
+
+  body.page-apartment-detail .header {
+    align-items: center;
+  }
+
+  body.page-apartment-detail .header-left {
+    min-width: 0;
+  }
+
+  body.page-apartment-detail .header-sub {
+    max-width: 720px;
+  }
+
+  body.page-apartment-detail .toolbar-status {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  body.page-apartment-detail .detail-grid {
+    max-width: 1440px;
+    gap: 14px;
+    padding: 12px 16px 20px;
+  }
+
+  body.page-apartment-detail .panel {
+    border-radius: 16px;
+  }
+
+  body.page-apartment-detail .panel-header {
+    padding: 14px 16px;
+  }
+
+  body.page-apartment-detail .panel-actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  body.page-apartment-detail .defect-section-header {
+    align-items: flex-start;
+  }
+
+  body.page-apartment-detail .defects-list {
+    padding: 10px 12px 12px;
+  }
+
+  .defect-modal {
+    width: min(720px, 92vw);
+    max-width: min(720px, 92vw);
+  }
+
+  .defect-modal .modal-body {
+    padding: 16px 18px 18px;
+  }
+
+  .modal-sm {
+    width: min(440px, 92vw);
+  }
+
+  .defect-comments-modal {
+    width: min(760px, 92vw);
+    max-width: min(760px, 92vw);
+  }
+
+  .stats-popover {
+    width: min(980px, 94vw);
+    max-width: min(980px, 94vw);
+  }
+}
+
 @media (max-width: 768px) {
   body.page-complex-detail .header {
     grid-template-columns: 1fr;
