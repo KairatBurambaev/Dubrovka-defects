@@ -2013,8 +2013,9 @@ function renderApartments(apartments) {
             return;
         }
 
+        const sortedGridClass = sortedSectionNumbers.length <= 4 ? 'sections-grid sections-grid-sorted sections-grid-centered' : 'sections-grid sections-grid-sorted';
         container.innerHTML = `
-            <div class="sections-grid sections-grid-sorted">
+            <div class="${sortedGridClass}">
                 ${sortedSectionNumbers.map((sectionNumber) => {
                     const sectionApartments = sortedBySection[sectionNumber].sort((a, b) => {
                         const countA = getApartmentBadgeCount(a, catFilter);
@@ -2084,6 +2085,7 @@ function renderApartments(apartments) {
             
             const title = `Корпус ${bnum}`;
             
+            const sectionGroupClass = sortedSectionIds.length <= 4 ? 'section-group-grid section-group-grid-centered' : 'section-group-grid';
             return `
                 <section class="section-group">
                     <div class="section-group-header">
@@ -2091,7 +2093,7 @@ function renderApartments(apartments) {
                             <div class="section-group-title">${title}</div>
                         </div>
                     </div>
-                    <div class="section-group-grid">
+                    <div class="${sectionGroupClass}">
                             ${sortedSectionIds.map(secId => {
                                 const secData = sections[secId];
                                 const secFloors = secData.floors;
@@ -2109,6 +2111,8 @@ function renderApartments(apartments) {
             return selectedSectionIds.length === 0 || (secId && selectedSectionIds.includes(secId));
         });
         
+        const gridClass = filteredSections.length <= 4 ? 'sections-grid sections-grid-centered' : 'sections-grid';
+        html = `<div class="${gridClass}">`;
         html += filteredSections.map(sec => {
             const sectionData = bySection[sec];
             const floors = sectionData?.floors;

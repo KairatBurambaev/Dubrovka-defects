@@ -8989,10 +8989,26 @@ body {
     align-items: flex-start;
   }
 
+  .sections-grid.sections-grid-centered {
+    width: fit-content;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    justify-content: center;
+  }
+
   .section-group-grid {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
+  }
+
+  .section-group-grid.section-group-grid-centered {
+    width: fit-content;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    justify-content: center;
   }
 
   .section-card,
