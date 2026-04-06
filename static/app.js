@@ -18,6 +18,7 @@ const state = {
     currentItemId: null,
     accessFilter: '',
     defectsOnly: false,
+    reviewOnly: false,
     sortByDefects: false,
     loading: false,
     currentDefects: [], // Store defects for category filtering
@@ -1446,11 +1447,12 @@ async function loadApartments() {
             apts = apts.filter(countsAsDefectApartment);
         }
 
+        if (state.reviewOnly) {
+            apts = apts.filter(a => Number(a.on_review_defects_count || 0) > 0);
+        }
+
         if (state.accessFilter) {
             apts = apts.filter(a => {
-                if (state.accessFilter === 'on_review') {
-                    return Number(a.on_review_defects_count || 0) > 0;
-                }
                 if (state.accessFilter === 'owner_accepted') {
                     return isAcceptedApartment(a);
                 }
@@ -1502,6 +1504,19 @@ function setAccessFilter(filter) {
         return;
     }
 
+    if (filter === 'on_review') {
+        state.reviewOnly = !state.reviewOnly;
+        updateDesktopFilterButtons();
+        updateMobileFilterIndicator();
+        updateMobileFilterButtons();
+        const mobileStatusFilter = document.getElementById('mobileStatusFilter');
+        if (mobileStatusFilter && !state.accessFilter) {
+            mobileStatusFilter.value = state.reviewOnly ? 'on_review' : '';
+        }
+        loadApartments();
+        return;
+    }
+
     const currentFilter = state.accessFilter;
     let nextFilter = filter;
     
@@ -1519,7 +1534,7 @@ function setAccessFilter(filter) {
     updateMobileFilterIndicator();
     updateMobileFilterButtons();
     const mobileStatusFilter = document.getElementById('mobileStatusFilter');
-    if (mobileStatusFilter) mobileStatusFilter.value = state.accessFilter;
+    if (mobileStatusFilter) mobileStatusFilter.value = state.accessFilter || (state.reviewOnly ? 'on_review' : '');
     
     // Update current filter index for swipe
     const index = FILTERS.indexOf(state.accessFilter);
@@ -1541,6 +1556,10 @@ function updateDesktopFilterButtons() {
             chip.classList.toggle('active', state.defectsOnly);
             return;
         }
+        if (chip.dataset.filter === 'on_review') {
+            chip.classList.toggle('active', state.reviewOnly);
+            return;
+        }
         chip.classList.toggle('active', chip.dataset.filter === state.accessFilter);
     });
 }
@@ -1554,9 +1573,10 @@ function updateMobileFilterIndicator() {
             parts.push(index >= 0 ? FILTER_NAMES[index] : state.accessFilter);
         }
         if (state.defectsOnly) parts.push('С замечаниями');
+        if (state.reviewOnly) parts.push('На проверке');
         const name = parts.join(' + ') || 'Все';
         indicator.textContent = name;
-        indicator.classList.toggle('filter-active', Boolean(state.accessFilter || state.defectsOnly));
+        indicator.classList.toggle('filter-active', Boolean(state.accessFilter || state.defectsOnly || state.reviewOnly));
         // Add animation class
         indicator.classList.add('filter-changed');
         setTimeout(() => {
@@ -1570,6 +1590,10 @@ function updateMobileFilterButtons() {
     buttons.forEach(btn => {
         if (btn.dataset.filter === 'defects') {
             btn.classList.toggle('active', state.defectsOnly);
+            return;
+        }
+        if (btn.dataset.filter === 'on_review') {
+            btn.classList.toggle('active', state.reviewOnly);
             return;
         }
         btn.classList.toggle('active', btn.dataset.filter === state.accessFilter);
@@ -3889,6 +3913,7 @@ function getFilteredDefectsForComplexPrint() {
 
     return (state.currentDefects || []).filter(defect => {
         if (!apartmentIds.has(defect.apartment_id)) return false;
+        if (state.reviewOnly && defect.status !== 'on_review') return false;
         if (categoryFilter && defect.category !== categoryFilter) return false;
         if (statusFilter === 'recorded' && defect.status !== 'recorded') return false;
         if (statusFilter === 'in_progress' && !['in_progress', 'rework'].includes(defect.status)) return false;
