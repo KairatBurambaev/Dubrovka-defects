@@ -63,6 +63,7 @@ const defectAutosaveTimers = new Map();
 
 // DOM Elements cache
 const elements = {};
+let wasMobileComplexLayout = window.innerWidth <= 768;
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
@@ -203,6 +204,21 @@ function setupEventListeners() {
                 }
             }
         });
+    }
+
+    window.addEventListener('resize', handleViewportResize);
+}
+
+function handleViewportResize() {
+    const isMobileComplexLayout = window.innerWidth <= 768;
+    if (isMobileComplexLayout === wasMobileComplexLayout) {
+        return;
+    }
+
+    wasMobileComplexLayout = isMobileComplexLayout;
+
+    if (state.currentTab === 'complex-detail' && state.currentComplex && !state.loading) {
+        loadApartments();
     }
 }
 
@@ -1812,6 +1828,25 @@ function renderApartmentTile(apartment, propFull, catFilter) {
 
 function renderSectionCard(title, apartments, floors, propFull) {
     const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
+    const catFilter = document.getElementById('defectCategoryFilter')?.value;
+    const sortedApartments = [...apartments].sort((a, b) => Number(a.number) - Number(b.number));
+
+    if (window.innerWidth <= 768) {
+        return `
+            <section class="section-card section-card-mobile-flat">
+                <div class="section-header">
+                    <div class="section-heading section-heading-simple">
+                        <span class="section-title">${title}</span>
+                    </div>
+                </div>
+                <div class="section-body-container">
+                    <div class="apt-sort-grid section-mobile-apt-grid">
+                        ${sortedApartments.map(apartment => renderApartmentTile(apartment, propFull, catFilter)).join('')}
+                    </div>
+                </div>
+            </section>
+        `;
+    }
 
     return `
         <section class="section-card">

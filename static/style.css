@@ -105,6 +105,104 @@
   }
 }
 
+@media (max-width: 768px) {
+  body.page-complex-detail .header {
+    grid-template-columns: 1fr;
+    padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+  }
+
+  body.page-complex-detail .header-left {
+    width: 100%;
+    gap: 0;
+  }
+
+  body.page-complex-detail .header-center,
+  body.page-complex-detail .header-right,
+  body.page-complex-detail .mobile-dropdown-filter,
+  body.page-complex-detail .title-secondary,
+  body.page-complex-detail .header-sub {
+    display: none !important;
+  }
+
+  body.page-complex-detail .title-primary {
+    font-size: 20px;
+    line-height: 1.15;
+  }
+
+  body.page-complex-detail .complex-detail-content,
+  body.page-complex-detail .complex-detail-main,
+  body.page-complex-detail .sections-grid {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body.page-complex-detail .complex-detail-content {
+    padding: 0;
+  }
+
+  body.page-complex-detail .sections-grid {
+    padding: 0 0 12px;
+    gap: 8px;
+  }
+
+  body.page-complex-detail .section-card,
+  body.page-complex-detail .section-group,
+  body.page-complex-detail .section-card-mobile-flat {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: none;
+  }
+
+  body.page-complex-detail .section-header,
+  body.page-complex-detail .section-body-container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  body.page-complex-detail .section-header {
+    padding-top: 12px;
+    padding-bottom: 8px;
+  }
+
+  body.page-complex-detail .section-body-container {
+    padding-top: 0;
+    padding-bottom: 12px;
+  }
+
+  body.page-complex-detail .floor-row,
+  body.page-complex-detail .floor-label {
+    display: none !important;
+  }
+
+  body.page-complex-detail .section-mobile-apt-grid,
+  body.page-complex-detail .apt-sort-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    gap: 6px;
+    width: 100%;
+  }
+
+  body.page-complex-detail .apt-wrap {
+    width: 100%;
+  }
+
+  body.page-complex-detail .apt,
+  body.page-complex-detail .apt.apt-owner_accepted,
+  body.page-complex-detail .apt.apt-call,
+  body.page-complex-detail .apt.apt-by_phone,
+  body.page-complex-detail .apt.apt-in_progress,
+  body.page-complex-detail .apt.apt-complex,
+  body.page-complex-detail .apt.apt-available,
+  body.page-complex-detail .apt.apt-no_access {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+  }
+}
+
 body.page-apartment-detail .defect-card-header {
   grid-template-columns: 1fr auto 1fr;
 }
@@ -161,6 +259,395 @@ body.page-apartment-detail .defect-card-body {
 
 body.page-apartment-detail .defect-card-footer {
   gap: 8px;
+}
+
+@media (max-width: 768px) {
+  body.page-apartment-detail .header {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+  }
+
+  body.page-apartment-detail .header-left,
+  body.page-apartment-detail .header-right {
+    width: 100%;
+  }
+
+  body.page-apartment-detail .header-center,
+  body.page-apartment-detail .mobile-dropdown-filter {
+    display: none !important;
+  }
+
+  body.page-apartment-detail .title-primary {
+    font-size: 20px;
+    line-height: 1.15;
+  }
+
+  body.page-apartment-detail .header-sub {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  body.page-apartment-detail .toolbar-status {
+    justify-content: flex-start;
+    margin: 0;
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  body.page-apartment-detail .toolbar-status .status-item {
+    flex: 0 0 auto;
+    min-height: 34px;
+    height: 34px;
+    padding: 0 12px !important;
+    white-space: nowrap;
+  }
+
+  body.page-apartment-detail .detail-grid {
+    gap: 8px;
+    padding: 8px 0 12px;
+  }
+
+  body.page-apartment-detail .panel {
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: none;
+  }
+
+  body.page-apartment-detail .panel-header {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  body.page-apartment-detail .panel-title-container,
+  body.page-apartment-detail .panel-actions {
+    width: 100%;
+  }
+
+  body.page-apartment-detail .panel-actions {
+    gap: 6px;
+  }
+
+  body.page-apartment-detail .panel-actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  body.page-apartment-detail .phone-panel,
+  body.page-apartment-detail #defectsList {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  body.page-apartment-detail .phone-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  body.page-apartment-detail .phone-row .input,
+  body.page-apartment-detail .phone-row .btn {
+    width: 100%;
+  }
+
+  body.page-apartment-detail .defect-categories-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  body.page-apartment-detail .defect-category-card {
+    padding: 12px 10px;
+    gap: 6px;
+    border-radius: 12px;
+  }
+
+  body.page-apartment-detail .defect-category-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  body.page-apartment-detail .defect-category-name {
+    font-size: 12px;
+  }
+
+  body.page-apartment-detail .defect-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 10px 12px 6px;
+  }
+
+  body.page-apartment-detail .defects-list {
+    gap: 6px;
+    padding: 8px 0 10px;
+  }
+
+  body.page-apartment-detail .defect-compact-row {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  body.page-apartment-detail .defect-compact-main {
+    gap: 8px;
+  }
+
+  body.page-apartment-detail .defect-compact-date,
+  body.page-apartment-detail .defect-compact-desc,
+  body.page-apartment-detail .defect-compact-executor,
+  body.page-apartment-detail .defect-compact-status,
+  body.page-apartment-detail .defect-photos-toggle {
+    min-width: 0;
+  }
+
+  body.page-apartment-detail .defect-compact-desc {
+    flex: 1 1 100%;
+    min-width: 0;
+    font-size: 13px;
+  }
+
+  body.page-apartment-detail .defect-compact-status {
+    max-width: 100%;
+  }
+
+  body.page-apartment-detail .defect-photos-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body.page-apartment-detail .defect-photos-label {
+    min-width: 0;
+  }
+
+  body.page-apartment-detail .defect-photo-thumb {
+    width: 72px;
+    height: 72px;
+  }
+
+  .defect-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: min(92dvh, 92vh);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .defect-modal .modal-header {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 14px 0;
+  }
+
+  .defect-modal .modal-header h3 {
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  .defect-modal .modal-close {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+  }
+
+  .defect-modal .modal-body {
+    padding: 12px 14px 14px;
+  }
+
+  .defect-form {
+    border-radius: 0;
+  }
+
+  .defect-form-section {
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .defect-form-section-title {
+    margin-bottom: 10px;
+  }
+
+  .defect-form .form-grid,
+  .defect-form .form-grid-2,
+  .defect-form .form-grid-3 {
+    gap: 10px;
+    grid-template-columns: 1fr;
+  }
+
+  .defect-form .form-field label {
+    margin-bottom: 6px;
+  }
+
+  .defect-form textarea,
+  .defect-form select,
+  .defect-form input {
+    font-size: 16px;
+  }
+
+  .defect-form .form-field-lg textarea,
+  #defectDescription {
+    min-height: 112px;
+  }
+
+  .defect-form .toggle-switch {
+    margin-top: 2px;
+  }
+
+  .defect-form .upload-zone {
+    min-height: 96px;
+    padding: 18px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .defect-form .previews {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .defect-form .preview-item {
+    border-radius: 10px;
+  }
+
+  .defect-form .form-footer {
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+
+  .defect-form .form-footer .btn {
+    width: 100%;
+  }
+
+  .status-popover {
+    padding: 8px;
+    align-items: flex-end;
+  }
+
+  .status-popover-content {
+    position: relative;
+    inset: auto !important;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .status-popover-content .modal-header,
+  .status-popover-content .modal-body {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .status-popover-content .modal-body {
+    padding-bottom: 14px;
+  }
+
+  .defect-status-option {
+    min-height: 44px;
+    font-size: 15px;
+  }
+
+  .modal-sm,
+  .defect-comments-modal,
+  .stats-popover {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  #commentsModal .modal-body,
+  .defect-comments-modal .modal-body,
+  .stats-popover .modal-body {
+    padding: 14px;
+  }
+
+  #commentsModal .modal-footer,
+  .defect-comments-footer {
+    grid-template-columns: 1fr;
+    padding: 12px 14px 14px;
+  }
+
+  #commentInput,
+  #defectCommentInput,
+  .defect-comment-edit-input {
+    font-size: 16px;
+  }
+
+  .defect-comments-body {
+    max-height: 44vh;
+    gap: 10px;
+  }
+
+  .defect-comment-item {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .comment-actions {
+    flex-wrap: wrap;
+  }
+
+  .comment-actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .stats-popover {
+    max-height: min(88dvh, 88vh);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .stats-summary {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .stat-box {
+    padding: 12px;
+  }
+
+  .stats-table {
+    font-size: 12px;
+  }
+
+  .stats-table th,
+  .stats-table td {
+    padding: 8px 10px;
+  }
+
+  .photo-modal-content {
+    position: relative;
+    max-height: min(92dvh, 92vh);
+    padding: 12px 12px 16px;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .photo-modal-stage {
+    min-height: 48vh;
+  }
+
+  .photo-modal-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+  }
+
+  .photo-modal-prev {
+    left: 8px;
+  }
+
+  .photo-modal-next {
+    right: 8px;
+  }
+
+  .photo-modal-counter {
+    left: 12px;
+    bottom: 12px;
+  }
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
