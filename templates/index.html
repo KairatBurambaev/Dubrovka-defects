@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9625">
+    <link rel="stylesheet" href="/static/style.css?v=9630">
     <script src="/static/app.js?v=9471"></script>
 </head>
 <body>
@@ -37,9 +37,6 @@
                     </select>
                 </div>
                 <div class="header-center">
-                    <div class="apartment-header-actions" id="apartmentHeaderActions" style="display:none;">
-                        <button class="btn btn-sm" onclick="showAddDefectForm()">Добавить замечание</button>
-                    </div>
                     <!-- Section and Category filters -->
                     <div class="header-filters" id="headerFilters" style="display:none;">
                         <div class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
@@ -86,6 +83,9 @@
                     <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Показать замечания</button>
                     <button class="pill pill-stats" id="statsBtn" onclick="showStatsModal()" style="display:none;">Статистика</button>
                     <!-- Apartment status buttons -->
+                    <div class="apartment-header-actions" id="apartmentHeaderActions" style="display:none;">
+                        <button class="status-item status-item-action" onclick="showAddDefectForm()">Добавить замечание</button>
+                    </div>
                     <div class="toolbar-status" id="toolbarStatus" style="display:none;">
                         <button class="status-item" data-status="owner_accepted" onclick="setStatus('owner_accepted')">
                             <span>Принята</span>

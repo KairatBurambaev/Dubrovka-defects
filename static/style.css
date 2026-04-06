@@ -123,16 +123,23 @@
 
 .apartment-header-actions {
   display: flex;
-  justify-content: center;
-  width: 100%;
+  justify-content: flex-end;
+  width: auto;
   align-items: center;
+  margin-right: 6px;
 }
 
-.apartment-header-actions .btn {
-  min-width: 220px;
-  min-height: 36px;
-  height: 36px;
-  padding: 0 14px !important;
+.apartment-header-actions .status-item-action {
+  min-height: 32px;
+  height: 32px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 
   body.page-complex-detail .complex-detail-content {
@@ -172,6 +179,10 @@
   body.page-apartment-detail .header-right {
     align-self: center;
     justify-content: flex-end;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
   }
 
   body.page-apartment-detail .header-sub {
@@ -409,7 +420,7 @@ body.page-apartment-detail .defect-card-footer {
 }
 
 body.page-apartment-detail .apartment-header-print,
-body.page-apartment-detail .apartment-header-actions .btn,
+body.page-apartment-detail .apartment-header-actions .status-item-action,
 body.page-apartment-detail #defectsList .btn,
 body.page-apartment-detail #defectsList .defect-status-badge,
 body.page-apartment-detail #defectsList .defect-compact-status,
@@ -420,14 +431,14 @@ body.page-apartment-detail #defectsList .defect-edit-btn {
 }
 
 body.page-apartment-detail .apartment-header-print,
-body.page-apartment-detail .apartment-header-actions .btn,
+body.page-apartment-detail .apartment-header-actions .status-item-action,
 .filtered-defects-modal .modal-header .btn {
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease !important;
   will-change: auto;
 }
 
 body.page-apartment-detail .apartment-header-print:hover,
-body.page-apartment-detail .apartment-header-actions .btn:hover,
+body.page-apartment-detail .apartment-header-actions .status-item-action:hover,
 body.page-apartment-detail #defectsList .btn:hover,
 body.page-apartment-detail #defectsList .defect-status-badge:hover,
 body.page-apartment-detail #defectsList .defect-compact-status:hover,
@@ -438,14 +449,14 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
 }
 
 body.page-apartment-detail .apartment-header-print:hover,
-body.page-apartment-detail .apartment-header-actions .btn:hover,
+body.page-apartment-detail .apartment-header-actions .status-item-action:hover,
 .filtered-defects-modal .modal-header .btn:hover {
   transform: none !important;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16) !important;
 }
 
 body.page-apartment-detail .apartment-header-print:active,
-body.page-apartment-detail .apartment-header-actions .btn:active,
+body.page-apartment-detail .apartment-header-actions .status-item-action:active,
 body.page-apartment-detail #defectsList .btn:active,
 body.page-apartment-detail #defectsList .defect-status-badge:active,
 body.page-apartment-detail #defectsList .defect-compact-status:active,
@@ -455,22 +466,22 @@ body.page-apartment-detail #defectsList .defect-edit-btn:active {
 }
 
 body.page-apartment-detail .apartment-header-print:active,
-body.page-apartment-detail .apartment-header-actions .btn:active,
+body.page-apartment-detail .apartment-header-actions .status-item-action:active,
 .filtered-defects-modal .modal-header .btn:active {
   transform: none !important;
 }
 
 body.page-apartment-detail .apartment-header-print,
-body.page-apartment-detail .apartment-header-actions .btn,
+body.page-apartment-detail .apartment-header-actions .status-item-action,
 .filtered-defects-modal .modal-header .btn {
-  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
-  border-color: #9ca3af;
-  color: #111 !important;
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #475569 !important;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
 }
 
 body.page-apartment-detail .apartment-header-print:hover,
-body.page-apartment-detail .apartment-header-actions .btn:hover,
+body.page-apartment-detail .apartment-header-actions .status-item-action:hover,
 .filtered-defects-modal .modal-header .btn:hover {
   background: linear-gradient(135deg, #111827 0%, #000000 100%) !important;
   border-color: #000000 !important;
@@ -506,12 +517,13 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
   }
 
   body.page-apartment-detail .apartment-header-actions {
-    width: 100%;
-    margin-top: 2px;
+    width: auto;
+    margin-top: 0;
+    margin-right: 0;
   }
 
-  body.page-apartment-detail .apartment-header-actions .btn {
-    width: 100%;
+  body.page-apartment-detail .apartment-header-actions .status-item-action {
+    width: auto;
   }
 
   body.page-apartment-detail .title-primary {
@@ -1134,17 +1146,17 @@ body {
 
 /* ========== HEADER ========== */
 .header {
-  background: #f8fafc;
+  background: rgba(248, 250, 252, 0.94);
   padding: 8px 24px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 90;
-  border-bottom: none;
+  position: static;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.95);
   min-height: 60px;
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
 .page-home .header {
@@ -9654,9 +9666,11 @@ body {
     gap: 10px;
     padding: max(10px, env(safe-area-inset-top)) 12px 10px;
     min-height: auto;
-    background: rgba(248, 250, 252, 0.96);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid #e2e8f0;
+    background: rgba(248, 250, 252, 0.94);
+    backdrop-filter: none;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow: none;
+    position: static;
   }
 
   .header-left,
