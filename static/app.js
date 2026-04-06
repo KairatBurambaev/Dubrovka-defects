@@ -2624,16 +2624,20 @@ function renderDefectCompactRow(d, index) {
     return `
         <div class="defect-compact-row" data-defect-id="${d.id}" data-restoration="${isRestoration ? 1 : 0}">
             <div class="defect-compact-main">
-                ${isDefectEditable(d) ? `<span class="defect-edit-btn" onclick="event.stopPropagation(); showDefectActionsForId(${d.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>` : ''}
-                ${isWindowCategory ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${windowChipText}</span>` : ''}
-                ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${escapeHtml(doorChipText)}</span>` : ''}
-                ${isRestoration ? `<span class="defect-restoration-badge">Р</span>` : ''}
-                <span class="defect-compact-date">${fixedAt || '—'}</span>
+                <div class="defect-compact-meta">
+                    ${isWindowCategory ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${windowChipText}</span>` : ''}
+                    ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${escapeHtml(doorChipText)}</span>` : ''}
+                    ${isRestoration ? `<span class="defect-restoration-badge">Р</span>` : ''}
+                    <span class="defect-compact-date">${fixedAt || '—'}</span>
+                </div>
                 <span class="defect-compact-desc">${summaryHtml}</span>
                 ${executorName ? `<span class="defect-compact-executor"><span class="defect-compact-executor-icon">${getExecutorIcon()}</span>${escapeHtml(executorName)}</span>` : ''}
-                ${hasBeforePhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('before', ${d.id}, event)">📷 До (${beforePhotos.length})</span>` : ''}
-                ${hasAfterPhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('after', ${d.id}, event)">📷 После (${afterPhotos.length})</span>` : ''}
-                <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</span>
+                <div class="defect-compact-actions">
+                    ${hasBeforePhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('before', ${d.id}, event)">📷 До (${beforePhotos.length})</span>` : ''}
+                    ${hasAfterPhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('after', ${d.id}, event)">📷 После (${afterPhotos.length})</span>` : ''}
+                    <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</span>
+                    ${isDefectEditable(d) ? `<span class="defect-edit-btn" onclick="event.stopPropagation(); showDefectActionsForId(${d.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>` : ''}
+                </div>
             </div>
             <input type="hidden" id="defectStatus_${d.id}" value="${escapeHtml(d.status)}">
             <div class="defect-photos-container" id="photos-before-${d.id}" style="display:none;">

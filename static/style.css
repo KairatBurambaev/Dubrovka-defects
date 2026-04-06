@@ -195,13 +195,14 @@
   }
 
   body.page-apartment-detail .detail-grid {
-    max-width: 1440px;
+    max-width: none;
     gap: 14px;
-    padding: 12px 16px 20px;
+    padding: 12px 8px 20px;
   }
 
   body.page-apartment-detail .panel {
     border-radius: 16px;
+    width: 100%;
   }
 
   body.page-apartment-detail #defectsList {
@@ -641,6 +642,12 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
 
   body.page-apartment-detail .defect-compact-main {
     gap: 8px;
+  }
+
+  body.page-apartment-detail .defect-compact-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
   }
 
   body.page-apartment-detail .defect-compact-date,
@@ -3247,6 +3254,14 @@ h1 {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  width: 100%;
+}
+
+.defect-compact-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .defect-compact-date {
@@ -3356,6 +3371,16 @@ h1 {
   color: #475569;
 }
 
+.defect-compact-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-left: 0;
+}
+
 .defect-compact-executor-icon {
   display: inline-flex;
   align-items: center;
@@ -3393,12 +3418,14 @@ h1 {
 .defect-photos-toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   font-size: 12px;
   color: var(--primary);
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
   background: var(--primary-subtle);
 }
 
@@ -4743,6 +4770,13 @@ body.page-create-complex .mobile-filter-buttons {
   color: #ffffff;
   font-size: 12px;
   font-weight: 700;
+}
+
+.defect-compact-actions .defect-status-badge,
+.defect-compact-actions .defect-compact-status,
+.defect-compact-actions .defect-photos-toggle,
+.defect-compact-actions .defect-edit-btn {
+  flex: 0 0 auto;
 }
 
 .photo-modal-nav {
