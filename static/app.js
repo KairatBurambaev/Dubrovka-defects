@@ -1,6 +1,7 @@
 // State
 const state = {
     currentTab: 'complexes',
+    complexes: [],
     currentComplex: null,
     currentComplexData: null,
     currentComplexStats: null,
@@ -104,6 +105,8 @@ function cacheElements() {
     elements.adminBtn = document.getElementById('adminBtn');
     elements.pageTitle = document.getElementById('pageTitle');
     elements.pageSubtitle = document.getElementById('pageSubtitle');
+    elements.apartmentHeaderActions = document.getElementById('apartmentHeaderActions');
+    elements.headerPrintBtn = document.getElementById('headerPrintBtn');
     elements.complexesList = document.getElementById('complexesList');
     elements.totalComplexes = document.getElementById('totalComplexes');
     elements.apartmentsContainer = document.getElementById('apartmentsContainer');
@@ -128,11 +131,21 @@ function setupForms() {
     if (defectForm) defectForm.addEventListener('submit', handleAddDefect);
     
     const fileInputBefore = document.getElementById('defectPhotosBefore');
-    if (fileInputBefore) fileInputBefore.addEventListener('change', (e) => handleFileSelect(e, 'before'));
+    if (fileInputBefore) fileInputBefore.addEventListener('change', (e) => renderSelectedFiles(e.target, 'before'));
+
+    const fileInputBeforeGallery = document.getElementById('defectPhotosBeforeGallery');
+    if (fileInputBeforeGallery) {
+        fileInputBeforeGallery.addEventListener('change', (e) => appendSelectedFiles(e.target, fileInputBefore, 'before'));
+    }
+
+    const fileInputBeforeCamera = document.getElementById('defectPhotosBeforeCamera');
+    if (fileInputBeforeCamera) {
+        fileInputBeforeCamera.addEventListener('change', (e) => appendSelectedFiles(e.target, fileInputBefore, 'before'));
+    }
     
     const uploadZoneBefore = document.getElementById('fileUploadArea');
     if (uploadZoneBefore && fileInputBefore) {
-        uploadZoneBefore.addEventListener('click', () => fileInputBefore.click());
+        uploadZoneBefore.addEventListener('click', () => openDefectGallery());
         uploadZoneBefore.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadZoneBefore.classList.add('dragover');
@@ -143,8 +156,7 @@ function setupForms() {
         uploadZoneBefore.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadZoneBefore.classList.remove('dragover');
-            fileInputBefore.files = e.dataTransfer.files;
-            handleFileSelect({ target: fileInputBefore }, 'before');
+            appendFilesToSelection(Array.from(e.dataTransfer.files || []), 'before', fileInputBefore);
         });
     }
     
@@ -236,6 +248,7 @@ function showTab(tab) {
     
     state.currentTab = tab;
     setBodyViewClass(tab);
+    syncApartmentHeaderControls();
     
     // Toggle body class for create-complex
     if (tab === 'create-complex') {
@@ -338,6 +351,16 @@ function goHome() {
     state.currentPropertyType = 'квартиры';
     showTab('complexes');
     loadComplexes();
+}
+
+function syncApartmentHeaderControls() {
+    const showApartmentControls = state.currentTab === 'apartment-detail' && !!state.currentApartment;
+    if (elements.apartmentHeaderActions) {
+        elements.apartmentHeaderActions.style.display = showApartmentControls ? 'flex' : 'none';
+    }
+    if (elements.headerPrintBtn) {
+        elements.headerPrintBtn.style.display = showApartmentControls ? 'inline-flex' : 'none';
+    }
 }
 
 function toggleSidebar(show) {
@@ -643,6 +666,7 @@ async function loadComplexes() {
     try {
         const res = await fetch('/api/complexes');
         const complexes = await res.json();
+        state.complexes = Array.isArray(complexes) ? complexes : [];
         console.log('Complexes loaded:', complexes.length);
         
         if (!complexes.length) {
@@ -2990,6 +3014,7 @@ function showAddDefectForm(prefillCategory = '') {
     const modal = document.getElementById('defectModal');
     const form = document.getElementById('addDefectForm');
     if (form) form.reset();
+    resetSelectedDefectPhotos();
     
     const previewGrid = document.getElementById('previewGridBefore');
     if (previewGrid) previewGrid.innerHTML = '';
@@ -3016,6 +3041,7 @@ function closeDefectModal(event) {
     const modal = document.getElementById('defectModal');
     if (modal) modal.classList.remove('active');
     currentEditingDefectId = null;
+    resetSelectedDefectPhotos();
 }
 
 function isDefectEditable(defect) {
@@ -3076,6 +3102,20 @@ function formatDateTime(dateStr) {
 }
 
 let currentEditingDefectId = null;
+let selectedDefectPhotoFiles = [];
+
+function resetSelectedDefectPhotos() {
+    selectedDefectPhotoFiles = [];
+    const inputIds = ['defectPhotosBefore', 'defectPhotosBeforeGallery', 'defectPhotosBeforeCamera'];
+    inputIds.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+}
+
+function getSelectedDefectPhotoFiles() {
+    return selectedDefectPhotoFiles;
+}
 
 async function editDefect(id) {
     currentEditingDefectId = id;
@@ -3111,6 +3151,7 @@ async function editDefect(id) {
         }
         
         document.getElementById('defectRestoration').checked = Boolean(defect.restoration);
+        resetSelectedDefectPhotos();
         
         // Show existing photos
         const previewGrid = document.getElementById('previewGridBefore');
@@ -3171,7 +3212,7 @@ async function saveDefectEdit() {
         formData.append('restoration', restoration);
         
         // Add new photos
-        const photos = document.getElementById('defectPhotosBefore')?.files;
+        const photos = getSelectedDefectPhotoFiles();
         if (photos) {
             for (let i = 0; i < photos.length; i++) {
                 formData.append('photos', photos[i]);
@@ -3215,26 +3256,124 @@ async function deleteDefect(id) {
 }
 
 function handleFileSelect(e, type = 'before') {
-    const files = e.target.files;
+    appendFilesToSelection(Array.from(e.target?.files || []), type);
+    if (e.target) e.target.value = '';
+}
+
+function renderSelectedFiles(input, type = 'before') {
+    const files = type === 'before' ? getSelectedDefectPhotoFiles() : Array.from(input?.files || []);
     const gridId = type === 'after' ? 'previewGridAfter' : 'previewGridBefore';
     const grid = document.getElementById(gridId);
     
     if (!grid) return;
     grid.innerHTML = '';
     
-    Array.from(files).forEach(file => {
+    Array.from(files).forEach((file, index) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const div = document.createElement('div');
             div.className = 'preview-item';
             div.innerHTML = `
                 <img src="${e.target.result}">
-                <button class="preview-remove" onclick="this.parentElement.remove()">×</button>
+                <button class="preview-remove" type="button" onclick="removeSelectedFile('${input?.id || ''}', ${index}, '${type}')">×</button>
             `;
             grid.appendChild(div);
         };
         reader.readAsDataURL(file);
     });
+}
+
+function appendSelectedFiles(sourceInput, targetInput, type = 'before') {
+    if (!sourceInput?.files?.length) {
+        return;
+    }
+
+    appendFilesToSelection(Array.from(sourceInput.files), type, targetInput);
+    sourceInput.value = '';
+}
+
+function appendFilesToSelection(filesToAppend, type = 'before', targetInput = null) {
+    if (type === 'before') {
+        selectedDefectPhotoFiles = selectedDefectPhotoFiles.concat(filesToAppend);
+        syncFilesToInput(targetInput || document.getElementById('defectPhotosBefore'), selectedDefectPhotoFiles);
+        renderSelectedFiles(targetInput || document.getElementById('defectPhotosBefore'), type);
+        return;
+    }
+
+    appendFilesToInput(targetInput, filesToAppend);
+    renderSelectedFiles(targetInput, type);
+}
+
+function appendFilesToInput(targetInput, filesToAppend) {
+    if (!targetInput) {
+        return;
+    }
+
+    try {
+        const transfer = new DataTransfer();
+        Array.from(targetInput.files || []).forEach(file => transfer.items.add(file));
+        filesToAppend.forEach(file => transfer.items.add(file));
+        targetInput.files = transfer.files;
+    } catch (err) {
+        // Some mobile browsers do not support programmatic FileList updates.
+    }
+}
+
+function syncFilesToInput(targetInput, files) {
+    if (!targetInput) {
+        return;
+    }
+
+    try {
+        const transfer = new DataTransfer();
+        files.forEach(file => transfer.items.add(file));
+        targetInput.files = transfer.files;
+    } catch (err) {
+        // Some mobile browsers do not support programmatic FileList updates.
+    }
+}
+
+function removeSelectedFile(inputId, indexToRemove, type = 'before') {
+    if (type === 'before') {
+        selectedDefectPhotoFiles = selectedDefectPhotoFiles.filter((_, index) => index !== indexToRemove);
+        syncFilesToInput(document.getElementById('defectPhotosBefore'), selectedDefectPhotoFiles);
+        renderSelectedFiles(document.getElementById('defectPhotosBefore'), type);
+        return;
+    }
+
+    const input = document.getElementById(inputId);
+    if (!input) {
+        return;
+    }
+
+    const transfer = new DataTransfer();
+    Array.from(input.files || []).forEach((file, index) => {
+        if (index !== indexToRemove) {
+            transfer.items.add(file);
+        }
+    });
+    input.files = transfer.files;
+    renderSelectedFiles(input, type);
+}
+
+function openDefectGallery() {
+    launchDefectFilePicker({ accept: 'image/*', multiple: true }, 'before');
+}
+
+function openDefectCamera() {
+    launchDefectFilePicker({ accept: 'image/*', capture: 'environment' }, 'before');
+}
+
+function launchDefectFilePicker(options = {}, type = 'before') {
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = options.accept || 'image/*';
+    picker.multiple = Boolean(options.multiple);
+    if (options.capture) picker.capture = options.capture;
+    picker.addEventListener('change', () => {
+        appendSelectedFiles(picker, document.getElementById('defectPhotosBefore'), type);
+    }, { once: true });
+    picker.click();
 }
 
 async function handleAddDefect(e) {
@@ -3282,7 +3421,7 @@ async function handleAddDefect(e) {
         if (category === 'Двери') formData.append('variant_number', doorSide);
         if (restoration) formData.append('restoration', restoration);
         
-        const photosBefore = document.getElementById('defectPhotosBefore')?.files;
+        const photosBefore = getSelectedDefectPhotoFiles();
         if (photosBefore) {
             for (let i = 0; i < photosBefore.length; i++) {
                 formData.append('photos', photosBefore[i]);
@@ -3443,6 +3582,79 @@ function formatDateTime(str) {
     });
 }
 
+function formatPrintDateLong(date = new Date()) {
+    const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `«${day}» ${month} ${year} г.`;
+}
+
+function formatActNumberDate(date = new Date()) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}${month}${year}`;
+}
+
+function renderPrintLine(value = '', className = '') {
+    const safeValue = value ? escapeHtml(String(value)) : '&nbsp;';
+    return `<span class="line-fill ${className}">${safeValue}</span>`;
+}
+
+function getDefectPrintLocation(defect) {
+    const category = defect?.category || 'Не указано';
+    if (category === 'Окна' && defect?.window_number) {
+        return `Окно ${escapeHtml(String(defect.window_number))}`;
+    }
+    if (category === 'Двери') {
+        return 'Дверь';
+    }
+    return escapeHtml(String(category));
+}
+
+function splitDefectsForPrint(defects) {
+    const pages = [];
+    const firstPageBudget = 17;
+    const otherPagesBudget = 19;
+    let currentPage = [];
+    let currentUnits = 0;
+    let pageBudget = firstPageBudget;
+
+    defects.forEach(defect => {
+        const photosCount = Array.isArray(defect?.photos) ? defect.photos.length : 0;
+        const units = Math.max(1, Math.ceil(photosCount / 3)) + ((defect?.description || '').length > 320 ? 1 : 0);
+
+        if (currentPage.length && currentUnits + units > pageBudget) {
+            pages.push(currentPage);
+            currentPage = [];
+            currentUnits = 0;
+            pageBudget = otherPagesBudget;
+        }
+
+        currentPage.push(defect);
+        currentUnits += units;
+    });
+
+    if (currentPage.length) {
+        pages.push(currentPage);
+    }
+
+    return pages.length ? pages : [[]];
+}
+
+async function getCurrentComplexSequenceNumber() {
+    let complexes = state.complexes;
+    if (!Array.isArray(complexes) || !complexes.length) {
+        const res = await fetch('/api/complexes');
+        complexes = await res.json();
+        state.complexes = Array.isArray(complexes) ? complexes : [];
+    }
+
+    const complexIndex = (complexes || []).findIndex(complex => String(complex.id) === String(state.currentComplex));
+    return complexIndex >= 0 ? complexIndex + 1 : 1;
+}
+
 function isOverdue(deadline, status) {
     if (isClosedDefectStatus(status)) return false;
     return new Date(deadline) < new Date();
@@ -3502,83 +3714,156 @@ async function printDefects() {
         }
         
         const apt = state.currentApartmentData;
-        const propType = state.currentPropertyType;
-        const propLabel = propType === 'апартаменты' ? 'Апартамент' : 'Квартира';
-        const statusLabels = {
-            recorded: 'Зафиксировано',
-            in_progress: 'В работе',
-            on_review: 'На проверке',
-            completed: 'Выполнено',
-            rejected: 'Отклонено',
-            rework: 'Отправленно на доработку'
-        };
+        const complexSequenceNumber = await getCurrentComplexSequenceNumber();
+        const complexAddress = state.currentComplexData?.address?.trim() || '';
+        const now = new Date();
+        const printDate = formatPrintDateLong(now);
+        const photoDate = formatPrintDateLong(now);
+        const actNumber = `${formatActNumberDate(now)}/${complexSequenceNumber}/${apt.number}`;
+        const defectPages = splitDefectsForPrint(defects);
+
+        const renderRowsHtml = (pageDefects, startIndex) => pageDefects.map((d, index) => {
+            const photos = Array.isArray(d.photos) ? d.photos : [];
+            const photoHtml = photos.length
+                ? `<div class="photo-stack">${photos.map((photo, photoIndex) => `<figure class="photo-item"><img src="${window.location.origin}/uploads/${encodeURIComponent(photo.filename)}" alt="Фото ${photoIndex + 1}"><figcaption>Фото ${startIndex + index + 1}.${photoIndex + 1}</figcaption></figure>`).join('')}</div>`
+                : '<div class="photo-placeholder">Новое замечание</div>';
+
+            return `
+                <tr class="defect-print-item">
+                    <td class="num-cell">${startIndex + index + 1}.</td>
+                    <td class="place-cell">${getDefectPrintLocation(d)}</td>
+                    <td class="desc-cell">${escapeHtml(d.description || '')}</td>
+                    <td class="photo-cell">${photoHtml}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const printPagesHtml = defectPages.map((pageDefects, pageIndex) => {
+            const startIndex = defectPages.slice(0, pageIndex).reduce((sum, page) => sum + page.length, 0);
+            const footerText = pageIndex === 0 ? '' : `Продолжение акта № ${actNumber}`;
+
+            return `
+                <section class="print-page ${pageIndex === 0 ? 'first-page' : 'continued-page'}">
+                    ${pageIndex === 0 ? `
+                        <div class="act-title">АКТ № ${actNumber}</div>
+                        <div class="act-subtitle">осмотра квартиры и фиксации замечаний Дольщика</div>
+
+                        <div class="city-row">
+                            <div>г. ${renderPrintLine('', 'line-city')}</div>
+                            <div>${printDate}</div>
+                        </div>
+
+                        <div class="field-line">Дольщик: ${renderPrintLine('', 'line-person')}<span class="hint">(Фамилия, Имя, Отчество)</span></div>
+                        <div class="field-line">Подрядчик (Застройщик/уполномоченный представитель): ${renderPrintLine('', 'line-contractor')}<span class="hint">(наименование организации, должность, Фамилия, Имя, Отчество представителя)</span></div>
+                        <div class="field-line">Квартира № ${renderPrintLine(apt.number, 'line-apt-number')}, расположенная по адресу: ${renderPrintLine(complexAddress, 'line-address')}</div>
+
+                        <div class="section">Настоящим актом стороны подтверждают, что Дольщиком предъявлены, а Подрядчиком приняты к рассмотрению замечания к указанной квартире, подлежащие устранению.</div>
+                        <div class="section">Перечень замечаний (недостатков) на текущую дату ${printDate}:</div>
+                    ` : ''}
+
+                    <table class="defect-print-table">
+                        <thead>
+                            <tr>
+                                <th>№</th>
+                                <th>Место замечания</th>
+                                <th>Описание дефекта</th>
+                                <th>Фото</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${renderRowsHtml(pageDefects, startIndex)}
+                        </tbody>
+                    </table>
+
+                    ${pageIndex === defectPages.length - 1 ? `
+                        <div class="section">Подтверждение полноты перечня:</div>
+                        <div>Стороны настоящим удостоверяют, что на дату подписания настоящего акта (текущую дату) акт содержит все замечания, выявленные Дольщиком в результате осмотра указанной квартиры. Иные недостатки, не указанные в настоящем акте, Дольщиком на момент его подписания не предъявляются.</div>
+
+                        <div class="section">Фотоматериалы:</div>
+                        <div>Фотографии, размещённые в столбце «Фото» перечня замечаний, являются неотъемлемой частью настоящего акта. Каждое фото сделано при осмотре квартиры ${photoDate} и достоверно отображает указанный дефект.</div>
+
+                        <div class="section">Обязательства Подрядчика:</div>
+                        <div>Подрядчик обязуется устранить замечания, указанные в настоящем акте, в срок до «__» _________ 20 г. (либо в порядке и сроки, предусмотренные договором). О завершении устранения замечаний Подрядчик уведомляет Дольщика не позднее чем за 3 рабочих дня до даты повторной приёмки.</div>
+
+                        <div class="section">Подписи сторон:</div>
+                        <div class="signature-grid">
+                            <div class="signature-block">
+                                <div><strong>Дольщик</strong></div>
+                                <div class="signature-line">_______________ /________________________/</div>
+                                <div class="hint">(подпись) (расшифровка)</div>
+                            </div>
+                            <div class="signature-block">
+                                <div><strong>Подрядчик</strong></div>
+                                <div class="signature-line">_______________ /________________________/</div>
+                                <div class="hint">(подпись) (расшифровка)</div>
+                            </div>
+                        </div>
+
+                        <div class="section">Дата подписания акта: ${printDate}</div>
+                    ` : ''}
+
+                    <div class="page-footer">${footerText}</div>
+                </section>
+            `;
+        }).join('');
         
         let html = `
             <!DOCTYPE html>
-            <html>
+            <html lang="ru">
             <head>
                 <meta charset="UTF-8">
-                <title>Замечания - ${propLabel} ${apt.number}</title>
+                <title>Акт № ${actNumber}</title>
                 <style>
-                    body{font-family:Arial,sans-serif;padding:20px;font-size:12px}
-                    h1{font-size:18px;margin-bottom:5px}
-                    .meta{color:#666;margin-bottom:20px}
-                    .defect{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #ddd}
-                    .defect:last-child{border-bottom:none}
-                    .defect-header{display:flex;gap:10px;margin-bottom:8px}
-                    .badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:bold}
-                     .badge-recorded{background:#fff7ed;color:#c2410c}
-                     .badge-progress{background:#fef3c7;color:#92400e}
-                     .badge-on_review{background:#ecfeff;color:#0f766e}
-                     .badge-completed{background:#dcfce7;color:#166534}
-                     .badge-rejected{background:#f3f4f6;color:#374151}
-                     .badge-rework{background:#fef2f2;color:#b91c1c}
-                    .cat{background:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:10px}
-                    .desc{line-height:1.5}
-                    .items{margin-top:8px;padding-left:20px}
-                    .item{display:flex;gap:10px;padding:4px 0}
-                    .item-status{width:80px;color:#666}
-                    .date{color:#999;font-size:10px;margin-top:4px}
-                    @media print{body{padding:0}.defect{page-break-inside:avoid}}
+                    @page { margin: 12mm; }
+                    body { font-family: "Times New Roman", serif; margin: 0; color: #111; font-size: 14px; line-height: 1.45; }
+                    .print-page { padding: 3mm 4mm 6mm; box-sizing: border-box; position: relative; page-break-after: always; }
+                    .print-page:last-child { page-break-after: auto; }
+                    .act-title { text-align: center; font-weight: 700; font-size: 20px; margin: 0 0 4px; }
+                    .act-subtitle { text-align: center; font-weight: 700; font-size: 16px; margin: 0 0 18px; }
+                    .city-row { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+                    .field-line { margin-bottom: 14px; }
+                    .line-fill { display: inline-block; border-bottom: 1px solid #111; min-height: 18px; vertical-align: baseline; padding: 0 4px 2px; }
+                    .line-city { min-width: 170px; }
+                    .line-person { min-width: 460px; }
+                    .line-contractor { min-width: 420px; }
+                    .line-apt-number { min-width: 52px; text-align: center; }
+                    .line-address { min-width: 360px; }
+                    .hint { display: block; font-size: 12px; color: #444; margin-top: 3px; }
+                    .section { margin-top: 16px; }
+                    .defect-print-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                    .defect-print-table th,
+                    .defect-print-table td { border: 1px solid #111; padding: 8px; vertical-align: top; }
+                    .defect-print-table th { text-align: left; }
+                    .num-cell { width: 42px; }
+                    .place-cell { width: 22%; }
+                    .desc-cell { width: 38%; }
+                    .photo-stack { display: flex; flex-wrap: wrap; gap: 8px; }
+                    .photo-item { margin: 0; width: 150px; }
+                    .photo-item img { width: 100%; max-height: 120px; object-fit: cover; border: 1px solid #999; display: block; }
+                    .photo-item figcaption { font-size: 11px; text-align: center; margin-top: 3px; }
+                    .photo-placeholder { color: #666; font-style: italic; }
+                    .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 24px; }
+                    .signature-block { margin-top: 18px; }
+                    .signature-line { margin-top: 36px; }
+                    .page-footer { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; color: #555; text-align: right; padding: 0 4mm 0.5mm; }
+                    @media print {
+                        body { margin: 0; }
+                        .defect-print-item { page-break-inside: avoid; }
+                    }
                 </style>
             </head>
             <body>
-                <h1>Замечания - ${propLabel} ${apt.number}</h1>
-                <p class="meta">${apt.building_number > 1 ? `Корпус ${apt.building_number}, Секция ${apt.section_number}` : `Секция ${apt.section_number}`} | Этаж ${apt.floor} | ${defects.length} ${pluralize(defects.length, 'замечание', 'замечания', 'замечаний')}</p>
-        `;
-        
-        defects.forEach(d => {
-            html += `
-                <div class="defect">
-                    <div class="defect-header">
-                        <span class="badge badge-${d.status}">${statusLabels[d.status] || d.status}</span>
-                        <span class="cat">${escapeHtml(d.category)}</span>
-                    </div>
-                    <p class="desc">${escapeHtml(d.description)}</p>
-                    ${d.contractor_name ? `<p class="date">Подрядчик: ${escapeHtml(d.contractor_name)}</p>` : ''}
+                ${printPagesHtml}
             `;
-            
-            if (d.items?.length) {
-                html += '<div class="items">';
-                d.items.forEach(item => {
-                    html += `<div class="item"><span class="item-status">${statusLabels[item.status] || item.status}</span><span>${escapeHtml(item.text)}</span></div>`;
-                });
-                html += '</div>';
-            }
-            
-            if (d.deadline) {
-                html += `<p class="date">Срок: ${formatDate(d.deadline)}</p>`;
-            }
-            
-            html += '</div>';
-        });
-        
+
         html += '</body></html>';
         
         const win = window.open('', '_blank');
+        if (!win) return;
         win.document.write(html);
         win.document.close();
-        win.print();
+        win.document.title = `Акт № ${actNumber}`;
+        setTimeout(() => win.print(), 150);
     } catch (err) {
         showToast('Ошибка печати', 'error');
     }

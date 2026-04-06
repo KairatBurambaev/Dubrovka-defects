@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9611">
-    <script src="/static/app.js?v=9457"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9616">
+    <script src="/static/app.js?v=9467"></script>
 </head>
 <body>
     <div class="app">
@@ -17,8 +17,9 @@
             <header class="header">
                 <div class="header-left">
                     <div id="pageTitle" class="clickable-title title-stack">
-                        <span class="title-line title-primary">
+                        <span class="title-line title-primary apartment-title-row">
                             <span id="jkName" onclick="onTitleClick()">Перспектива</span>
+                            <button id="headerPrintBtn" class="btn btn-sm apartment-header-print" onclick="printDefects()" style="display:none;">Печать</button>
                         </span>
                         <span class="title-line title-secondary" id="titleSecondary">− инжиниринг −</span>
                         <div class="header-sub" id="pageSubtitle"></div>
@@ -35,6 +36,9 @@
                     </select>
                 </div>
                 <div class="header-center">
+                    <div class="apartment-header-actions" id="apartmentHeaderActions" style="display:none;">
+                        <button class="btn btn-sm" onclick="showAddDefectForm()">Добавить замечание</button>
+                    </div>
                     <!-- Section and Category filters -->
                     <div class="header-filters" id="headerFilters" style="display:none;">
                         <div class="section-filter-wrapper" id="sectionFilterWrapper" style="display:none;">
@@ -199,17 +203,8 @@
                         </div>
 
                          <div class="panel">
-                             <div class="panel-header">
-                                 <div class="panel-title-container">
-                                     <span class="panel-title">Замечания</span>
-                                 </div>
-                                 <div class="panel-actions">
-                                     <button class="btn btn-sm" onclick="showAddDefectForm()">Добавить замечание</button>
-                                     <button class="btn btn-sm" onclick="printDefects()">Печать</button>
-                                 </div>
-                             </div>
-                             <div id="defectsList"></div>
-                         </div>
+                              <div id="defectsList"></div>
+                          </div>
                     </div>
 
                     <div class="detail-main"></div>
@@ -260,12 +255,18 @@
                         </div>
                     </div>
 
-                    <div class="defect-form-section">
+                        <div class="defect-form-section">
                         <div class="defect-form-section-title">Фото</div>
                         <div class="form-field">
                             <div class="upload-zone" id="fileUploadArea">
                                 <input type="file" id="defectPhotosBefore" multiple accept="image/*" hidden>
+                                <input type="file" id="defectPhotosBeforeGallery" multiple accept="image/*" hidden>
+                                <input type="file" id="defectPhotosBeforeCamera" accept="image/*" capture="environment" hidden>
                                 Перетащите фото или нажмите для выбора
+                            </div>
+                            <div class="defect-photo-mobile-actions">
+                                <button type="button" class="btn btn-secondary" onclick="openDefectGallery()">Галерея</button>
+                                <button type="button" class="btn btn-primary" onclick="openDefectCamera()">Камера</button>
                             </div>
                             <div id="previewGridBefore" class="previews"></div>
                         </div>

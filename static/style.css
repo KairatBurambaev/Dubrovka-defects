@@ -106,6 +106,28 @@
 }
 
 @media (min-width: 769px) {
+  .apartment-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+
+  .apartment-header-print {
+    flex: 0 0 auto;
+    margin-left: 6px;
+  }
+
+  .apartment-header-actions {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .apartment-header-actions .btn {
+    min-width: 220px;
+  }
+
   body.page-complex-detail .complex-detail-content {
     padding: 0 20px 20px;
   }
@@ -129,8 +151,20 @@
     align-items: center;
   }
 
+  body.page-apartment-detail .header-center {
+    justify-content: center;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
   body.page-apartment-detail .header-left {
     min-width: 0;
+    align-self: center;
+  }
+
+  body.page-apartment-detail .header-right {
+    align-self: center;
+    justify-content: flex-end;
   }
 
   body.page-apartment-detail .header-sub {
@@ -150,6 +184,10 @@
 
   body.page-apartment-detail .panel {
     border-radius: 16px;
+  }
+
+  body.page-apartment-detail #defectsList {
+    padding-top: 12px;
   }
 
   body.page-apartment-detail .panel-header {
@@ -194,6 +232,20 @@
 }
 
 @media (max-width: 768px) {
+  .apartment-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .apartment-header-print {
+    min-height: 32px !important;
+    height: 32px;
+    padding: 0 10px !important;
+    margin-left: 0;
+  }
+
   body.page-complex-detail .header {
     grid-template-columns: 1fr;
     padding: max(10px, env(safe-area-inset-top)) 12px 10px;
@@ -349,6 +401,43 @@ body.page-apartment-detail .defect-card-footer {
   gap: 8px;
 }
 
+body.page-apartment-detail .apartment-header-print,
+body.page-apartment-detail .apartment-header-actions .btn,
+body.page-apartment-detail #defectsList .btn,
+body.page-apartment-detail #defectsList .defect-status-badge,
+body.page-apartment-detail #defectsList .defect-compact-status,
+body.page-apartment-detail #defectsList .defect-photos-toggle,
+body.page-apartment-detail #defectsList .defect-edit-btn {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  will-change: transform;
+}
+
+body.page-apartment-detail .apartment-header-print:hover,
+body.page-apartment-detail .apartment-header-actions .btn:hover,
+body.page-apartment-detail #defectsList .btn:hover,
+body.page-apartment-detail #defectsList .defect-status-badge:hover,
+body.page-apartment-detail #defectsList .defect-compact-status:hover,
+body.page-apartment-detail #defectsList .defect-photos-toggle:hover,
+body.page-apartment-detail #defectsList .defect-edit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+}
+
+body.page-apartment-detail .apartment-header-print:active,
+body.page-apartment-detail .apartment-header-actions .btn:active,
+body.page-apartment-detail #defectsList .btn:active,
+body.page-apartment-detail #defectsList .defect-status-badge:active,
+body.page-apartment-detail #defectsList .defect-compact-status:active,
+body.page-apartment-detail #defectsList .defect-photos-toggle:active,
+body.page-apartment-detail #defectsList .defect-edit-btn:active {
+  transform: scale(0.96);
+}
+
+body.page-apartment-detail #defectsList .defect-photos-toggle:hover,
+body.page-apartment-detail #defectsList .defect-edit-btn:hover {
+  filter: brightness(0.98);
+}
+
 @media (max-width: 768px) {
   body.page-apartment-detail .header {
     display: grid;
@@ -362,9 +451,23 @@ body.page-apartment-detail .defect-card-footer {
     width: 100%;
   }
 
-  body.page-apartment-detail .header-center,
   body.page-apartment-detail .mobile-dropdown-filter {
     display: none !important;
+  }
+
+  body.page-apartment-detail .header-center {
+    display: flex !important;
+    justify-content: center;
+    width: 100%;
+  }
+
+  body.page-apartment-detail .apartment-header-actions {
+    width: 100%;
+    margin-top: 2px;
+  }
+
+  body.page-apartment-detail .apartment-header-actions .btn {
+    width: 100%;
   }
 
   body.page-apartment-detail .title-primary {
@@ -429,6 +532,7 @@ body.page-apartment-detail .defect-card-footer {
   body.page-apartment-detail #defectsList {
     padding-left: 12px;
     padding-right: 12px;
+    padding-top: 12px;
   }
 
   body.page-apartment-detail .phone-row {
@@ -589,6 +693,17 @@ body.page-apartment-detail .defect-card-footer {
     border-radius: 14px;
     font-size: 13px;
     line-height: 1.35;
+  }
+
+  .defect-photo-mobile-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .defect-photo-mobile-actions .btn {
+    width: 100%;
   }
 
   .defect-form .previews {
@@ -4314,6 +4429,17 @@ body.page-create-complex .mobile-filter-buttons {
 .upload-zone.dragover {
   border-color: var(--primary);
   background: var(--primary-subtle);
+}
+
+.defect-photo-mobile-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.defect-photo-mobile-actions .btn {
+  width: 100%;
 }
 
 .previews {
