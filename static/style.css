@@ -113,20 +113,27 @@
     flex-wrap: nowrap;
   }
 
-  .apartment-header-print {
-    flex: 0 0 auto;
-    margin-left: 6px;
-  }
+.apartment-header-print {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  min-height: 36px !important;
+  height: 36px;
+  padding: 0 14px !important;
+}
 
-  .apartment-header-actions {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-  }
+.apartment-header-actions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  align-items: center;
+}
 
-  .apartment-header-actions .btn {
-    min-width: 220px;
-  }
+.apartment-header-actions .btn {
+  min-width: 220px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 14px !important;
+}
 
   body.page-complex-detail .complex-detail-content {
     padding: 0 20px 20px;
@@ -2358,6 +2365,12 @@ h1 {
   color: #fff;
 }
 
+.pill[data-filter="on_review"]:hover {
+  background: #7de3d6;
+  border-color: #7de3d6;
+  color: #0f172a;
+}
+
 .pill[data-filter="owner_accepted"]:hover {
   background: #34d399;
   border-color: #34d399;
@@ -2390,6 +2403,12 @@ h1 {
   background: #1f2937;
   border-color: #1f2937;
   color: #ffffff;
+}
+
+.pill[data-filter="on_review"].active {
+  background: #7de3d6;
+  border-color: #7de3d6;
+  color: #0f172a;
 }
 
 .pill[data-filter="call"].active {
@@ -7953,6 +7972,12 @@ body {
     color: #92400e;
   }
 
+  .mobile-filter-btn[data-filter="on_review"].active {
+    background: #ccfbf1;
+    border-color: #5eead4;
+    color: #115e59;
+  }
+
   .mobile-filter-btn[data-filter="call"].active {
     background: #f3e8ff;
     border-color: #a855f7;
@@ -8063,7 +8088,7 @@ body {
 }
 
 .section-group {
-  padding: 12px;
+  padding: 10px;
 }
 
 .section-group-header {
@@ -8993,7 +9018,7 @@ body {
 }
 
 .section-group-header {
-  padding: 2px 2px 10px;
+  padding: 0 0 6px;
   align-items: center;
 }
 
@@ -9012,7 +9037,7 @@ body {
 }
 
 .section-header {
-  padding: 14px 18px;
+  padding: 8px 12px 6px;
   background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(243,244,246,0.92) 100%);
   border-bottom: 1px solid #e2e8f0;
 }
@@ -9033,7 +9058,7 @@ body {
 }
 
 .section-body-container {
-  padding: 14px 16px 16px;
+  padding: 10px 12px 12px;
 }
 
 .section-body {

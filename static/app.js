@@ -25,16 +25,17 @@ const state = {
 };
 
 // Global filter constants
-const FILTERS = ['', 'defects', 'in_progress', 'call', 'owner_accepted', 'complex', 'no_access'];
-const FILTER_NAMES = ['Все', 'С замечаниями', 'В работе', 'Вызваные квартиры', 'Принята', 'Сложные', 'Нет доступа'];
+const FILTERS = ['', 'defects', 'on_review', 'in_progress', 'call', 'owner_accepted', 'complex', 'no_access'];
+const FILTER_NAMES = ['Все', 'С замечаниями', 'На проверке', 'В работе', 'Вызваные квартиры', 'Принята', 'Сложные', 'Нет доступа'];
 const FILTER_INDEXES = {
     '': 0,
     'defects': 1,
-    'in_progress': 2,
-    'call': 3,
-    'owner_accepted': 4,
-    'complex': 5,
-    'no_access': 6
+    'on_review': 2,
+    'in_progress': 3,
+    'call': 4,
+    'owner_accepted': 5,
+    'complex': 6,
+    'no_access': 7
 };
 const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
 const DEFECT_STATUS_LABELS = {
@@ -1447,6 +1448,9 @@ async function loadApartments() {
 
         if (state.accessFilter) {
             apts = apts.filter(a => {
+                if (state.accessFilter === 'on_review') {
+                    return Number(a.on_review_defects_count || 0) > 0;
+                }
                 if (state.accessFilter === 'owner_accepted') {
                     return isAcceptedApartment(a);
                 }
