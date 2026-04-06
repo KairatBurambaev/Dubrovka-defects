@@ -2604,22 +2604,8 @@ function renderDefectCompactRow(d, index) {
     const afterPhotos = allPhotos.filter(p => p.photo_type === 'after');
     const hasBeforePhotos = beforePhotos.length > 0;
     const hasAfterPhotos = afterPhotos.length > 0;
-
-    const renderPhotos = (photos, label) => {
-        if (!photos.length) return '';
-        return `
-            <div class="defect-photos-row">
-                <span class="defect-photos-label">${label}</span>
-                <div class="defect-photos-grid">
-                    ${photos.map(photo => `
-                        <img class="defect-photo-thumb" src="/uploads/${encodeURIComponent(photo.filename)}" 
-                             onclick="showPhoto('/uploads/${encodeURIComponent(photo.filename)}')" 
-                             alt="Фото">
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    };
+    const beforePhotoUrls = beforePhotos.map(photo => `/uploads/${encodeURIComponent(photo.filename)}`);
+    const afterPhotoUrls = afterPhotos.map(photo => `/uploads/${encodeURIComponent(photo.filename)}`);
 
     return `
         <div class="defect-compact-row" data-defect-id="${d.id}" data-restoration="${isRestoration ? 1 : 0}">
@@ -2631,21 +2617,15 @@ function renderDefectCompactRow(d, index) {
                     <span class="defect-compact-date">${fixedAt || '—'}</span>
                 </div>
                 <span class="defect-compact-desc">${summaryHtml}</span>
-                ${executorName ? `<span class="defect-compact-executor"><span class="defect-compact-executor-icon">${getExecutorIcon()}</span>${escapeHtml(executorName)}</span>` : ''}
                 <div class="defect-compact-actions">
-                    ${hasBeforePhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('before', ${d.id}, event)">📷 До (${beforePhotos.length})</span>` : ''}
-                    ${hasAfterPhotos ? `<span class="defect-photos-toggle" onclick="toggleDefectPhotos('after', ${d.id}, event)">📷 После (${afterPhotos.length})</span>` : ''}
                     <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</span>
+                    ${hasBeforePhotos ? `<button type="button" class="defect-photos-toggle defect-photos-icon-btn" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(beforePhotoUrls)}, 0)'><span class="defect-photos-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg></span><span class="defect-photos-count">${beforePhotos.length}</span></button>` : ''}
+                    ${hasAfterPhotos ? `<button type="button" class="defect-photos-toggle defect-photos-icon-btn" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(afterPhotoUrls)}, 0)'><span class="defect-photos-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg></span><span class="defect-photos-count">${afterPhotos.length}</span></button>` : ''}
+                    ${executorName ? `<span class="defect-compact-executor"><span class="defect-compact-executor-icon">${getExecutorIcon()}</span>${escapeHtml(executorName)}</span>` : ''}
                     ${isDefectEditable(d) ? `<span class="defect-edit-btn" onclick="event.stopPropagation(); showDefectActionsForId(${d.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>` : ''}
                 </div>
             </div>
             <input type="hidden" id="defectStatus_${d.id}" value="${escapeHtml(d.status)}">
-            <div class="defect-photos-container" id="photos-before-${d.id}" style="display:none;">
-                ${renderPhotos(beforePhotos, 'До')}
-            </div>
-            <div class="defect-photos-container" id="photos-after-${d.id}" style="display:none;">
-                ${renderPhotos(afterPhotos, 'После')}
-            </div>
         </div>
     `;
 }
