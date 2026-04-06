@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9616">
-    <script src="/static/app.js?v=9467"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9623">
+    <script src="/static/app.js?v=9470"></script>
 </head>
 <body>
     <div class="app">
@@ -81,6 +81,7 @@
                     </div>
                 </div>
                 <div class="header-right">
+                    <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Показать замечания</button>
                     <button class="pill pill-stats" id="statsBtn" onclick="showStatsModal()" style="display:none;">Статистика</button>
                     <!-- Apartment status buttons -->
                     <div class="toolbar-status" id="toolbarStatus" style="display:none;">
@@ -338,6 +339,18 @@
             <div class="modal-footer defect-comments-footer">
                 <textarea id="defectCommentInput" placeholder="Напишите комментарий"></textarea>
                 <button class="btn btn-primary btn-sm" onclick="submitDefectComment()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="filteredDefectsModal" class="modal" onclick="closeFilteredDefectsModal(event)">
+        <div class="modal-content filtered-defects-modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <button class="btn btn-primary" onclick="printFilteredDefects()">Печать</button>
+                <h3>Замечания по отфильтрованным квартирам</h3>
+            </div>
+            <div class="modal-body" id="filteredDefectsBody"></div>
+            <div class="modal-footer filtered-defects-footer">
             </div>
         </div>
     </div>

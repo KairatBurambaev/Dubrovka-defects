@@ -412,6 +412,13 @@ body.page-apartment-detail #defectsList .defect-edit-btn {
   will-change: transform;
 }
 
+body.page-apartment-detail .apartment-header-print,
+body.page-apartment-detail .apartment-header-actions .btn,
+.filtered-defects-modal .modal-header .btn {
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease !important;
+  will-change: auto;
+}
+
 body.page-apartment-detail .apartment-header-print:hover,
 body.page-apartment-detail .apartment-header-actions .btn:hover,
 body.page-apartment-detail #defectsList .btn:hover,
@@ -423,6 +430,13 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
 }
 
+body.page-apartment-detail .apartment-header-print:hover,
+body.page-apartment-detail .apartment-header-actions .btn:hover,
+.filtered-defects-modal .modal-header .btn:hover {
+  transform: none !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16) !important;
+}
+
 body.page-apartment-detail .apartment-header-print:active,
 body.page-apartment-detail .apartment-header-actions .btn:active,
 body.page-apartment-detail #defectsList .btn:active,
@@ -431,6 +445,29 @@ body.page-apartment-detail #defectsList .defect-compact-status:active,
 body.page-apartment-detail #defectsList .defect-photos-toggle:active,
 body.page-apartment-detail #defectsList .defect-edit-btn:active {
   transform: scale(0.96);
+}
+
+body.page-apartment-detail .apartment-header-print:active,
+body.page-apartment-detail .apartment-header-actions .btn:active,
+.filtered-defects-modal .modal-header .btn:active {
+  transform: none !important;
+}
+
+body.page-apartment-detail .apartment-header-print,
+body.page-apartment-detail .apartment-header-actions .btn,
+.filtered-defects-modal .modal-header .btn {
+  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+  border-color: #9ca3af;
+  color: #111 !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+}
+
+body.page-apartment-detail .apartment-header-print:hover,
+body.page-apartment-detail .apartment-header-actions .btn:hover,
+.filtered-defects-modal .modal-header .btn:hover {
+  background: linear-gradient(135deg, #111827 0%, #000000 100%) !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
 }
 
 body.page-apartment-detail #defectsList .defect-photos-toggle:hover,
@@ -853,6 +890,97 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
   }
 }
 
+.filtered-defects-modal {
+  width: min(980px, 94vw);
+  max-width: min(980px, 94vw);
+}
+
+.filtered-defects-group + .filtered-defects-group {
+  margin-top: 18px;
+}
+
+.filtered-defects-group-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.filtered-defects-group-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.filtered-defects-table-wrap {
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.filtered-defects-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.filtered-defects-table th,
+.filtered-defects-table td {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+  text-align: left;
+}
+
+.filtered-defects-table th {
+  background: var(--gray-lightest);
+  font-size: 12px;
+}
+
+.filtered-defects-table th:first-child,
+.filtered-defects-table td:first-child,
+.filtered-defects-table th:last-child,
+.filtered-defects-table td:last-child {
+  width: 160px;
+}
+
+.filtered-defect-status {
+  min-width: 140px;
+  width: 100%;
+  justify-content: center;
+}
+
+.filtered-defects-footer {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .filtered-defects-modal {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .filtered-defects-table th,
+  .filtered-defects-table td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .filtered-defects-table th:first-child,
+  .filtered-defects-table td:first-child,
+  .filtered-defects-table th:last-child,
+  .filtered-defects-table td:last-child {
+    width: 120px;
+  }
+
+  .filtered-defect-status {
+    min-width: 0;
+  }
+
+  .filtered-defects-footer {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { scroll-behavior: smooth; }
@@ -1248,7 +1376,7 @@ body {
 }
 
 .clickable-title:hover {
-  opacity: 0.7;
+  opacity: 1;
 }
 
 /* Hover effects for buttons */
@@ -1523,8 +1651,44 @@ body {
 }
 
 .toolbar-status .status-item:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.toolbar-status .status-item[data-status="owner_accepted"]:hover {
+  background: #34d399;
+  border-color: #34d399;
+  color: #064e3b;
+}
+
+.toolbar-status .status-item[data-status="call"]:hover {
+  background: #ec4899;
+  border-color: #ec4899;
+  color: #ffffff;
+}
+
+.toolbar-status .status-item[data-status="in_progress"]:hover {
+  background: #fde047;
+  border-color: #facc15;
+  color: #713f12;
+}
+
+.toolbar-status .status-item[data-status="by_phone"]:hover {
+  background: #bae6fd;
+  border-color: #38bdf8;
+  color: #0369a1;
+}
+
+.toolbar-status .status-item[data-status="no_access"]:hover {
+  background: #94a3b8;
   border-color: #94a3b8;
-  background: #f8fafc;
+  color: #ffffff;
+}
+
+.toolbar-status .status-item[data-status="complex"]:hover {
+  background: #ff4040;
+  border-color: #ff4040;
+  color: #ffffff;
 }
 
 .toolbar-status .status-item.active {
@@ -2824,8 +2988,8 @@ h1 {
 }
 
 .status-item:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: none;
+  box-shadow: none;
 }
 
 .status-item.active {

@@ -20,7 +20,8 @@ const state = {
     defectsOnly: false,
     sortByDefects: false,
     loading: false,
-    currentDefects: [] // Store defects for category filtering
+    currentDefects: [], // Store defects for category filtering
+    filteredApartments: []
 };
 
 // Global filter constants
@@ -119,6 +120,7 @@ function cacheElements() {
     elements.statDefects = document.getElementById('statDefects');
     elements.defectFilterPanel = document.getElementById('defectFilterPanel');
     elements.statsBtn = document.getElementById('statsBtn');
+    elements.complexPrintBtn = document.getElementById('complexPrintBtn');
     elements.tabPanels = document.querySelectorAll('.tab-panel');
 }
 
@@ -383,6 +385,10 @@ function updateHeader(showBack, showAdd) {
     if (elements.statsBtn) {
         const showStats = state.currentTab === 'complex-detail' && !!state.currentComplex && !state.currentApartment;
         elements.statsBtn.style.display = showStats ? 'inline-flex' : 'none';
+    }
+    if (elements.complexPrintBtn) {
+        const showComplexPrint = state.currentTab === 'complex-detail' && !!state.currentComplex && !state.currentApartment;
+        elements.complexPrintBtn.style.display = showComplexPrint ? 'inline-flex' : 'none';
     }
     if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'none';
     if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'none';
@@ -1461,10 +1467,13 @@ async function loadApartments() {
         if (pageSubtitle) {
             pageSubtitle.textContent = `${apts.length} ${propName}`;
         }
+
+        state.filteredApartments = Array.isArray(apts) ? [...apts] : [];
         
         renderApartments(apts);
     } catch (err) {
         console.error('Apartments loading failed:', err);
+        state.filteredApartments = [];
         const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
         container.innerHTML = `
             <div class="empty-state">
@@ -3867,6 +3876,177 @@ async function printDefects() {
     } catch (err) {
         showToast('Ошибка печати', 'error');
     }
+}
+
+function getFilteredDefectsForComplexPrint() {
+    const apartmentIds = new Set((state.filteredApartments || []).map(apartment => apartment.id));
+    const categoryFilter = document.getElementById('defectCategoryFilter')?.value || '';
+    const statusFilter = document.getElementById('defectStatusFilter')?.value || '';
+
+    return (state.currentDefects || []).filter(defect => {
+        if (!apartmentIds.has(defect.apartment_id)) return false;
+        if (categoryFilter && defect.category !== categoryFilter) return false;
+        if (statusFilter === 'recorded' && defect.status !== 'recorded') return false;
+        if (statusFilter === 'in_progress' && !['in_progress', 'rework'].includes(defect.status)) return false;
+        if (statusFilter === 'on_review' && defect.status !== 'on_review') return false;
+        if (statusFilter === 'completed' && !isClosedDefectStatus(defect.status)) return false;
+        return true;
+    });
+}
+
+function getFilteredDefectGroups() {
+    const apartments = state.filteredApartments || [];
+    const defects = getFilteredDefectsForComplexPrint();
+    const grouped = new Map();
+
+    defects.forEach(defect => {
+        if (!grouped.has(defect.apartment_id)) grouped.set(defect.apartment_id, []);
+        grouped.get(defect.apartment_id).push(defect);
+    });
+
+    return apartments
+        .filter(apartment => grouped.has(apartment.id))
+        .map(apartment => ({ apartment, defects: grouped.get(apartment.id) || [] }));
+}
+
+function showFilteredDefectsModal() {
+    if (!state.currentComplex) return;
+
+    const groups = getFilteredDefectGroups();
+    if (!groups.length) {
+        showToast('Нет замечаний для показа', 'warning');
+        return;
+    }
+
+    const body = document.getElementById('filteredDefectsBody');
+    const modal = document.getElementById('filteredDefectsModal');
+    if (!body || !modal) return;
+
+    body.innerHTML = groups.map(({ apartment, defects }) => {
+        const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
+        const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
+        const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
+        const meta = [section, floor].filter(Boolean).join(' • ');
+
+        return `
+            <section class="filtered-defects-group">
+                <div class="filtered-defects-group-title">${escapeHtml(apartmentLabel)}</div>
+                ${meta ? `<div class="filtered-defects-group-meta">${escapeHtml(meta)}</div>` : ''}
+                <div class="filtered-defects-table-wrap">
+                    <table class="filtered-defects-table">
+                        <thead>
+                            <tr>
+                                <th>Место</th>
+                                <th>Замечание</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${defects.map(defect => `
+                                <tr>
+                                    <td>${getDefectPrintLocation(defect)}</td>
+                                    <td>${escapeHtml(defect.description || '')}</td>
+                                    <td><span class="filtered-defect-status defect-status-badge ${getDefectStatusBadgeClass(defect.status)}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        `;
+    }).join('');
+
+    modal.classList.add('active');
+}
+
+function closeFilteredDefectsModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('filteredDefectsModal');
+    if (modal) modal.classList.remove('active');
+}
+
+async function printFilteredDefects() {
+    if (!state.currentComplex) return;
+
+    const groups = getFilteredDefectGroups();
+    if (!groups.length) {
+        showToast('Нет замечаний для печати', 'warning');
+        return;
+    }
+
+    const rowsHtml = groups
+        .flatMap(({ apartment, defects }) => {
+            return defects.map((defect, index) => {
+                const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
+                const place = getDefectPrintLocation(defect);
+                const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
+                const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
+                const meta = [section, floor].filter(Boolean).join(' • ');
+                return `
+                    <tr>
+                        <td class="print-col-apartment">${index === 0 ? `${escapeHtml(apartmentLabel)}${meta ? `<div class="print-apartment-meta">${escapeHtml(meta)}</div>` : ''}` : ''}</td>
+                        <td class="print-col-place">${place}</td>
+                        <td class="print-col-desc">${escapeHtml(defect.description || '')}</td>
+                        <td class="print-col-status">${escapeHtml(getDefectStatusLabel(defect.status))}</td>
+                    </tr>
+                `;
+            });
+        })
+        .join('');
+
+    const title = `Замечания по отфильтрованным квартирам`;
+    const subtitle = state.currentComplexData?.name ? escapeHtml(state.currentComplexData.name) : '';
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+        <!DOCTYPE html>
+        <html lang="ru">
+        <head>
+            <meta charset="UTF-8">
+            <title>${title}</title>
+            <style>
+                @page { margin: 12mm; }
+                body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #111; font-size: 12px; }
+                .sheet { padding: 10mm 4mm; }
+                h1 { margin: 0 0 6px; font-size: 18px; }
+                .subtitle { margin-bottom: 14px; color: #555; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { border: 1px solid #111; padding: 6px 8px; vertical-align: top; }
+                th { text-align: left; background: #f5f5f5; }
+                .print-col-apartment { width: 160px; }
+                .print-col-place { width: 120px; }
+                .print-col-status { width: 120px; }
+                .print-apartment-meta { margin-top: 4px; font-size: 11px; color: #666; }
+                tr { page-break-inside: avoid; }
+            </style>
+        </head>
+        <body>
+            <div class="sheet">
+                <h1>${title}</h1>
+                ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Квартира</th>
+                            <th>Место</th>
+                            <th>Замечание</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        </body>
+        </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.document.title = title;
+    setTimeout(() => printWindow.print(), 150);
 }
 
 // Keyboard shortcuts
