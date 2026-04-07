@@ -1920,7 +1920,7 @@ h1 {
 }
 
 .btn.active {
-  background: var(--gray-lightest);
+  background: #ffffff;
   border-color: var(--primary);
   color: var(--primary);
 }
@@ -1942,7 +1942,7 @@ h1 {
 }
 
 .btn-primary.active {
-  background: #e8f0fe;
+  background: #ffffff;
   color: var(--primary);
   border-color: var(--primary);
 }
@@ -1959,26 +1959,36 @@ h1 {
 }
 
 .btn-secondary.active {
-  background: var(--gray-lightest);
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.btn-secondary.active {
   background: #ffffff;
   color: var(--primary);
   border-color: var(--primary);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-primary.active {
+  background: #ffffff;
+  color: #2563eb;
+  border-color: #2563eb;
 }
 
 .btn-secondary {
   background: #ffffff;
   color: var(--text);
-  border: 1px solid var(--border);
 }
 
 .btn-secondary:hover {
-  background: var(--gray-lightest);
-  border-color: var(--gray-light);
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.btn-secondary.active {
+  background: #ffffff;
+  color: #2563eb;
+  border-color: #2563eb;
 }
 
 .btn-ghost {
@@ -2007,59 +2017,68 @@ h1 {
 }
 
 .btn:hover {
-  background: var(--gray-lightest);
-  border-color: var(--gray-light);
+  background: #94a3b8;
+  color: #ffffff;
+  border-color: #94a3b8;
+  color: #ffffff;
 }
 
 .btn-primary {
-  background: var(--primary);
-  color: #ffffff;
-  border: 1px solid var(--primary);
+  background: #ffffff;
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary:hover {
-  background: var(--primary-dark);
-  border-color: var(--primary-dark);
+  background: #94a3b8;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
+  border-color: #94a3b8;
+  color: #ffffff;
 }
 
 .btn-primary:active {
-  background: var(--primary-dark);
-  transform: scale(0.98);
+  transform: translateY(0);
 }
 
 .btn-secondary {
   background: #ffffff;
   color: var(--text);
-  border: 1px solid var(--border);
 }
 
 .btn-secondary:hover {
-  background: var(--gray-lightest);
-  border-color: var(--gray-light);
+  background: #94a3b8;
+  color: #ffffff;
+  border-color: #94a3b8;
+  color: #ffffff;
 }
 
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);
-  border: none;
+  border-color: transparent;
 }
 
 .btn-ghost:hover {
-  background: var(--gray-lightest);
-  border-color: var(--gray-light);
-  color: var(--text);
+  background: #94a3b8;
+  color: #ffffff;
+  border-color: #94a3b8;
+  color: #ffffff;
 }
 
 .btn-danger {
   background: #ffffff;
   color: var(--danger);
-  border: 1px solid var(--border);
+  border-color: var(--danger);
 }
 
 .btn-danger:hover {
-  background: #fef2f2;
-  border-color: var(--danger);
-  color: var(--danger);
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+  transform: translateY(-1px);
 }
 
 .btn-sm {
@@ -2402,25 +2421,22 @@ h1 {
 }
 
 .pill.active {
-  background: var(--gray-lightest);
+  background: #fff;
 }
 
 .pill[data-filter="in_progress"].active {
   border-color: #fbbc04;
   color: #f59e0b;
-  background: #fef7e0;
 }
 
 .pill[data-filter="defects"].active {
   border-color: var(--dark);
   color: var(--dark);
-  background: #e2e8f0;
 }
 
 .pill[data-filter="call"].active {
   border-color: #ec4899;
   color: #ec4899;
-  background: #fce7f3;
 }
 
 .pill[data-filter="on_review"]:hover {
@@ -3066,50 +3082,41 @@ h1 {
 }
 
 .status-item.active {
-  background: var(--gray-lightest);
+  background: #ffffff;
 }
 
 .status-item[data-status="owner_accepted"].active {
   border-color: #34d399;
   color: #059669;
-  background: #d1fae5;
 }
 
 .status-item[data-status="call"].active {
   border-color: #ec4899;
   color: #ec4899;
-  background: #fce7f3;
 }
 
 .status-item[data-status="by_phone"].active {
   border-color: #4285f4;
   color: #4285f4;
-  background: #e8f0fe;
 }
 
 .status-item[data-status="no_access"].active {
   border-color: #94a3b8;
   color: #64748b;
-  background: #f1f5f9;
 }
 
 .status-item[data-status="complex"].active {
   border-color: #ea4335;
   color: #ea4335;
-  background: #fce8e6;
 }
 
 .status-item[data-status="in_progress"].active {
   border-color: #fbbc04;
   color: #f59e0b;
-  background: #fef7e0;
 }
 
 .status-item[data-status="available"].active {
   border-color: #9ca3af;
-  color: #6b7280;
-  background: #f3f4f6;
-}
   color: #6b7280;
 }
 
