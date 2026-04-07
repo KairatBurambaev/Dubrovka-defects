@@ -4111,9 +4111,11 @@ async function printFilteredDefects() {
                 const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
                 const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
                 const meta = [section, floor].filter(Boolean).join(' • ');
+                const statusLabel = apartment.access_status ? getAccessStatusName(apartment.access_status) : '';
+                const statusClass = apartment.access_status ? `print-status-${apartment.access_status}` : '';
                 return `
                     <tr>
-                        <td class="print-col-apartment">${index === 0 ? `${escapeHtml(apartmentLabel)}${meta ? `<div class="print-apartment-meta">${escapeHtml(meta)}</div>` : ''}` : ''}</td>
+                        <td class="print-col-apartment">${index === 0 ? `${escapeHtml(apartmentLabel)}${meta ? `<div class="print-apartment-meta">${escapeHtml(meta)}</div>` : ''}${statusLabel ? `<div class="print-apartment-status ${statusClass}">${escapeHtml(statusLabel)}</div>` : ''}` : ''}</td>
                         <td class="print-col-place">${place}</td>
                         <td class="print-col-desc">${escapeHtml(defect.description || '')}</td>
                         <td class="print-col-status">${escapeHtml(getDefectStatusLabel(defect.status))}</td>
@@ -4147,6 +4149,13 @@ async function printFilteredDefects() {
                 .print-col-place { width: 120px; }
                 .print-col-status { width: 120px; }
                 .print-apartment-meta { margin-top: 4px; font-size: 11px; color: #666; }
+                .print-apartment-status { margin-top: 4px; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+                .print-status-owner_accepted { background: #d1fae5; color: #059669; }
+                .print-status-call { background: #fce7f3; color: #ec4899; }
+                .print-status-in_progress { background: #fef7e0; color: #f59e0b; }
+                .print-status-no_access { background: #f1f3f4; color: #5f6368; }
+                .print-status-complex { background: #fce8e6; color: #ea4335; }
+                .print-status-by_phone { background: #e8f0fe; color: #4285f4; }
                 tr { page-break-inside: avoid; }
             </style>
         </head>
