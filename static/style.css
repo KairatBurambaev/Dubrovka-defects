@@ -3530,7 +3530,7 @@ h1 {
 }
 
 .defect-compact-status.badge-new { background: var(--danger-subtle); color: var(--danger); }
-.defect-compact-status.badge-recorded { background: var(--warning-subtle); color: var(--warning); }
+.defect-compact-status.badge-recorded { background: #e8f0fe; color: #4285f4; }
 .defect-compact-status.badge-assigned { background: var(--info-subtle); color: var(--info); }
 .defect-compact-status.badge-in_progress { background: var(--primary-subtle); color: var(--primary); }
 .defect-compact-status.badge-ready_for_acceptance { background: #e0e7ff; color: #4338ca; }
@@ -4019,8 +4019,8 @@ h1 {
 }
 
 .defect-status-badge.badge-recorded {
-  background: #fff7ed;
-  color: #c2410c;
+  background: #e8f0fe;
+  color: #4285f4;
 }
 
 .defect-status-badge.badge-progress {
