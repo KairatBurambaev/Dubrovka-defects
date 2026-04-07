@@ -3717,6 +3717,7 @@ h1 {
   gap: 10px;
   min-width: 0;
   flex-wrap: wrap;
+  margin-bottom: 8px;
 }
 
 .defect-card-header-spacer {
@@ -3727,6 +3728,37 @@ h1 {
   font-size: 12px;
   color: #64748b;
   font-weight: 500;
+}
+
+.defect-photos-toggle-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.defect-photos-toggle-mini:hover {
+  background: #e2e8f0;
+}
+
+.defect-executor-input {
+  width: 180px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.defect-executor-input:focus {
+  outline: none;
+  border-color: #3b82f6;
 }
 
 .defect-window {

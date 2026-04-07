@@ -220,6 +220,13 @@ function setupEventListeners() {
                 }
             }
         });
+        elements.defectsList.addEventListener('input', (e) => {
+            const row = e.target.closest('.defect-row');
+            if (row) {
+                markDefectRowDirty(row);
+                scheduleDefectAutosave(row);
+            }
+        });
     }
 
     window.addEventListener('resize', handleViewportResize);
@@ -2471,18 +2478,22 @@ function renderDefectCard(d, index) {
     const summaryText = escapeHtml(getDefectSummaryText(d));
     const fixedAt = formatDate(d.created_at);
     const windowNumber = d.window_number ?? '';
-    const mediaHtml = renderDefectMedia(d.photos);
+    const photos = d.photos || [];
+    const photoCount = photos.length;
+    const mediaHtml = renderDefectMedia(photos);
     const statusLabel = getDefectStatusLabel(d.status);
     const statusBadgeClass = getDefectStatusBadgeClass(d.status);
     const windowChipText = getWindowChipText(windowNumber) || 'Без окна';
     const commentsCount = Number(d.comments_count || 0);
+    const executorValue = escapeHtml(d.executor || '');
 
     return `
         <div class="defect-row defect-row-card" data-defect-id="${d.id}" style="animation: slideIn 0.25s ease ${index * 0.03}s both;">
             <div class="defect-card-header">
                 <div class="defect-card-header-meta">
                     <span class="defect-date">${fixedAt || 'Без даты'}</span>
-                    <span class="defect-window">${windowChipText}</span>
+                    ${photoCount ? `<button type="button" class="defect-photos-toggle-mini" onclick='openDefectPhoto(${JSON.stringify(photos.map(p => `/uploads/${encodeURIComponent(p.filename)}`))}, 0)'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg> ${photoCount}</button>` : ''}
+                    <input type="text" id="defectExecutor_${d.id}" class="input defect-executor-input" placeholder="Подрядчик / Монтажник" value="${executorValue}" style="width: 180px;">
                 </div>
                 <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</button>
                 <span class="defect-card-header-spacer" aria-hidden="true"></span>
@@ -2531,23 +2542,6 @@ function renderDefects(defects) {
     const categories = [...orderedCategories, ...extraCategories];
 
     container.innerHTML = `
-        <div class="defect-categories-grid">
-            ${categories.map(category => {
-                const categoryDefects = grouped[category] || [];
-                const count = categoryDefects.length;
-                const openCount = categoryDefects.filter(d => !['accepted', 'cancelled'].includes(d.status)).length;
-                return `
-                    <div class="defect-category-card" onclick="toggleCategoryDefects('${escapeHtml(category)}')">
-                        <div class="defect-category-icon">${getCategoryIcon(category)}</div>
-                        <div class="defect-category-name">${escapeHtml(category)}</div>
-                        <div class="defect-category-count">
-                            <span class="count-total">${count}</span>
-                            ${openCount > 0 ? `<span class="count-open">${openCount}</span>` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('')}
-        </div>
         <div class="defects-by-category">
             ${categories.map((category, idx) => {
                 const categoryDefects = grouped[category] || [];
@@ -2763,6 +2757,8 @@ async function saveDefectMeta(id, options = {}) {
     const { silentSuccess = false } = options;
     const contractorField = document.getElementById(`defectContractor_${id}`);
     const contractorId = contractorField ? contractorField.value : null;
+    const executorField = document.getElementById(`defectExecutor_${id}`);
+    const executor = executorField ? executorField.value.trim() : '';
     const description = document.getElementById(`defectDescription_${id}`)?.value.trim() || '';
     const commentText = document.getElementById(`defectCommentText_${id}`)?.value.trim() || '';
     const status = document.getElementById(`defectStatus_${id}`)?.value || '';
@@ -2775,7 +2771,7 @@ async function saveDefectMeta(id, options = {}) {
                 body: `status=${encodeURIComponent(status)}`
             });
         }
-        const metaBody = `contractor_id=${encodeURIComponent(contractorId || '')}&comment_text=${encodeURIComponent(commentText)}&description=${encodeURIComponent(description)}`;
+        const metaBody = `contractor_id=${encodeURIComponent(contractorId || '')}&comment_text=${encodeURIComponent(commentText)}&description=${encodeURIComponent(description)}&executor=${encodeURIComponent(executor)}`;
         await fetch(`/api/defects/${id}/meta`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
