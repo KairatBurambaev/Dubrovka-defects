@@ -1664,7 +1664,7 @@ body {
 .toolbar-status {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 6px;
   padding: 2px 0;
   background: transparent;
