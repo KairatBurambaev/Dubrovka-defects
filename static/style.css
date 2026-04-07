@@ -3960,11 +3960,11 @@ h1 {
   border: 1px solid var(--border);
   background: var(--white);
   color: var(--text);
-  border-radius: 10px;
-  padding: 12px 14px;
+  border-radius: 6px;
+  padding: 8px 10px;
   text-align: left;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -4877,7 +4877,7 @@ body.page-create-complex .mobile-filter-buttons {
   cursor: default;
 }
 
-.modal-sm { max-width: 440px; }
+.modal-sm { max-width: 320px; }
 
 .modal-lg { max-width: 600px; }
 
@@ -5724,9 +5724,9 @@ body.page-create-complex .mobile-filter-buttons {
 
 .status-popover-content {
   position: fixed;
-  width: 220px;
+  width: 180px;
   max-width: calc(100vw - 16px);
-  border-radius: 14px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
