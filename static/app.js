@@ -2301,6 +2301,11 @@ function setStatus(status) {
         return;
     }
     
+    if (status === 'complex') {
+        showComplexModal();
+        return;
+    }
+    
     saveStatus(status);
 }
 
@@ -2360,6 +2365,51 @@ async function savePhoneAndStatus() {
         }
         
         closePhoneModal();
+        showToast('Сохранено', 'success');
+    } catch (err) {
+        showToast('Ошибка сохранения', 'error');
+    }
+}
+
+function showComplexModal() {
+    const modal = document.getElementById('complexModal');
+    const input = document.getElementById('complexCommentInput');
+    const currentApartment = state.currentApartmentData;
+    
+    if (input && currentApartment) {
+        input.value = currentApartment.access_comment || '';
+    }
+    
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+
+function closeComplexModal() {
+    const modal = document.getElementById('complexModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+async function saveComplexAndStatus() {
+    const input = document.getElementById('complexCommentInput');
+    const comment = input?.value.trim() || '';
+    const currentApartment = state.currentApartmentData;
+    
+    try {
+        await fetch(`/api/apartments/${state.currentApartment}/access`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `access_status=complex&access_comment=${encodeURIComponent(comment)}`
+        });
+        
+        if (currentApartment) {
+            currentApartment.access_comment = comment;
+            currentApartment.access_status = 'complex';
+        }
+        
+        closeComplexModal();
         showToast('Сохранено', 'success');
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
@@ -4525,6 +4575,65 @@ function getAccessStatusName(status) {
         'in_progress': 'В работе'
     };
     return names[status] || status || 'Неизвестно';
+}
+
+let tooltipTimeout = null;
+let currentTooltip = null;
+
+function showPhoneTooltip(event) {
+    const phone = state.currentApartmentData?.access_phone;
+    if (!phone) return;
+    
+    clearTimeout(tooltipTimeout);
+    tooltipTimeout = setTimeout(() => {
+        showTooltip(event, phone);
+    }, 500);
+}
+
+function showComplexTooltip(event) {
+    const comment = state.currentApartmentData?.access_comment;
+    if (!comment) return;
+    
+    clearTimeout(tooltipTimeout);
+    tooltipTimeout = setTimeout(() => {
+        showTooltip(event, comment);
+    }, 500);
+}
+
+function showTooltip(event, text) {
+    hideTooltip();
+    
+    const tooltip = document.createElement('div');
+    tooltip.className = 'status-tooltip';
+    tooltip.textContent = text;
+    tooltip.style.cssText = `
+        position: fixed;
+        background: #333;
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        z-index: 10000;
+        max-width: 250px;
+        word-wrap: break-word;
+        pointer-events: none;
+    `;
+    
+    document.body.appendChild(tooltip);
+    
+    const rect = event.target.getBoundingClientRect();
+    tooltip.style.left = rect.left + 'px';
+    tooltip.style.top = (rect.bottom + 5) + 'px';
+    
+    currentTooltip = tooltip;
+}
+
+function hideTooltip() {
+    clearTimeout(tooltipTimeout);
+    if (currentTooltip) {
+        currentTooltip.remove();
+        currentTooltip = null;
+    }
 }
 
 console.log('app.js loaded - v2.0 optimized');

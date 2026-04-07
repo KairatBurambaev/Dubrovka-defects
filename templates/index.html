@@ -93,13 +93,13 @@
                         <button class="status-item" data-status="in_progress" onclick="setStatus('in_progress')">
                             <span>В работе</span>
                         </button>
-                        <button class="status-item" data-status="by_phone" onclick="setStatus('by_phone')">
+                        <button class="status-item" data-status="by_phone" onclick="setStatus('by_phone')" onmouseenter="showPhoneTooltip(event)" onmouseleave="hideTooltip()">
                             <span>Доступ по звонку</span>
                         </button>
                         <button class="status-item" data-status="no_access" onclick="setStatus('no_access')">
                             <span>Нет доступа</span>
                         </button>
-                        <button class="status-item" data-status="complex" onclick="setStatus('complex')">
+                        <button class="status-item" data-status="complex" onclick="setStatus('complex')" onmouseenter="showComplexTooltip(event)" onmouseleave="hideTooltip()">
                             <span>Сложные</span>
                         </button>
                     </div>
@@ -385,6 +385,26 @@
             <div class="modal-footer">
                 <button class="btn" onclick="closePhoneModal()">Отмена</button>
                 <button class="btn btn-primary" onclick="savePhoneAndStatus()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complex Modal -->
+    <div id="complexModal" class="modal" onclick="closeComplexModal(event)">
+        <div class="modal-content modal-sm" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Сложные</h3>
+                <button class="modal-close" onclick="closeComplexModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-field">
+                    <label>Комментарий</label>
+                    <textarea id="complexCommentInput" class="input" rows="4" placeholder="Причина сложности"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeComplexModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="saveComplexAndStatus()">Сохранить</button>
             </div>
         </div>
     </div>
