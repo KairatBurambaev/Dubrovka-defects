@@ -2295,8 +2295,75 @@ function setStatus(status) {
     if (commentBlock) {
         commentBlock.style.display = status === 'complex' ? 'block' : 'none';
     }
+
+    if (status === 'by_phone') {
+        showPhoneModal();
+        return;
+    }
     
     saveStatus(status);
+}
+
+function showPhoneModal() {
+    const modal = document.getElementById('phoneModal');
+    const input = document.getElementById('accessPhoneInput');
+    const callField = document.getElementById('callButtonField');
+    const callLink = document.getElementById('callPhoneLink');
+    const currentApartment = state.currentApartmentData;
+    const phone = currentApartment?.access_phone || '';
+    
+    if (input) {
+        input.value = phone;
+    }
+    
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile && phone) {
+        const cleanPhone = phone.replace(/[^\d+]/g, '');
+        if (callField && callLink) {
+            callLink.href = `tel:${cleanPhone}`;
+            callField.style.display = 'block';
+            input.parentElement.style.display = 'none';
+        }
+    } else {
+        if (callField) callField.style.display = 'none';
+        if (input && input.parentElement) input.parentElement.style.display = 'block';
+    }
+    
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+
+function closePhoneModal() {
+    const modal = document.getElementById('phoneModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+async function savePhoneAndStatus() {
+    const input = document.getElementById('accessPhoneInput');
+    const phone = input?.value.trim() || '';
+    const currentApartment = state.currentApartmentData;
+    
+    try {
+        await fetch(`/api/apartments/${state.currentApartment}/access`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `access_status=by_phone&access_phone=${encodeURIComponent(phone)}`
+        });
+        
+        if (currentApartment) {
+            currentApartment.access_phone = phone;
+            currentApartment.access_status = 'by_phone';
+        }
+        
+        closePhoneModal();
+        showToast('Сохранено', 'success');
+    } catch (err) {
+        showToast('Ошибка сохранения', 'error');
+    }
 }
 
 async function saveStatus(status) {

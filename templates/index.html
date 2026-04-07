@@ -365,5 +365,28 @@
             <div class="modal-body" id="statsBody"></div>
         </div>
     </div>
+
+    <!-- Phone Modal -->
+    <div id="phoneModal" class="modal" onclick="closePhoneModal(event)">
+        <div class="modal-content modal-sm" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Доступ по звонку</h3>
+                <button class="modal-close" onclick="closePhoneModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-field">
+                    <label>Номер телефона</label>
+                    <input type="tel" id="accessPhoneInput" class="input" placeholder="+7 (999) 123-45-67">
+                </div>
+                <div class="form-field" style="display:none;" id="callButtonField">
+                    <a id="callPhoneLink" href="#" class="btn btn-primary" style="width:100%; justify-content:center;">Позвонить</a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closePhoneModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="savePhoneAndStatus()">Сохранить</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
