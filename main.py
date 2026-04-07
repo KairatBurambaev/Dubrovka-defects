@@ -60,7 +60,7 @@ STATUS_MIGRATION = {
     "cancelled": "rejected"
 }
 
-CLOSED_DEFECT_STATUSES = ("completed", "rejected")
+CLOSED_DEFECT_STATUSES = ("completed", "rejected", "on_review")
 ACTIVE_DEFECT_STATUSES = tuple(status for status in STATUSES if status not in CLOSED_DEFECT_STATUSES)
 
 TEMPLATES = {
@@ -802,7 +802,7 @@ async def get_complexes():
             SELECT COUNT(*)
             FROM defects d
             JOIN apartments a ON d.apartment_id = a.id
-            WHERE a.complex_id = ? AND d.status NOT IN ('completed', 'rejected')
+            WHERE a.complex_id = ? AND d.status NOT IN ('completed', 'rejected', 'on_review')
         """, (c["id"],)).fetchone()[0]
         
         access_stats = conn.execute("""
@@ -1005,16 +1005,16 @@ async def get_apartments(
     
     query = """
         SELECT a.*, s.section_number, {building_number_expr} AS building_number,
-               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected')) as active_defects_count,
+               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) as active_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id) as total_defects,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'recorded') as recorded_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'in_progress') as in_progress_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'rework') as rework_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'on_review') as on_review_defects_count,
-               (SELECT MIN(deadline) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected')) as earliest_deadline,
-               (SELECT MIN(created_at) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected')) as earliest_defect_created,
+               (SELECT MIN(deadline) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) as earliest_deadline,
+               (SELECT MIN(created_at) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) as earliest_defect_created,
                CASE 
-                    WHEN (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected')) = 0 
+                    WHEN (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) = 0 
                          AND (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id) > 0
                     THEN 1
                     ELSE 0
@@ -1816,7 +1816,7 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         JOIN defects d ON a.id = d.apartment_id
         WHERE a.complex_id = ?
           AND a.access_status NOT IN ('owner_accepted', 'tech_accepted')
-          AND d.status NOT IN ('completed', 'rejected')
+          AND d.status NOT IN ('completed', 'rejected', 'on_review')
         """,
         (complex_id,),
     ).fetchone()[0]
@@ -1858,7 +1858,7 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         FROM defects d
         JOIN apartments a ON d.apartment_id = a.id
         WHERE a.complex_id = ?
-          AND d.status NOT IN ('completed', 'rejected')
+          AND d.status NOT IN ('completed', 'rejected', 'on_review')
           AND date(d.created_at) BETWEEN ? AND ?
         """,
         (complex_id, period_start.isoformat(), period_end.isoformat()),
@@ -1870,7 +1870,7 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         FROM apartments a
         JOIN defects d ON a.id = d.apartment_id
         WHERE a.complex_id = ?
-          AND d.status NOT IN ('completed', 'rejected')
+          AND d.status NOT IN ('completed', 'rejected', 'on_review')
           AND date(d.created_at) BETWEEN ? AND ?
         """,
         (complex_id, period_start.isoformat(), period_end.isoformat()),

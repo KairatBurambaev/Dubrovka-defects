@@ -59,7 +59,7 @@ const DEFECT_STATUS_CLASSES = {
     rejected: 'badge-rejected',
     rework: 'badge-rework'
 };
-const CLOSED_DEFECT_STATUSES = ['completed', 'rejected'];
+const CLOSED_DEFECT_STATUSES = ['completed', 'rejected', 'on_review'];
 let currentFilterIndex = 0;
 let photoModalItems = [];
 let photoModalIndex = 0;
