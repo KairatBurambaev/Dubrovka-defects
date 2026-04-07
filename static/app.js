@@ -1708,15 +1708,24 @@ function syncDefectStatusState(id, status) {
     }
 }
 
-function positionDefectStatusPopover() {
-    const popover = document.getElementById('defectStatusPopover');
-    if (!(popover instanceof HTMLElement)) return;
+function openDefectStatusModal(id, event) {
+    if (event) event.stopPropagation();
 
-    const width = popover.offsetWidth || 220;
-    const height = popover.offsetHeight || 0;
-    const margin = 8;
-    popover.style.left = `${Math.max((window.innerWidth - width) / 2, margin)}px`;
-    popover.style.top = `${Math.max((window.innerHeight - height) / 2, margin)}px`;
+    const modal = document.getElementById('defectStatusModal');
+    const body = document.getElementById('defectStatusBody');
+    const statusInput = document.getElementById(`defectStatus_${id}`);
+    const currentStatus = statusInput?.value || DEFECT_STATUS_ORDER[0];
+    state.currentStatusDefectId = id;
+    if (body) {
+        body.innerHTML = renderDefectStatusButtons(currentStatus, id);
+    }
+    if (modal) modal.classList.add('active');
+}
+
+function closeDefectStatusModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('defectStatusModal');
+    if (modal) modal.classList.remove('active');
 }
 
 function openDefectStatusModal(id, event) {
