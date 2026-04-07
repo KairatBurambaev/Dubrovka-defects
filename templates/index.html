@@ -80,32 +80,31 @@
                     </div>
                 </div>
                 <div class="header-right">
-                    <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Показать замечания</button>
-                    <button class="pill pill-stats" id="statsBtn" onclick="showStatsModal()" style="display:none;">Статистика</button>
-                    <!-- Apartment status buttons -->
                     <div class="apartment-header-actions" id="apartmentHeaderActions" style="display:none;">
-                        <button class="status-item status-item-action" onclick="showAddDefectForm()">Добавить замечание</button>
                     </div>
                     <div class="toolbar-status" id="toolbarStatus" style="display:none;">
                         <button class="status-item" data-status="owner_accepted" onclick="setStatus('owner_accepted')">
                             <span>Принята</span>
                         </button>
+                        <button class="status-item status-item-action" onclick="showAddDefectForm()">+ Замечание</button>
                         <button class="status-item" data-status="call" onclick="setStatus('call')">
                             <span>Вызов</span>
-                    </button>
-                    <button class="status-item" data-status="in_progress" onclick="setStatus('in_progress')">
-                        <span>В работе</span>
-                    </button>
-                    <button class="status-item" data-status="by_phone" onclick="setStatus('by_phone')">
-                        <span>Доступ по звонку</span>
-                    </button>
-                    <button class="status-item" data-status="no_access" onclick="setStatus('no_access')">
-                        <span>Нет доступа</span>
-                    </button>
+                        </button>
+                        <button class="status-item" data-status="in_progress" onclick="setStatus('in_progress')">
+                            <span>В работе</span>
+                        </button>
+                        <button class="status-item" data-status="by_phone" onclick="setStatus('by_phone')">
+                            <span>Доступ по звонку</span>
+                        </button>
+                        <button class="status-item" data-status="no_access" onclick="setStatus('no_access')">
+                            <span>Нет доступа</span>
+                        </button>
                         <button class="status-item" data-status="complex" onclick="setStatus('complex')">
                             <span>Сложные</span>
                         </button>
                     </div>
+                    <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Показать замечания</button>
+                    <button class="pill pill-stats" id="statsBtn" onclick="showStatsModal()" style="display:none;">Статистика</button>
                 </div>
             </header>
             
