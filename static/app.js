@@ -2295,16 +2295,6 @@ function setStatus(status) {
         }
     });
     
-    const phoneBlock = document.getElementById('phoneBlock');
-    if (phoneBlock) {
-        phoneBlock.style.display = status === 'by_phone' ? 'block' : 'none';
-    }
-    
-    const commentBlock = document.getElementById('commentBlock');
-    if (commentBlock) {
-        commentBlock.style.display = status === 'complex' ? 'block' : 'none';
-    }
-
     if (status === 'by_phone') {
         showPhoneModal();
         return;
