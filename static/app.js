@@ -27,7 +27,7 @@ const state = {
 
 // Global filter constants
 const FILTERS = ['', 'defects', 'on_review', 'in_progress', 'call', 'owner_accepted', 'complex', 'no_access'];
-const FILTER_NAMES = ['Все', 'С замечаниями', 'На проверке', 'В работе', 'Вызваные квартиры', 'Принята', 'Сложные', 'Нет доступа'];
+const FILTER_NAMES = ['Все', 'С замечаниями', 'На проверке', 'В работе', 'Вызваные квартиры', 'Принята', 'Сложная', 'Нет доступа'];
 const FILTER_INDEXES = {
     '': 0,
     'defects': 1,
@@ -4567,7 +4567,7 @@ function getAccessStatusName(status) {
         'call': 'Вызов',
         'owner_accepted': 'Принята',
         'tech_accepted': 'Тех. принята',
-        'complex': 'Сложные',
+        'complex': 'Сложная',
         'no_access': 'Нет доступа',
         'by_phone': 'По звонку',
         'elevated': 'Поднять',

@@ -32,7 +32,7 @@
                         <option value="in_progress">В работе</option>
                         <option value="call">Вызов</option>
                         <option value="owner_accepted">Принята</option>
-                        <option value="complex">Сложные</option>
+                        <option value="complex">Сложная</option>
                         <option value="no_access">Нет доступа</option>
                     </select>
                 </div>
@@ -70,7 +70,7 @@
                             <button class="pill" data-filter="in_progress" onclick="setAccessFilter('in_progress')">В работе</button>
                             <button class="pill" data-filter="call" onclick="setAccessFilter('call')">Вызов</button>
                             <button class="pill" data-filter="owner_accepted" onclick="setAccessFilter('owner_accepted')">Принята</button>
-                            <button class="pill" data-filter="complex" onclick="setAccessFilter('complex')">Сложные</button>
+                            <button class="pill" data-filter="complex" onclick="setAccessFilter('complex')">Сложная</button>
                             <button class="pill" data-filter="no_access" onclick="setAccessFilter('no_access')">Нет доступа</button>
                         </div>
                     </div>
@@ -100,7 +100,7 @@
                             <span>Нет доступа</span>
                         </button>
                         <button class="status-item" data-status="complex" onclick="setStatus('complex')" onmouseenter="showComplexTooltip(event)" onmouseleave="hideTooltip()">
-                            <span>Сложные</span>
+                            <span>Сложная</span>
                         </button>
                     </div>
                     <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Показать замечания</button>
@@ -119,7 +119,7 @@
                 <button class="mobile-filter-btn" data-filter="in_progress">В работе</button>
                 <button class="mobile-filter-btn" data-filter="call">Вызов</button>
                 <button class="mobile-filter-btn" data-filter="owner_accepted">Принята</button>
-                <button class="mobile-filter-btn" data-filter="complex">Сложные</button>
+                <button class="mobile-filter-btn" data-filter="complex">Сложная</button>
                 <button class="mobile-filter-btn" data-filter="no_access">Нет доступа</button>
             </div>
 
@@ -373,7 +373,7 @@
     <div id="complexModal" class="modal" onclick="closeComplexModal(event)">
         <div class="modal-content modal-sm" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h3>Сложные</h3>
+                <h3>Сложная</h3>
                 <button class="modal-close" onclick="closeComplexModal()">×</button>
             </div>
             <div class="modal-body">
