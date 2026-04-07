@@ -458,7 +458,7 @@ body.page-apartment-detail .apartment-header-print:hover,
 body.page-apartment-detail .apartment-header-actions .status-item-action:hover,
 .filtered-defects-modal .modal-header .btn:hover {
   transform: none !important;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16) !important;
+  box-shadow: none !important;
 }
 
 body.page-apartment-detail .apartment-header-print:active,
