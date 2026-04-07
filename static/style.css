@@ -6219,14 +6219,14 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .section-body {
-  padding: 10px;
+  padding: 4px;
   width: 100%;
 }
 
 .section-body-container {
   display: flex;
-  padding: 10px;
-  gap: 10px;
+  padding: 4px;
+  gap: 6px;
   justify-content: stretch;
 }
 
