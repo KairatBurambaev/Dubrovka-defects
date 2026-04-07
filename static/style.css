@@ -1899,29 +1899,69 @@ h1 {
   font-size: 14px;
   font-weight: 500;
   border-radius: 24px;
-  border: none;
+  border: 1px solid var(--border);
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.2s ease;
   white-space: nowrap;
   letter-spacing: 0.25px;
   background: #ffffff;
   color: var(--text);
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.1);
+  box-shadow: none;
 }
 
 .btn:hover {
-  background: #f1f3f4;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.12), 0 1px 2px -1px rgb(0 0 0 / 0.12);
+  background: var(--gray-lightest);
+  border-color: var(--gray-light);
+}
+
+.btn:active {
+  transform: scale(0.98);
+  background: var(--gray-lighter);
+}
+
+.btn.active {
+  background: #ffffff;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .btn-primary {
   background: var(--primary);
   color: #ffffff;
+  border: 1px solid var(--primary);
 }
 
 .btn-primary:hover {
   background: var(--primary-dark);
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.2), 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  border-color: var(--primary-dark);
+}
+
+.btn-primary:active {
+  background: var(--primary-dark);
+  transform: scale(0.98);
+}
+
+.btn-primary.active {
+  background: #ffffff;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.btn-secondary {
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--gray-lightest);
+  border-color: var(--gray-light);
+}
+
+.btn-secondary.active {
+  background: #ffffff;
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
 .btn-primary:active {
@@ -2360,8 +2400,8 @@ h1 {
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 500;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  border: 1px solid var(--border);
   background: #fff;
   color: #64748b;
   cursor: pointer;
@@ -2375,43 +2415,43 @@ h1 {
 }
 
 .pill:hover {
-  color: #fff;
+  background: var(--gray-lightest);
+  border-color: var(--gray-light);
+  color: var(--text);
 }
 
-.pill[data-filter="in_progress"]:hover {
-  background: #fde047;
-  border-color: #fde047;
-  color: #713f12;
+.pill.active {
+  background: #fff;
 }
 
-.pill[data-filter="defects"]:hover {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  border-color: #1e293b;
-  color: #fff;
+.pill[data-filter="in_progress"].active {
+  border-color: #fbbc04;
+  color: #f59e0b;
 }
 
-.pill[data-filter="call"]:hover {
-  background: #ec4899;
+.pill[data-filter="defects"].active {
+  border-color: var(--dark);
+  color: var(--dark);
+}
+
+.pill[data-filter="call"].active {
   border-color: #ec4899;
-  color: #fff;
+  color: #ec4899;
 }
 
 .pill[data-filter="on_review"]:hover {
-  background: #7de3d6;
-  border-color: #7de3d6;
-  color: #0f172a;
+  border-color: #34a853;
+  color: #34a853;
 }
 
 .pill[data-filter="owner_accepted"]:hover {
-  background: #34d399;
   border-color: #34d399;
-  color: #064e3b;
+  color: #059669;
 }
 
 .pill[data-filter="complex"]:hover {
-  background: #ff4040;
-  border-color: #ff4040;
-  color: #fff;
+  border-color: #ea4335;
+  color: #ea4335;
 }
 
 .pill[data-filter="no_access"]:hover {
@@ -3025,66 +3065,59 @@ h1 {
 .status-item {
   display: inline-flex;
   align-items: center;
-  padding: 8px 16px;
+  padding: 6px 14px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.2s ease;
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
 }
 
 .status-item:hover {
-  transform: none;
-  box-shadow: none;
+  background: var(--gray-lightest);
+  border-color: var(--gray-light);
 }
 
 .status-item.active {
-  color: #ffffff;
+  background: #ffffff;
 }
 
 .status-item[data-status="owner_accepted"].active {
-  background: #34d399;
   border-color: #34d399;
-  color: #064e3b;
+  color: #059669;
 }
 
 .status-item[data-status="call"].active {
-  background: #ec4899;
   border-color: #ec4899;
-  color: #ffffff;
+  color: #ec4899;
 }
 
 .status-item[data-status="by_phone"].active {
-  background: #bae6fd;
-  border-color: #38bdf8;
-  color: #0369a1;
+  border-color: #4285f4;
+  color: #4285f4;
 }
 
 .status-item[data-status="no_access"].active {
-  background: #94a3b8;
   border-color: #94a3b8;
-  color: #ffffff;
+  color: #64748b;
 }
 
 .status-item[data-status="complex"].active {
-  background: #ff4040;
-  border-color: #ff4040;
-  color: #ffffff;
+  border-color: #ea4335;
+  color: #ea4335;
 }
 
 .status-item[data-status="in_progress"].active {
-  background: #fde047;
-  border-color: #fde047;
-  color: #713f12;
+  border-color: #fbbc04;
+  color: #f59e0b;
 }
 
 .status-item[data-status="available"].active {
-  background: #9ca3af;
   border-color: #9ca3af;
-  color: #ffffff;
+  color: #6b7280;
 }
 
 .status-dot {
