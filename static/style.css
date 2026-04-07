@@ -2479,7 +2479,7 @@ h1 {
 
 .pill[data-filter="defects"].active {
   background: #f1f3f4;
-  color: var(--dark);
+  color: #5f6368;
 }
 
 .pill[data-filter="call"].active {
@@ -2494,7 +2494,7 @@ h1 {
 
 .pill[data-filter="defects"]:hover {
   background: #f1f3f4;
-  color: var(--dark);
+  color: #5f6368;
 }
 
 .pill[data-filter="call"]:hover {
@@ -2523,31 +2523,27 @@ h1 {
 }
 
 .pill.active {
-  color: #fff;
+  box-shadow: none;
 }
 
 .pill[data-filter="in_progress"].active {
-  background: #fde047;
-  border-color: #fde047;
-  color: #713f12;
+  background: #fef7e0;
+  color: #f59e0b;
 }
 
 .pill[data-filter="defects"].active {
-  background: #1f2937;
-  border-color: #1f2937;
-  color: #ffffff;
+  background: #f1f3f4;
+  color: #5f6368;
 }
 
 .pill[data-filter="on_review"].active {
-  background: #7de3d6;
-  border-color: #7de3d6;
-  color: #0f172a;
+  background: #e6f4ea;
+  color: #34a853;
 }
 
 .pill[data-filter="call"].active {
-  background: #ec4899;
-  border-color: #ec4899;
-  color: #fff;
+  background: #fce7f3;
+  color: #ec4899;
 }
 
 .pill[data-filter="owner_accepted"].active {
@@ -8194,43 +8190,37 @@ body {
   }
 
 .mobile-filter-btn.active {
-  color: #0f172a;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
+  color: #5f6368;
 }
 
   .mobile-filter-btn[data-filter="defects"].active {
-    background: #fef3c7;
-    border-color: #f59e0b;
-    color: #92400e;
+    background: #f1f3f4;
+    color: #5f6368;
   }
 
   .mobile-filter-btn[data-filter="on_review"].active {
-    background: #ccfbf1;
-    border-color: #5eead4;
-    color: #115e59;
+    background: #e6f4ea;
+    color: #34a853;
   }
 
   .mobile-filter-btn[data-filter="call"].active {
-    background: #f3e8ff;
-    border-color: #a855f7;
-    color: #7e22ce;
+    background: #fce7f3;
+    color: #ec4899;
   }
 
   .mobile-filter-btn[data-filter="owner_accepted"].active {
-    background: #ecfdf5;
-    border-color: #22c55e;
-    color: #15803d;
+    background: #d1fae5;
+    color: #059669;
   }
 
   .mobile-filter-btn[data-filter="complex"].active {
-    background: #fee2e2;
-    border-color: #ef4444;
-    color: #b91c1c;
+    background: #fce8e6;
+    color: #ea4335;
   }
 
   .mobile-filter-btn[data-filter="no_access"].active {
-    background: #e2e8f0;
-    border-color: #64748b;
+    background: #f1f3f4;
+    color: #5f6368;
     color: #334155;
   }
 
