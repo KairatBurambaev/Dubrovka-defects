@@ -1905,12 +1905,12 @@ h1 {
   letter-spacing: 0.25px;
   background: #ffffff;
   color: var(--text);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
+  box-shadow: none;
 }
 
 .btn:hover {
   background: #f1f3f4;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  box-shadow: none;
 }
 
 .btn:active {
@@ -5053,7 +5053,7 @@ body.page-create-complex .mobile-filter-buttons {
     background: #ffffff;
     border: none;
     color: #5f6368;
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
+    box-shadow: none;
     font-size: 13px;
     font-weight: 500;
     white-space: nowrap;
@@ -5061,7 +5061,7 @@ body.page-create-complex .mobile-filter-buttons {
 
 .pill-stats:hover {
     background: #f1f3f4;
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+    box-shadow: none;
     color: #5f6368;
 }
 
