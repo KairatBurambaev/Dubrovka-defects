@@ -446,8 +446,7 @@ body.page-apartment-detail #defectsList .defect-status-badge:hover,
 body.page-apartment-detail #defectsList .defect-compact-status:hover,
 body.page-apartment-detail #defectsList .defect-photos-toggle:hover,
 body.page-apartment-detail #defectsList .defect-edit-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  filter: brightness(0.95);
 }
 
 body.page-apartment-detail #defectsList .defect-status-badge:hover,
