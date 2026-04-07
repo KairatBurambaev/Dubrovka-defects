@@ -5051,19 +5051,19 @@ body.page-create-complex .mobile-filter-buttons {
     height: 36px;
     padding: 0 14px;
     border-radius: 999px;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    border-color: #0f172a;
-    color: #fff;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+    background: #ffffff;
+    border: none;
+    color: #5f6368;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     white-space: nowrap;
 }
 
 .pill-stats:hover {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    border-color: #1e293b;
-    color: #fff;
+    background: #f1f3f4;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+    color: #5f6368;
 }
 
 .complex-detail-toolbar {
@@ -9578,14 +9578,14 @@ body {
 }
 
 .pill-sort.active {
-  background: #1f2937 !important;
-  color: #ffffff !important;
+  background: #f1f3f4 !important;
+  color: #5f6368 !important;
 }
 
 .pill-sort:hover,
 .pill-sort.active:hover {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
-  color: #ffffff !important;
+  background: #f1f3f4 !important;
+  color: #5f6368 !important;
 }
 
 .sections-grid-sorted {
