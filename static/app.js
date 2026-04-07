@@ -1334,7 +1334,7 @@ function updatePlaceholders() {
     if (propType === 'апартаменты') {
         if (searchInput) searchInput.placeholder = 'Номер апартамента (напр: 1,3-5,10)...';
     } else {
-        if (searchInput) searchInput.placeholder = 'Номер квартиры (напр: 1,3-5,10)...';
+        if (searchInput) searchInput.placeholder = 'Номер квартиры (прим: 1,3-5,10)...';
     }
 }
 
