@@ -2381,8 +2381,8 @@ h1 {
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 500;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  border: 1px solid var(--border);
   background: #fff;
   color: #64748b;
   cursor: pointer;
@@ -2396,48 +2396,46 @@ h1 {
 }
 
 .pill:hover {
-  color: #fff;
-}
-
-.pill[data-filter="in_progress"]:hover {
-  background: #fde047;
-  border-color: #fde047;
-  color: #713f12;
-}
-
-.pill[data-filter="defects"]:hover {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  border-color: #1e293b;
-  color: #fff;
-}
-
-.pill[data-filter="call"]:hover {
-  background: #ec4899;
-  border-color: #ec4899;
-  color: #fff;
+  background: var(--gray-lightest);
+  border-color: var(--gray-light);
+  color: var(--text);
 }
 
 .pill.active {
-  background: #fff;
-  color: #0f172a;
+  background: var(--gray-lightest);
 }
 
 .pill[data-filter="in_progress"].active {
-  background: #fef08a;
-  border-color: #fde047;
+  border-color: #fbbc04;
+  color: #f59e0b;
+  background: #fef7e0;
 }
 
 .pill[data-filter="defects"].active {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  border-color: #1e293b;
-  color: #fff;
+  border-color: var(--dark);
+  color: var(--dark);
+  background: #e2e8f0;
 }
 
 .pill[data-filter="call"].active {
-  background: #f9a8d4;
   border-color: #ec4899;
-  color: #831843;
+  color: #ec4899;
+  background: #fce7f3;
 }
+
+.pill[data-filter="on_review"]:hover {
+  border-color: #34a853;
+  color: #34a853;
+}
+
+.pill[data-filter="owner_accepted"]:hover {
+  border-color: #34d399;
+  color: #059669;
+}
+
+.pill[data-filter="complex"]:hover {
+  border-color: #ea4335;
+  color: #ea4335;
 }
 
 .pill[data-filter="no_access"]:hover {
