@@ -1881,9 +1881,12 @@ function renderApartmentTile(apartment, propFull, catFilter) {
     const onReviewCount = Number(apartment.on_review_defects_count || 0);
     const reviewBadge = (onReviewCount > 0 && !isAccepted) ? `<span class="apt-badge apt-badge-review">${onReviewCount}</span>` : '';
     const accessPhone = String(apartment.access_phone || '').trim();
+    const accessComment = String(apartment.access_comment || '').trim();
     const tooltip = apartment.access_status === 'by_phone'
         ? (accessPhone ? `Номер: ${accessPhone}` : 'Нет номера')
-        : '';
+        : apartment.access_status === 'complex'
+            ? (accessComment || 'Нет комментария')
+            : '';
 
     return `
         <div class="apt-wrap">
@@ -1933,6 +1936,37 @@ function renderSectionCard(title, apartments, floors, propFull) {
                     ${sortedFloors.map(floor => {
                         const floorApts = floors[floor].sort((a, b) => a.number - b.number);
                         return renderFloorRow(floorApts, floor, propFull);
+                    }).join('')}
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderCombinedSectionCard(sectionItems, propFull, uniqueBuildingsCount) {
+    if (!sectionItems.length) return '';
+
+    return `
+        <section class="section-card section-card-combined">
+            <div class="section-body-container">
+                <div class="section-body section-body-combined">
+                    ${sectionItems.map(({ sectionNumber, buildingNumber, floors }) => {
+                        const title = uniqueBuildingsCount > 1
+                            ? `Корпус ${buildingNumber} • Секция ${sectionNumber}`
+                            : `Секция ${sectionNumber}`;
+                        const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
+
+                        return `
+                            <div class="section-combined-block">
+                                <div class="section-combined-title">${title}</div>
+                                <div class="section-combined-floors">
+                                    ${sortedFloors.map((floor) => {
+                                        const floorApts = floors[floor].sort((a, b) => a.number - b.number);
+                                        return renderFloorRow(floorApts, floor, propFull);
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `;
                     }).join('')}
                 </div>
             </div>
@@ -2122,21 +2156,22 @@ function renderApartments(apartments) {
             const secId = bySection[sec]?.section_id;
             return selectedSectionIds.length === 0 || (secId && selectedSectionIds.includes(secId));
         });
-        
-        const gridClass = filteredSections.length <= 4 ? 'sections-grid sections-grid-centered' : 'sections-grid';
-        html = `<div class="${gridClass}">`;
-        html += filteredSections.map(sec => {
-            const sectionData = bySection[sec];
-            const floors = sectionData?.floors;
-            if (!floors) return '';
-            
-            const buildingNum = sectionData?.building_number || 1;
-            const allApts = Object.values(floors).flat();
-            
-            const title = uniqueBuildings.size > 1 ? `Корпус ${buildingNum} • Секция ${sec}` : `Секция ${sec}`;
 
-            return renderSectionCard(title, allApts, floors, propFull);
-        }).join('');
+        const combinedSections = filteredSections
+            .map((sec) => {
+                const sectionData = bySection[sec];
+                if (!sectionData?.floors) return null;
+
+                return {
+                    sectionNumber: sec,
+                    buildingNumber: sectionData.building_number || 1,
+                    floors: sectionData.floors
+                };
+            })
+            .filter(Boolean);
+
+        html = '<div class="sections-grid sections-grid-combined">';
+        html += renderCombinedSectionCard(combinedSections, propFull, uniqueBuildings.size);
     }
     
     container.innerHTML = html + '</div>';
