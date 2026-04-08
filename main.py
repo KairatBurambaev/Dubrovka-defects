@@ -184,6 +184,37 @@ def get_defect_status_rank(status: str) -> int:
         return -1
 
 
+def build_not_in_clause(values) -> str:
+    return ','.join('?' for _ in values)
+
+
+def normalize_status_input(status: Optional[str]) -> Optional[str]:
+    if status is None:
+        return None
+
+    cleaned_status = status.strip()
+    if not cleaned_status:
+        return cleaned_status
+
+    if cleaned_status in STATUSES:
+        return cleaned_status
+
+    migrated_status = STATUS_MIGRATION.get(cleaned_status)
+    if migrated_status:
+        return migrated_status
+
+    lowered_status = cleaned_status.casefold()
+    for key, label in STATUSES.items():
+        if lowered_status == label.casefold():
+            return key
+
+    for old_status, new_status in STATUS_MIGRATION.items():
+        if lowered_status == old_status.casefold():
+            return new_status
+
+    return cleaned_status
+
+
 def merge_duplicate_window_and_door_defects(conn):
     duplicate_groups = conn.execute(
         f"""
@@ -200,14 +231,14 @@ def merge_duplicate_window_and_door_defects(conn):
     merged_groups = 0
     for group in duplicate_groups:
         defects = conn.execute(
-            """
+            f"""
             SELECT *
             FROM defects
             WHERE apartment_id = ?
               AND category = ?
               AND COALESCE(window_number, -1) = COALESCE(?, -1)
               AND COALESCE(variant_number, '') = COALESCE(?, '')
-              AND status NOT IN (?, ?)
+              AND status NOT IN ({build_not_in_clause(CLOSED_DEFECT_STATUSES)})
             ORDER BY datetime(created_at) ASC, id ASC
             """,
             (
@@ -215,8 +246,7 @@ def merge_duplicate_window_and_door_defects(conn):
                 group["category"],
                 group["window_number"],
                 group["variant_number"],
-                CLOSED_DEFECT_STATUSES[0],
-                CLOSED_DEFECT_STATUSES[1],
+                *CLOSED_DEFECT_STATUSES,
             ),
         ).fetchall()
         if len(defects) < 2:
@@ -1196,6 +1226,7 @@ async def create_defect(
     photos: List[UploadFile] = File(default=[]),
     photo_types: List[str] = Form(default=[])
 ):
+    status = normalize_status_input(status)
     if category not in CATEGORIES:
         raise HTTPException(status_code=400, detail="Неверная категория")
 
@@ -1237,27 +1268,27 @@ async def create_defect(
     existing_defect = None
     if category == "Окна":
         existing_defect = conn.execute(
-            """
+            f"""
             SELECT id, description, restoration
             FROM defects
             WHERE apartment_id = ? AND category = ? AND COALESCE(window_number, -1) = COALESCE(?, -1)
-              AND status NOT IN (?, ?)
+              AND status NOT IN ({build_not_in_clause(CLOSED_DEFECT_STATUSES)})
             ORDER BY id DESC
             LIMIT 1
             """,
-            (apartment_id, category, window_number, CLOSED_DEFECT_STATUSES[0], CLOSED_DEFECT_STATUSES[1])
+            (apartment_id, category, window_number, *CLOSED_DEFECT_STATUSES)
         ).fetchone()
     elif category == "Двери":
         existing_defect = conn.execute(
-            """
+            f"""
             SELECT id, description, restoration
             FROM defects
             WHERE apartment_id = ? AND category = ? AND COALESCE(variant_number, '') = ?
-              AND status NOT IN (?, ?)
+              AND status NOT IN ({build_not_in_clause(CLOSED_DEFECT_STATUSES)})
             ORDER BY id DESC
             LIMIT 1
             """,
-            (apartment_id, category, normalized_variant_number, CLOSED_DEFECT_STATUSES[0], CLOSED_DEFECT_STATUSES[1])
+            (apartment_id, category, normalized_variant_number, *CLOSED_DEFECT_STATUSES)
         ).fetchone()
 
     if existing_defect:
@@ -1298,7 +1329,7 @@ async def create_defect(
     for idx, photo in enumerate(photos):
         if photo.filename:
             ext = Path(photo.filename).suffix.lower()
-            if ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.mov']:
+            if ext not in DEFECT_UPLOAD_EXTENSIONS:
                 continue
             
             unique_name = f"{uuid.uuid4().hex}{ext}"
@@ -1355,6 +1386,7 @@ async def add_defect_item(defect_id: int, text: str = Form(...)):
 
 @app.put("/api/defects/items/{item_id}")
 async def update_item_status(item_id: int, status: str = Form(...)):
+    status = normalize_status_input(status)
     if status not in STATUSES:
         raise HTTPException(status_code=400, detail="Неверный статус")
     
@@ -1447,10 +1479,19 @@ async def get_item_comments(item_id: int):
 
 @app.put("/api/defects/items/comments/{comment_id}")
 async def update_item_comment(comment_id: int, text: str = Form(...)):
+    cleaned_text = text.strip()
+    if not cleaned_text:
+        raise HTTPException(status_code=400, detail="Комментарий не может быть пустым")
+
     conn = get_db()
+    comment = conn.execute("SELECT id FROM item_comments WHERE id = ?", (comment_id,)).fetchone()
+    if not comment:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Комментарий не найден")
+
     conn.execute(
         "UPDATE item_comments SET text = ? WHERE id = ?",
-        (text, comment_id)
+        (cleaned_text, comment_id)
     )
     conn.commit()
     conn.close()
@@ -1460,6 +1501,11 @@ async def update_item_comment(comment_id: int, text: str = Form(...)):
 @app.delete("/api/defects/items/comments/{comment_id}")
 async def delete_item_comment(comment_id: int):
     conn = get_db()
+    comment = conn.execute("SELECT id FROM item_comments WHERE id = ?", (comment_id,)).fetchone()
+    if not comment:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Комментарий не найден")
+
     conn.execute("DELETE FROM item_comments WHERE id = ?", (comment_id,))
     conn.commit()
     conn.close()
@@ -1469,6 +1515,7 @@ async def delete_item_comment(comment_id: int):
 
 @app.put("/api/defects/{defect_id}")
 async def update_defect_status(defect_id: int, status: str = Form(...)):
+    status = normalize_status_input(status)
     if status not in STATUSES:
         raise HTTPException(status_code=400, detail="Неверный статус")
 
@@ -1619,7 +1666,7 @@ async def update_defect_meta(
     for idx, photo in enumerate(photos):
         if photo.filename:
             ext = Path(photo.filename).suffix.lower()
-            if ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+            if ext not in DEFECT_UPLOAD_EXTENSIONS:
                 continue
             
             unique_name = f"{uuid.uuid4().hex}{ext}"
@@ -2119,11 +2166,20 @@ async def add_comment(
     author: str = Form("Пользователь"),
     photos: List[UploadFile] = File(default=[])
 ):
+    cleaned_text = text.strip()
+    cleaned_author = author.strip() or "Пользователь"
+    if not cleaned_text:
+        raise HTTPException(status_code=400, detail="Комментарий не может быть пустым")
+
     conn = get_db()
+    defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    if not defect:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Замечание не найдено")
     
     cursor = conn.execute(
         "INSERT INTO comments (defect_id, author, text) VALUES (?, ?, ?)",
-        (defect_id, author, text)
+        (defect_id, cleaned_author, cleaned_text)
     )
     comment_id = cursor.lastrowid
     
@@ -2131,7 +2187,7 @@ async def add_comment(
     for photo in photos:
         if photo.filename:
             ext = Path(photo.filename).suffix.lower()
-            if ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+            if ext not in COMMENT_UPLOAD_EXTENSIONS:
                 continue
             
             unique_name = f"{uuid.uuid4().hex}{ext}"
@@ -2187,6 +2243,10 @@ async def update_comment(
 @app.delete("/api/comments/{comment_id}")
 async def delete_comment(comment_id: int):
     conn = get_db()
+    comment = conn.execute("SELECT id FROM comments WHERE id = ?", (comment_id,)).fetchone()
+    if not comment:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Комментарий не найден")
     
     # Удаляем фото комментария
     photos = conn.execute("SELECT filename FROM comment_photos WHERE comment_id = ?", (comment_id,)).fetchall()
