@@ -3529,7 +3529,7 @@ h1 {
 }
 
 .defect-compact-status.badge-new { background: var(--danger-subtle); color: var(--danger); }
-.defect-compact-status.badge-recorded { background: #e8f0fe; color: #4285f4; }
+.defect-compact-status.badge-recorded { background: #fff7ed; color: #c2410c; }
 .defect-compact-status.badge-assigned { background: var(--info-subtle); color: var(--info); }
 .defect-compact-status.badge-in_progress { background: var(--primary-subtle); color: var(--primary); }
 .defect-compact-status.badge-ready_for_acceptance { background: #e0e7ff; color: #4338ca; }
@@ -4018,8 +4018,8 @@ h1 {
 }
 
 .defect-status-badge.badge-recorded {
-  background: #e8f0fe;
-  color: #4285f4;
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .defect-status-badge.badge-progress {
@@ -4050,7 +4050,12 @@ h1 {
 .defect-status-modal-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+}
+
+#defectStatusModal .modal-content {
+  width: min(280px, 88vw);
+  max-width: min(280px, 88vw);
 }
 
 .defect-status-option {
@@ -4058,13 +4063,13 @@ h1 {
   border: 1px solid var(--border);
   background: var(--white);
   color: var(--text);
-  border-radius: 24px;
-  padding: 10px 16px;
+  border-radius: 6px;
+  padding: 8px 12px;
   text-align: left;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
 }
 
 .defect-status-option:hover,
@@ -4072,6 +4077,48 @@ h1 {
   border-color: var(--primary);
   background: var(--primary-subtle);
   color: var(--primary);
+}
+
+.defect-status-option.status-new:hover,
+.defect-status-option.status-new.active {
+  border-color: var(--danger);
+  background: var(--danger-subtle);
+  color: var(--danger);
+}
+
+.defect-status-option.status-recorded:hover,
+.defect-status-option.status-recorded.active {
+  border-color: #fdba74;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.defect-status-option.status-in_progress:hover,
+.defect-status-option.status-in_progress.active {
+  border-color: #fcd34d;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.defect-status-option.status-on_review:hover,
+.defect-status-option.status-on_review.active {
+  border-color: #67e8f9;
+  background: #ecfeff;
+  color: #0f766e;
+}
+
+.defect-status-option.status-completed:hover,
+.defect-status-option.status-completed.active {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.defect-status-option.status-rework:hover,
+.defect-status-option.status-rework.active {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .defect-description-input,

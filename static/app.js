@@ -1668,7 +1668,7 @@ function renderDefectStatusButtons(currentStatus, defectId) {
     return AVAILABLE_DEFECT_STATUSES.map((value) => `
         <button
             type="button"
-            class="defect-status-option ${currentStatus === value ? 'active' : ''}"
+            class="defect-status-option status-${value} ${currentStatus === value ? 'active' : ''}"
             onclick="selectDefectStatus(${defectId}, '${value}')"
         >
             ${getDefectStatusLabel(value)}
@@ -1880,14 +1880,10 @@ function renderApartmentTile(apartment, propFull, catFilter) {
     const badge = (badgeCount > 0 && !isAccepted) ? `<span class="apt-badge">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
     const onReviewCount = Number(apartment.on_review_defects_count || 0);
     const reviewBadge = (onReviewCount > 0 && !isAccepted) ? `<span class="apt-badge apt-badge-review">${onReviewCount}</span>` : '';
-    const phaseLabel = Number(apartment.on_review_defects_count || 0) > 0
-        ? 'на проверке'
-        : (Number(apartment.in_progress_defects_count || 0) > 0 || Number(apartment.rework_defects_count || 0) > 0)
-            ? 'в работе'
-            : Number(apartment.recorded_defects_count || 0) > 0
-                ? 'зафиксировано'
-                : '';
-    const tooltip = `${propFull === 'апартамент' ? 'Апартамент' : 'Квартира'} ${apartment.number}${phaseLabel ? ` • ${phaseLabel}` : ''}`;
+    const accessPhone = String(apartment.access_phone || '').trim();
+    const tooltip = apartment.access_status === 'by_phone'
+        ? (accessPhone ? `Номер: ${accessPhone}` : 'Нет номера')
+        : '';
 
     return `
         <div class="apt-wrap">
