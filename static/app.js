@@ -1330,12 +1330,7 @@ function handleViewModeChange() {
 
 function updatePlaceholders() {
     const searchInput = document.getElementById('searchApt');
-    const propType = state.currentPropertyType;
-    if (propType === 'апартаменты') {
-        if (searchInput) searchInput.placeholder = 'Номер апартамента (напр: 1,3-5,10)...';
-    } else {
-        if (searchInput) searchInput.placeholder = 'Номер квартиры (прим: 1,3-5,10)...';
-    }
+    if (searchInput) searchInput.placeholder = 'Пример: 1,3-5,10';
 }
 
 document.addEventListener('click', (e) => {
@@ -1943,31 +1938,98 @@ function renderSectionCard(title, apartments, floors, propFull) {
     `;
 }
 
+function getCombinedSectionWidth(floors) {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1440;
+    const aptWidth = Math.min(44, Math.max(38, viewportWidth * 0.0265));
+    const floorLabelWidth = 48;
+    const floorGap = 8;
+    const aptGap = 6;
+    const sectionPadding = 8;
+    const maxFloorCount = Math.max(
+        ...Object.values(floors).map((apartments) => apartments.length),
+        1
+    );
+
+    return Math.ceil(
+        floorLabelWidth +
+        floorGap +
+        (maxFloorCount * aptWidth) +
+        (Math.max(0, maxFloorCount - 1) * aptGap) +
+        sectionPadding
+    );
+}
+
+function splitCombinedSectionsIntoRows(sectionItems) {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1440;
+    const isMobile = viewportWidth <= 760;
+    const rowGap = 30;
+    const sidePadding = isMobile ? 24 : 32;
+    const availableWidth = Math.max(viewportWidth - sidePadding, 320);
+
+    const measuredItems = sectionItems.map((item) => ({
+        ...item,
+        estimatedWidth: isMobile ? availableWidth : Math.min(getCombinedSectionWidth(item.floors), availableWidth)
+    }));
+
+    if (isMobile) {
+        return measuredItems.map((item) => [item]);
+    }
+
+    const rows = [];
+    let currentRow = [];
+    let currentWidth = 0;
+
+    measuredItems.forEach((item) => {
+        const nextWidth = currentRow.length === 0
+            ? item.estimatedWidth
+            : currentWidth + rowGap + item.estimatedWidth;
+
+        if (currentRow.length > 0 && nextWidth > availableWidth) {
+            rows.push(currentRow);
+            currentRow = [item];
+            currentWidth = item.estimatedWidth;
+            return;
+        }
+
+        currentRow.push(item);
+        currentWidth = nextWidth;
+    });
+
+    if (currentRow.length) rows.push(currentRow);
+    return rows;
+}
+
 function renderCombinedSectionCard(sectionItems, propFull, uniqueBuildingsCount) {
     if (!sectionItems.length) return '';
+
+    const rows = splitCombinedSectionsIntoRows(sectionItems);
 
     return `
         <section class="section-card section-card-combined">
             <div class="section-body-container">
                 <div class="section-body section-body-combined">
-                    ${sectionItems.map(({ sectionNumber, buildingNumber, floors }) => {
-                        const title = uniqueBuildingsCount > 1
-                            ? `Корпус ${buildingNumber} • Секция ${sectionNumber}`
-                            : `Секция ${sectionNumber}`;
-                        const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
+                    ${rows.map((row) => `
+                        <div class="section-combined-row">
+                            ${row.map(({ sectionNumber, buildingNumber, floors, estimatedWidth }) => {
+                                const title = uniqueBuildingsCount > 1
+                                    ? `Корпус ${buildingNumber} • Секция ${sectionNumber}`
+                                    : `Секция ${sectionNumber}`;
+                                const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
 
-                        return `
-                            <div class="section-combined-block">
-                                <div class="section-combined-title">${title}</div>
-                                <div class="section-combined-floors">
-                                    ${sortedFloors.map((floor) => {
-                                        const floorApts = floors[floor].sort((a, b) => a.number - b.number);
-                                        return renderFloorRow(floorApts, floor, propFull);
-                                    }).join('')}
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
+                                return `
+                                    <div class="section-combined-block" style="width:${estimatedWidth}px; max-width:100%;">
+                                        <div class="section-combined-title">${title}</div>
+                                        <div class="section-combined-floors">
+                                            ${sortedFloors.map((floor) => {
+                                                const floorApts = floors[floor].sort((a, b) => a.number - b.number);
+                                                return renderFloorRow(floorApts, floor, propFull);
+                                            }).join('')}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `).join('')}
                 </div>
             </div>
         </section>
