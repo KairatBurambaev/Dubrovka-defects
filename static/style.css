@@ -3508,6 +3508,31 @@ h1 {
   grid-column: 1 / -1;
 }
 
+.defect-text-items {
+  display: inline;
+}
+
+.defect-item-token {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.defect-item-token.is-rework {
+  border-bottom-color: #a855f7;
+}
+
+.defect-inline-separator {
+  color: var(--text-secondary);
+  padding: 0 6px;
+}
+
 .defect-compact-contractor {
   font-size: 12px;
   color: var(--text-secondary);
@@ -3529,7 +3554,7 @@ h1 {
   flex-direction: column;
   align-items: flex-end;
   justify-content: flex-start;
-  gap: 4px;
+  gap: 6px;
   width: auto;
   margin-left: 0;
   order: 2;
@@ -3567,7 +3592,7 @@ h1 {
 }
 
 .defect-compact-status.badge-new { background: var(--danger-subtle); color: var(--danger); }
-.defect-compact-status.badge-recorded { background: #fff7ed; color: #c2410c; }
+.defect-compact-status.badge-recorded { background: #f5efe3; color: #8a6a35; }
 .defect-compact-status.badge-assigned { background: var(--info-subtle); color: var(--info); }
 .defect-compact-status.badge-in_progress { background: var(--primary-subtle); color: var(--primary); }
 .defect-compact-status.badge-ready_for_acceptance { background: #e0e7ff; color: #4338ca; }
@@ -3589,10 +3614,12 @@ h1 {
 }
 
 .defect-photos-icon-btn {
-  min-width: 32px;
-  padding: 0 8px;
+  min-width: 28px;
+  height: 24px;
+  padding: 2px 6px;
   border: 1px solid rgba(59, 130, 246, 0.16);
   background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  border-radius: 8px;
 }
 
 .defect-photos-icon {
@@ -4056,8 +4083,14 @@ h1 {
 }
 
 .defect-status-badge.badge-recorded {
-  background: #fff7ed;
-  color: #c2410c;
+  background: #f5efe3;
+  color: #8a6a35;
+}
+
+.defect-compact-status.badge-new,
+.defect-status-badge.badge-new {
+  background: #f5efe3;
+  color: #8a6a35;
 }
 
 .defect-status-badge.badge-progress {
@@ -4119,16 +4152,16 @@ h1 {
 
 .defect-status-option.status-new:hover,
 .defect-status-option.status-new.active {
-  border-color: var(--danger);
-  background: var(--danger-subtle);
-  color: var(--danger);
+  border-color: #c8b38a;
+  background: #f5efe3;
+  color: #8a6a35;
 }
 
 .defect-status-option.status-recorded:hover,
 .defect-status-option.status-recorded.active {
-  border-color: #fdba74;
-  background: #fff7ed;
-  color: #c2410c;
+  border-color: #c8b38a;
+  background: #f5efe3;
+  color: #8a6a35;
 }
 
 .defect-status-option.status-in_progress:hover,

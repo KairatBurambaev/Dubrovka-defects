@@ -41,7 +41,7 @@ const FILTER_INDEXES = {
 const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
 const DEFECT_STATUS_LABELS = {
     new: 'Новое',
-    recorded: 'Зафиксировано',
+    recorded: 'Новое',
     in_progress: 'В работе',
     on_review: 'На проверке',
     completed: 'Выполнено',
@@ -621,8 +621,42 @@ function getDefectSummaryText(defect) {
 }
 
 function getDefectSummaryHtml(defect) {
-    return escapeHtml(getDefectSummaryText(defect)).replace(/\n/g, '<br>');
+    const rawText = getDefectSummaryText(defect);
+    const parts = rawText
+        .split(/\r?\n|,/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    if (!parts.length) return '';
+    return parts.map((part) => escapeHtml(part)).join(' <span class="defect-inline-separator">•</span> ');
 }
+
+function renderDefectTextItems(defect) {
+    const items = Array.isArray(defect.items) && defect.items.length
+        ? defect.items
+        : [{ id: null, text: getDefectSummaryText(defect), status: defect.status }];
+
+    return `
+        <span class="defect-text-items">
+            ${items.map((item) => {
+                const itemStatus = item.status || 'recorded';
+                const contentParts = String(item.text || '')
+                    .split(/\r?\n|,/) 
+                    .map((part) => part.trim())
+                    .filter(Boolean);
+                const content = contentParts.length
+                    ? contentParts.map((part) => escapeHtml(part)).join(' <span class="defect-inline-separator">•</span> ')
+                    : escapeHtml(String(item.text || ''));
+                const clickHandler = item.id
+                    ? `onclick="toggleDefectItemLine(${item.id}, '${itemStatus}', event)"`
+                    : '';
+
+                return `<button type="button" class="defect-item-token ${itemStatus === 'rework' ? 'is-rework' : ''}" ${clickHandler}>${content}</button>`;
+            }).join(' <span class="defect-inline-separator">•</span> ')}
+        </span>
+    `;
+}
+
 
 async function loadTemplates(category) {
     try {
@@ -1703,24 +1737,21 @@ function syncDefectStatusState(id, status) {
     }
 }
 
-function openDefectStatusModal(id, event) {
+async function toggleDefectItemLine(itemId, currentStatus, event) {
     if (event) event.stopPropagation();
 
-    const modal = document.getElementById('defectStatusModal');
-    const body = document.getElementById('defectStatusBody');
-    const statusInput = document.getElementById(`defectStatus_${id}`);
-    const currentStatus = statusInput?.value || DEFECT_STATUS_ORDER[0];
-    state.currentStatusDefectId = id;
-    if (body) {
-        body.innerHTML = renderDefectStatusButtons(currentStatus, id);
+    const nextStatus = currentStatus === 'rework' ? 'recorded' : 'rework';
+    try {
+        const response = await fetch(`/api/defects/items/${itemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `status=${encodeURIComponent(nextStatus)}`
+        });
+        if (!response.ok) throw new Error('save failed');
+        showApartmentDetail(state.currentApartment);
+    } catch (err) {
+        showToast('Ошибка сохранения', 'error');
     }
-    if (modal) modal.classList.add('active');
-}
-
-function closeDefectStatusModal(event) {
-    if (event && event.target !== event.currentTarget) return;
-    const modal = document.getElementById('defectStatusModal');
-    if (modal) modal.classList.remove('active');
 }
 
 function openDefectStatusModal(id, event) {
@@ -2786,7 +2817,7 @@ function toggleCategoryDefects(category) {
 }
 
 function renderDefectCompactRow(d, index) {
-    const summaryHtml = getDefectSummaryHtml(d);
+    const summaryHtml = renderDefectTextItems(d);
     const fixedAt = formatDate(d.created_at);
     const windowNumber = d.window_number ?? '';
     const statusLabel = getDefectStatusLabel(d.status);
@@ -2818,14 +2849,14 @@ function renderDefectCompactRow(d, index) {
                     ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${escapeHtml(doorChipText)}</span>` : ''}
                     ${isRestoration ? `<span class="defect-restoration-badge">Р</span>` : ''}
                     <span class="defect-compact-date">${fixedAt || '—'}</span>
-                </div>
-                <span class="defect-compact-desc">${summaryHtml}</span>
-                <div class="defect-compact-actions">
-                    <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</span>
                     ${hasBeforePhotos ? `<button type="button" class="defect-photos-toggle defect-photos-icon-btn" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(beforePhotoUrls)}, 0)'><span class="defect-photos-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg></span><span class="defect-photos-count">${beforePhotos.length}</span></button>` : ''}
                     ${hasAfterPhotos ? `<button type="button" class="defect-photos-toggle defect-photos-icon-btn" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(afterPhotoUrls)}, 0)'><span class="defect-photos-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg></span><span class="defect-photos-count">${afterPhotos.length}</span></button>` : ''}
                     ${executorName ? `<span class="defect-compact-executor"><span class="defect-compact-executor-icon">${getExecutorIcon()}</span>${escapeHtml(executorName)}</span>` : ''}
                     ${isDefectEditable(d) ? `<span class="defect-edit-btn" onclick="event.stopPropagation(); showDefectActionsForId(${d.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>` : ''}
+                </div>
+                <span class="defect-compact-desc">${summaryHtml}</span>
+                <div class="defect-compact-actions">
+                    <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</span>
                 </div>
             </div>
             <input type="hidden" id="defectStatus_${d.id}" value="${escapeHtml(d.status)}">
@@ -2997,11 +3028,12 @@ async function saveDefectMeta(id, options = {}) {
 // Items
 async function updateItemStatus(id, status) {
     try {
-        await fetch(`/api/defects/items/${id}`, {
+        const response = await fetch(`/api/defects/items/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `status=${status}`
         });
+        if (!response.ok) throw new Error('save failed');
         showToast('Сохранено', 'success');
         showApartmentDetail(state.currentApartment);
     } catch (err) {

@@ -43,7 +43,7 @@ CATEGORIES = [
 
 STATUSES = {
     "new": "Новое",
-    "recorded": "Зафиксировано",
+    "recorded": "Новое",
     "in_progress": "В работе",
     "on_review": "На проверке",
     "completed": "Выполнено",
@@ -175,6 +175,28 @@ def merge_defect_texts(*texts: str) -> str:
             seen.add(key)
             merged_lines.append(line)
     return "\n".join(merged_lines)
+
+
+def sync_defect_rework_status_from_items(conn, defect_id: int):
+    defect = conn.execute("SELECT status FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    if not defect:
+        return
+
+    has_rework_item = conn.execute(
+        "SELECT 1 FROM defect_items WHERE defect_id = ? AND status = 'rework' LIMIT 1",
+        (defect_id,)
+    ).fetchone()
+
+    next_status = defect["status"]
+    if has_rework_item:
+        next_status = "rework"
+    elif defect["status"] == "rework":
+        next_status = "recorded"
+
+    conn.execute(
+        "UPDATE defects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (next_status, defect_id)
+    )
 
 
 def get_defect_status_rank(status: str) -> int:
@@ -1169,6 +1191,7 @@ async def get_defects(apartment_id: int):
     defects = []
     for row in rows:
         d = dict(row)
+        ensure_defect_has_items(conn, row)
         photos = conn.execute(
             "SELECT id, filename, photo_type FROM photos WHERE defect_id = ?",
             (d["id"],)
@@ -1179,7 +1202,6 @@ async def get_defects(apartment_id: int):
             (d["id"],)
         ).fetchone()[0]
         d["status_label"] = STATUSES.get(d["status"], d["status"])
-        
         # Получаем пункты замечания
         items = conn.execute(
             "SELECT * FROM defect_items WHERE defect_id = ? ORDER BY sort_order, id",
@@ -1198,7 +1220,7 @@ async def get_defects(apartment_id: int):
             item_dict["comments"] = [dict(c) for c in item_comments]
             
             d["items"].append(item_dict)
-        
+
         defects.append(d)
     
     conn.close()
@@ -1299,7 +1321,7 @@ async def create_defect(
         conn.execute(
             """
             UPDATE defects
-            SET description = ?, restoration = ?, updated_at = CURRENT_TIMESTAMP
+            SET description = ?, restoration = ?, status = 'rework', updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
             (merged_description, 1 if restoration or existing_defect["restoration"] else 0, defect_id)
@@ -1319,10 +1341,15 @@ async def create_defect(
     
     # Парсим пункты из описания (каждая строка = отдельный пункт)
     lines = [line.strip() for line in description.split('\n') if line.strip()]
+    item_status = 'rework' if existing_defect else status
+    start_order = conn.execute(
+        "SELECT COALESCE(MAX(sort_order), -1) FROM defect_items WHERE defect_id = ?",
+        (defect_id,)
+    ).fetchone()[0] + 1
     for idx, line in enumerate(lines):
         conn.execute(
             "INSERT INTO defect_items (defect_id, text, status, sort_order) VALUES (?, ?, ?, ?)",
-            (defect_id, line, status, idx)
+            (defect_id, line, item_status, start_order + idx)
         )
     
     # Сохраняем фото
@@ -1372,11 +1399,17 @@ async def add_defect_item(defect_id: int, text: str = Form(...)):
         (defect_id,)
     ).fetchone()[0] or 0
     
+    existing_items_count = conn.execute(
+        "SELECT COUNT(*) FROM defect_items WHERE defect_id = ?",
+        (defect_id,)
+    ).fetchone()[0]
+
     cursor = conn.execute(
         "INSERT INTO defect_items (defect_id, text, status, sort_order) VALUES (?, ?, ?, ?)",
-        (defect_id, text.strip(), 'recorded', max_order + 1)
+        (defect_id, text.strip(), 'rework' if existing_items_count else 'recorded', max_order + 1)
     )
     item_id = cursor.lastrowid
+    sync_defect_rework_status_from_items(conn, defect_id)
     
     conn.commit()
     conn.close()
@@ -1391,7 +1424,7 @@ async def update_item_status(item_id: int, status: str = Form(...)):
         raise HTTPException(status_code=400, detail="Неверный статус")
     
     conn = get_db()
-    item = conn.execute("SELECT id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
+    item = conn.execute("SELECT id, defect_id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
     if not item:
         conn.close()
         raise HTTPException(status_code=404, detail="Пункт не найден")
@@ -1400,6 +1433,7 @@ async def update_item_status(item_id: int, status: str = Form(...)):
         "UPDATE defect_items SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (status, item_id)
     )
+    sync_defect_rework_status_from_items(conn, item["defect_id"])
     conn.commit()
     conn.close()
     
@@ -1431,12 +1465,13 @@ async def update_item_text(item_id: int, text: str = Form(...)):
 @app.delete("/api/defects/items/{item_id}")
 async def delete_item(item_id: int):
     conn = get_db()
-    item = conn.execute("SELECT id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
+    item = conn.execute("SELECT id, defect_id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
     if not item:
         conn.close()
         raise HTTPException(status_code=404, detail="Пункт не найден")
 
     conn.execute("DELETE FROM defect_items WHERE id = ?", (item_id,))
+    sync_defect_rework_status_from_items(conn, item["defect_id"])
     conn.commit()
     conn.close()
     
