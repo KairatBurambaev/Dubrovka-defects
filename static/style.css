@@ -996,6 +996,35 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
   justify-content: center;
 }
 
+.filtered-defect-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filtered-defect-item-token {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: inherit;
+}
+
+.filtered-defect-item-token.is-in-progress {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.filtered-defect-item-token.is-on-review {
+  background: #ecfeff;
+  color: #0f766e;
+}
+
+.filtered-defect-item-token.is-completed {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .filtered-defects-footer {
   display: none;
 }

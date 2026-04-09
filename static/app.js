@@ -659,8 +659,8 @@ function renderDefectRestorationBadge(defectId, isCompleted) {
     return `<button type="button" class="defect-restoration-badge ${isCompleted ? 'is-completed' : ''}" onclick="toggleDefectRestorationCompleted(${defectId}, event)">Р${isCompleted ? '<span class="defect-restoration-check">&#10003;</span>' : ''}</button>`;
 }
 
-function renderDefectTextItems(defect) {
-    const items = Array.isArray(defect.items) && defect.items.length
+function getSortedDefectItems(defect) {
+    return Array.isArray(defect.items) && defect.items.length
         ? [...defect.items].sort((a, b) => {
             const dateA = a?.created_at ? new Date(a.created_at).getTime() : 0;
             const dateB = b?.created_at ? new Date(b.created_at).getTime() : 0;
@@ -668,6 +668,32 @@ function renderDefectTextItems(defect) {
             return Number(a?.id || 0) - Number(b?.id || 0);
         })
         : [{ id: null, text: getDefectSummaryText(defect), status: defect.status }];
+}
+
+function getDefectItemStatusClass(itemStatus) {
+    if (itemStatus === 'completed') return 'is-completed';
+    if (itemStatus === 'on_review') return 'is-on-review';
+    if (itemStatus === 'in_progress') return 'is-in-progress';
+    return '';
+}
+
+function renderReadonlyDefectItems(defect, baseClass = 'defect-item-token') {
+    const items = getSortedDefectItems(defect);
+    return items.map((item, index) => {
+        const itemStatus = item.status || 'recorded';
+        const contentParts = String(item.text || '')
+            .split(/\r?\n|,/) 
+            .map((part) => part.trim())
+            .filter(Boolean);
+        const content = contentParts.length
+            ? contentParts.map((part) => escapeHtml(part)).join(', ')
+            : escapeHtml(String(item.text || ''));
+        return `<span class="${baseClass} ${getDefectItemStatusClass(itemStatus)}"><span class="defect-item-number">${index + 1}.</span> ${content}</span>`;
+    }).join(' ');
+}
+
+function renderDefectTextItems(defect) {
+    const items = getSortedDefectItems(defect);
 
     return `
         <span class="defect-text-items">
@@ -692,7 +718,7 @@ function renderDefectTextItems(defect) {
                     ? `ontouchstart="handleDefectItemTouchStart(${item.id}, event)" ontouchend="handleDefectItemTouchEnd(event)" ontouchmove="handleDefectItemTouchCancel(event)" ontouchcancel="handleDefectItemTouchCancel(event)"`
                     : '';
 
-                return `<button type="button" class="defect-item-token ${isEditableItem ? 'is-editable' : ''} ${itemStatus === 'completed' ? 'is-completed' : itemStatus === 'on_review' ? 'is-on-review' : itemStatus === 'in_progress' ? 'is-in-progress' : ''}" data-item-id="${item.id || ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler} ${doubleClickHandler} ${touchHandlers}><span class="defect-item-number">${index + 1}.</span> ${content}</button>`;
+                return `<button type="button" class="defect-item-token ${isEditableItem ? 'is-editable' : ''} ${getDefectItemStatusClass(itemStatus)}" data-item-id="${item.id || ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler} ${doubleClickHandler} ${touchHandlers}><span class="defect-item-number">${index + 1}.</span> ${content}</button>`;
             }).join(' ')}
         </span>
     `;
@@ -2620,15 +2646,7 @@ async function showApartmentDetail(id) {
         const propType = state.currentPropertyType;
         const propLabel = propType === 'апартаменты' ? 'Апартамент' : 'Квартира';
         
-        const complexSections = state.currentComplexData?.sections || [];
-        const hasMultipleBuildings = new Set(complexSections.map(s => s.building_number || 1)).size > 1;
-
-        const aptSubtitle = hasMultipleBuildings
-            ? `Корпус ${apt.building_number || 1} • Секция ${apt.section_number} • Этаж ${apt.floor}`
-            : `Секция ${apt.section_number} • Этаж ${apt.floor}`;
-        const active = defects.filter(d => !isClosedDefectStatus(d.status));
-        const done = defects.filter(d => isClosedDefectStatus(d.status));
-        setPageTitle(`${propLabel} ${apt.number}`, `${aptSubtitle} • Активных: ${active.length} • Закрытых: ${done.length}`);
+        setPageTitle(`${propLabel} ${apt.number}`, '');
         
         renderDefects(defects);
     } catch (err) {
@@ -4274,7 +4292,7 @@ async function printDefects() {
                 <tr class="defect-print-item">
                     <td class="num-cell">${startIndex + index + 1}.</td>
                     <td class="place-cell">${getDefectPrintLocation(d)}</td>
-                    <td class="desc-cell">${escapeHtml(d.description || '')}</td>
+                    <td class="desc-cell"><div class="defect-print-items">${renderReadonlyDefectItems(d, 'defect-print-item-token')}</div></td>
                     <td class="photo-cell">${photoHtml}</td>
                 </tr>
             `;
@@ -4378,7 +4396,13 @@ async function printDefects() {
                     .defect-print-table th { text-align: left; }
                     .num-cell { width: 42px; }
                     .place-cell { width: 22%; }
-                    .desc-cell { width: 38%; }
+                     .desc-cell { width: 38%; }
+                    .defect-print-items { display: flex; flex-wrap: wrap; gap: 6px; }
+                    .defect-print-item-token { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; color: #111; }
+                    .defect-print-item-token.is-in-progress { background: #fef3c7; color: #92400e; }
+                    .defect-print-item-token.is-on-review { background: #ecfeff; color: #0f766e; }
+                    .defect-print-item-token.is-completed { background: #dcfce7; color: #166534; }
+                    .defect-item-number { font-weight: 600; }
                     .photo-stack { display: flex; flex-wrap: wrap; gap: 8px; }
                     .photo-item { margin: 0; width: 150px; }
                     .photo-item img { width: 100%; max-height: 120px; object-fit: cover; border: 1px solid #999; display: block; }
@@ -4479,7 +4503,7 @@ function showFilteredDefectsModal() {
                             ${defects.map(defect => `
                                 <tr>
                                     <td>${getDefectPrintLocation(defect)}</td>
-                                    <td>${escapeHtml(defect.description || '')}</td>
+                                    <td><div class="filtered-defect-items">${renderReadonlyDefectItems(defect, 'filtered-defect-item-token')}</div></td>
                                     <td><span class="filtered-defect-status defect-status-badge ${getDefectStatusBadgeClass(defect.status)}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
                                 </tr>
                             `).join('')}
