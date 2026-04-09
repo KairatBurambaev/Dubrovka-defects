@@ -369,12 +369,19 @@ body.page-apartment-detail .defect-card-header {
 
 body.page-apartment-detail .header-right {
   flex: 1 1 auto;
-  justify-content: center;
+  justify-content: flex-end;
+  display: flex;
 }
 
 body.page-apartment-detail .toolbar-status {
-  justify-content: center;
-  margin: 0 auto;
+  justify-content: center !important;
+  margin: 0 !important;
+  width: max-content !important;
+  max-width: calc(100vw - 32px) !important;
+  position: absolute !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
 }
 
 body.page-apartment-detail .detail-grid {
@@ -549,9 +556,13 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
   }
 
   body.page-apartment-detail .toolbar-status {
-    justify-content: flex-start;
-    margin: 0;
+    justify-content: center;
+    margin: 0 auto;
     width: 100%;
+    max-width: 100%;
+    position: static;
+    left: auto;
+    transform: none;
     overflow-x: auto;
     padding-bottom: 2px;
   }
@@ -3566,8 +3577,8 @@ h1 {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.defect-item-token.is-editable {
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
+.defect-item-number {
+  font-weight: 600;
 }
 
 .defect-item-inline-input {

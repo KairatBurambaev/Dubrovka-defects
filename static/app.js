@@ -647,7 +647,7 @@ function renderDefectDateBadges(defect) {
         items
             .map((item) => getDefectItemDateKey(item, defect))
             .filter((dateKey) => dateKey && dateKey !== primaryDateKey)
-    )];
+    )].sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
     return extraDateKeys.map((dateKey) => {
         const formattedDate = formatDate(dateKey);
@@ -661,12 +661,17 @@ function renderDefectRestorationBadge(defectId, isCompleted) {
 
 function renderDefectTextItems(defect) {
     const items = Array.isArray(defect.items) && defect.items.length
-        ? defect.items
+        ? [...defect.items].sort((a, b) => {
+            const dateA = a?.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b?.created_at ? new Date(b.created_at).getTime() : 0;
+            if (dateA !== dateB) return dateA - dateB;
+            return Number(a?.id || 0) - Number(b?.id || 0);
+        })
         : [{ id: null, text: getDefectSummaryText(defect), status: defect.status }];
 
     return `
         <span class="defect-text-items">
-            ${items.map((item) => {
+            ${items.map((item, index) => {
                 const itemStatus = item.status || 'recorded';
                 const itemDateKey = getDefectItemDateKey(item, defect);
                 const isEditableItem = canEditDefectItem(item, defect);
@@ -675,7 +680,7 @@ function renderDefectTextItems(defect) {
                     .map((part) => part.trim())
                     .filter(Boolean);
                 const content = contentParts.length
-                    ? contentParts.map((part) => escapeHtml(part)).join(' <span class="defect-inline-separator">•</span> ')
+                    ? contentParts.map((part) => escapeHtml(part)).join(', ')
                     : escapeHtml(String(item.text || ''));
                 const clickHandler = item.id
                     ? `onclick="toggleDefectItemLine(${item.id}, '${itemStatus}', event)"`
@@ -687,8 +692,8 @@ function renderDefectTextItems(defect) {
                     ? `ontouchstart="handleDefectItemTouchStart(${item.id}, event)" ontouchend="handleDefectItemTouchEnd(event)" ontouchmove="handleDefectItemTouchCancel(event)" ontouchcancel="handleDefectItemTouchCancel(event)"`
                     : '';
 
-                return `<button type="button" class="defect-item-token ${isEditableItem ? 'is-editable' : ''} ${itemStatus === 'completed' ? 'is-completed' : itemStatus === 'on_review' ? 'is-on-review' : itemStatus === 'in_progress' ? 'is-in-progress' : ''}" data-item-id="${item.id || ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler} ${doubleClickHandler} ${touchHandlers}>${content}</button>`;
-            }).join(' <span class="defect-inline-separator">•</span> ')}
+                return `<button type="button" class="defect-item-token ${isEditableItem ? 'is-editable' : ''} ${itemStatus === 'completed' ? 'is-completed' : itemStatus === 'on_review' ? 'is-on-review' : itemStatus === 'in_progress' ? 'is-in-progress' : ''}" data-item-id="${item.id || ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler} ${doubleClickHandler} ${touchHandlers}><span class="defect-item-number">${index + 1}.</span> ${content}</button>`;
+            }).join(' ')}
         </span>
     `;
 }
@@ -2640,6 +2645,8 @@ function setStatus(status) {
             btn.classList.add('active');
         }
     });
+
+    applyApartmentStatusLocally(status);
     
     if (status === 'by_phone') {
         showPhoneModal();
@@ -2647,11 +2654,23 @@ function setStatus(status) {
     }
     
     if (status === 'complex') {
+        saveStatus(status);
         showComplexModal();
         return;
     }
     
     saveStatus(status);
+}
+
+function applyApartmentStatusLocally(status) {
+    const apt = document.querySelector(`.apt[data-id="${state.currentApartment}"]`);
+    if (state.currentApartmentData) {
+        state.currentApartmentData.access_status = status;
+    }
+    if (apt && state.currentApartmentData) {
+        const newClass = getApartmentClass(status, state.currentApartmentData.active_defects_count || 0);
+        apt.className = `apt ${newClass}`;
+    }
 }
 
 function showPhoneModal() {
@@ -2773,14 +2792,8 @@ async function saveStatus(status) {
         
         if (res.ok) {
             showToast('Статус сохранен', 'success');
-            
-            // Update apartment card in list
-            const apt = document.querySelector(`.apt[data-id="${state.currentApartment}"]`);
-            if (apt && state.currentApartmentData) {
-                state.currentApartmentData.access_status = status;
-                const newClass = getApartmentClass(status, state.currentApartmentData.active_defects_count || 0);
-                apt.className = `apt ${newClass}`;
-            }
+
+            applyApartmentStatusLocally(status);
 
             showApartmentDetail(state.currentApartment);
         } else {
