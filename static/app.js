@@ -45,19 +45,17 @@ const DEFECT_STATUS_LABELS = {
     in_progress: 'В работе',
     on_review: 'На проверке',
     completed: 'Выполнено',
-    rejected: 'Отклонено',
-    rework: 'Отправленно на доработку'
+    rejected: 'Отклонено'
 };
-const DEFECT_STATUS_ORDER = ['new', 'recorded', 'in_progress', 'on_review', 'completed', 'rejected', 'rework'];
-const AVAILABLE_DEFECT_STATUSES = ['new', 'recorded', 'in_progress', 'on_review', 'completed', 'rework'];
+const DEFECT_STATUS_ORDER = ['new', 'recorded', 'in_progress', 'on_review', 'completed', 'rejected'];
+const AVAILABLE_DEFECT_STATUSES = ['on_review', 'completed'];
 const DEFECT_STATUS_CLASSES = {
     new: 'badge-new',
     recorded: 'badge-recorded',
     in_progress: 'badge-progress',
     on_review: 'badge-on-review',
     completed: 'badge-completed',
-    rejected: 'badge-rejected',
-    rework: 'badge-rework'
+    rejected: 'badge-rejected'
 };
 const CLOSED_DEFECT_STATUSES = ['completed', 'rejected', 'on_review'];
 let currentFilterIndex = 0;
@@ -631,6 +629,30 @@ function getDefectSummaryHtml(defect) {
     return parts.map((part) => escapeHtml(part)).join(' <span class="defect-inline-separator">•</span> ');
 }
 
+function getDateKey(dateStr) {
+    if (!dateStr) return '';
+    return String(dateStr).split('T')[0].split(' ')[0];
+}
+
+function getDefectItemDateKey(item, defect) {
+    return getDateKey(item?.created_at) || getDateKey(defect?.created_at);
+}
+
+function renderDefectDateBadges(defect) {
+    const items = Array.isArray(defect.items) ? defect.items : [];
+    const primaryDateKey = getDateKey(defect.created_at);
+    const extraDateKeys = [...new Set(
+        items
+            .map((item) => getDefectItemDateKey(item, defect))
+            .filter((dateKey) => dateKey && dateKey !== primaryDateKey)
+    )];
+
+    return extraDateKeys.map((dateKey) => {
+        const formattedDate = formatDate(dateKey);
+        return `<span class="defect-compact-date defect-compact-date-chip" onmouseenter="setDefectDateHover(${defect.id}, '${escapeHtml(dateKey)}', true)" onmouseleave="setDefectDateHover(${defect.id}, '${escapeHtml(dateKey)}', false)">${formattedDate || '—'}</span>`;
+    }).join('');
+}
+
 function renderDefectTextItems(defect) {
     const items = Array.isArray(defect.items) && defect.items.length
         ? defect.items
@@ -640,6 +662,7 @@ function renderDefectTextItems(defect) {
         <span class="defect-text-items">
             ${items.map((item) => {
                 const itemStatus = item.status || 'recorded';
+                const itemDateKey = getDefectItemDateKey(item, defect);
                 const contentParts = String(item.text || '')
                     .split(/\r?\n|,/) 
                     .map((part) => part.trim())
@@ -651,10 +674,20 @@ function renderDefectTextItems(defect) {
                     ? `onclick="toggleDefectItemLine(${item.id}, '${itemStatus}', event)"`
                     : '';
 
-                return `<button type="button" class="defect-item-token ${itemStatus === 'rework' ? 'is-rework' : ''}" ${clickHandler}>${content}</button>`;
+                return `<button type="button" class="defect-item-token ${itemStatus === 'completed' ? 'is-completed' : itemStatus === 'on_review' ? 'is-on-review' : itemStatus === 'in_progress' ? 'is-in-progress' : ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler}>${content}</button>`;
             }).join(' <span class="defect-inline-separator">•</span> ')}
         </span>
     `;
+}
+
+function setDefectDateHover(defectId, dateKey, isActive) {
+    const row = document.querySelector(`.defect-compact-row[data-defect-id="${defectId}"]`);
+    if (!row) return;
+
+    row.querySelectorAll('.defect-item-token').forEach((token) => {
+        const shouldHighlight = isActive && token.dataset.itemDate === dateKey;
+        token.classList.toggle('date-hover-match', shouldHighlight);
+    });
 }
 
 
@@ -1467,7 +1500,7 @@ async function loadApartments() {
             state.currentDefects.forEach(d => {
                 if (catFilter && d.category !== catFilter) return;
                 if (statusFilter === 'recorded' && d.status !== 'recorded') return;
-                if (statusFilter === 'in_progress' && !['in_progress', 'rework'].includes(d.status)) return;
+                if (statusFilter === 'in_progress' && d.status !== 'in_progress') return;
                 if (statusFilter === 'on_review' && d.status !== 'on_review') return;
                 if (statusFilter === 'completed' && !isClosedDefectStatus(d.status)) return;
                 filteredIds.add(d.apartment_id);
@@ -1687,17 +1720,26 @@ function getCurrentCommentAuthor(forcePrompt = false) {
     return author;
 }
 
+function getAvailableDefectStatuses(currentStatus) {
+    if (['new', 'recorded'].includes(currentStatus)) {
+        return ['in_progress', ...AVAILABLE_DEFECT_STATUSES];
+    }
+    return AVAILABLE_DEFECT_STATUSES;
+}
+
 function renderDefectStatusOptions(currentStatus) {
-    return AVAILABLE_DEFECT_STATUSES.map((value) => `
-        <option value="${value}" ${currentStatus === value ? 'selected' : ''}>${getDefectStatusLabel(value)}</option>
+    const normalizedCurrentStatus = currentStatus === 'new' ? 'recorded' : currentStatus;
+    return getAvailableDefectStatuses(normalizedCurrentStatus).map((value) => `
+        <option value="${value}" ${normalizedCurrentStatus === value ? 'selected' : ''}>${getDefectStatusLabel(value)}</option>
     `).join('');
 }
 
 function renderDefectStatusButtons(currentStatus, defectId) {
-    return AVAILABLE_DEFECT_STATUSES.map((value) => `
+    const normalizedCurrentStatus = currentStatus === 'new' ? 'recorded' : currentStatus;
+    return getAvailableDefectStatuses(normalizedCurrentStatus).map((value) => `
         <button
             type="button"
-            class="defect-status-option status-${value} ${currentStatus === value ? 'active' : ''}"
+            class="defect-status-option status-${value} ${normalizedCurrentStatus === value ? 'active' : ''}"
             onclick="selectDefectStatus(${defectId}, '${value}')"
         >
             ${getDefectStatusLabel(value)}
@@ -1740,7 +1782,11 @@ function syncDefectStatusState(id, status) {
 async function toggleDefectItemLine(itemId, currentStatus, event) {
     if (event) event.stopPropagation();
 
-    const nextStatus = currentStatus === 'rework' ? 'recorded' : 'rework';
+    const nextStatus = currentStatus === 'completed' ? 'in_progress' : 'in_progress';
+
+    if (currentStatus === nextStatus) {
+        return;
+    }
     try {
         const response = await fetch(`/api/defects/items/${itemId}`, {
             method: 'PUT',
@@ -1789,7 +1835,7 @@ async function selectDefectStatus(id, status) {
     const statusInput = document.getElementById(`defectStatus_${id}`);
     const currentStatus = statusInput?.value || DEFECT_STATUS_ORDER[0];
 
-    if (currentStatus === status) {
+    if (currentStatus === status && !['on_review', 'completed'].includes(status)) {
         closeDefectStatusModal();
         return;
     }
@@ -1804,17 +1850,23 @@ async function selectDefectStatus(id, status) {
 
     syncDefectStatusState(id, status);
     closeDefectStatusModal();
+    showApartmentDetail(state.currentApartment);
     showToast('Статус обновлен', 'success');
 }
 
 async function cycleDefectStatus(id, event) {
+    const currentStatus = document.getElementById(`defectStatus_${id}`)?.value || '';
+    if (currentStatus === 'completed') {
+        if (event) event.stopPropagation();
+        return;
+    }
     openDefectStatusModal(id, event);
 }
 
 function getApartmentWorkflowClass(apartment) {
     if (!apartment) return '';
     if (Number(apartment.on_review_defects_count || 0) > 0) return 'apt apt-ready_for_acceptance';
-    if (Number(apartment.in_progress_defects_count || 0) > 0 || Number(apartment.rework_defects_count || 0) > 0) return 'apt apt-in_progress';
+    if (Number(apartment.in_progress_defects_count || 0) > 0) return 'apt apt-in_progress';
     if (Number(apartment.recorded_defects_count || 0) > 0) return 'apt apt-defects';
     return '';
 }
@@ -2819,6 +2871,8 @@ function toggleCategoryDefects(category) {
 function renderDefectCompactRow(d, index) {
     const summaryHtml = renderDefectTextItems(d);
     const fixedAt = formatDate(d.created_at);
+    const primaryDateKey = getDateKey(d.created_at);
+    const extraDateBadges = renderDefectDateBadges(d);
     const windowNumber = d.window_number ?? '';
     const statusLabel = getDefectStatusLabel(d.status);
     const statusBadgeClass = getDefectStatusBadgeClass(d.status);
@@ -2848,7 +2902,8 @@ function renderDefectCompactRow(d, index) {
                     ${isWindowCategory ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${windowChipText}</span>` : ''}
                     ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${escapeHtml(doorChipText)}</span>` : ''}
                     ${isRestoration ? `<span class="defect-restoration-badge">Р</span>` : ''}
-                    <span class="defect-compact-date">${fixedAt || '—'}</span>
+                    <span class="defect-compact-date" onmouseenter="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', true)" onmouseleave="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', false)">${fixedAt || '—'}</span>
+                    ${extraDateBadges}
                     ${hasBeforePhotos ? `<button type="button" class="defect-photos-toggle defect-photos-icon-btn" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(beforePhotoUrls)}, 0)'><span class="defect-photos-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg></span><span class="defect-photos-count">${beforePhotos.length}</span></button>` : ''}
                     ${hasAfterPhotos ? `<button type="button" class="defect-photos-toggle defect-photos-icon-btn" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(afterPhotoUrls)}, 0)'><span class="defect-photos-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg></span><span class="defect-photos-count">${afterPhotos.length}</span></button>` : ''}
                     ${executorName ? `<span class="defect-compact-executor"><span class="defect-compact-executor-icon">${getExecutorIcon()}</span>${escapeHtml(executorName)}</span>` : ''}
@@ -4141,7 +4196,7 @@ function getFilteredDefectsForComplexPrint() {
         if (state.reviewOnly && defect.status !== 'on_review') return false;
         if (categoryFilter && defect.category !== categoryFilter) return false;
         if (statusFilter === 'recorded' && defect.status !== 'recorded') return false;
-        if (statusFilter === 'in_progress' && !['in_progress', 'rework'].includes(defect.status)) return false;
+        if (statusFilter === 'in_progress' && defect.status !== 'in_progress') return false;
         if (statusFilter === 'on_review' && defect.status !== 'on_review') return false;
         if (statusFilter === 'completed' && !isClosedDefectStatus(defect.status)) return false;
         return true;

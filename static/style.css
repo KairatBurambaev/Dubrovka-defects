@@ -3421,6 +3421,14 @@ h1 {
   min-width: 70px;
 }
 
+.defect-compact-date-chip {
+  min-width: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  cursor: default;
+}
+
 .defect-window-chip {
   display: inline-flex;
   align-items: center;
@@ -3514,18 +3522,35 @@ h1 {
 
 .defect-item-token {
   display: inline;
-  padding: 0;
+  padding: 2px 8px;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
   line-height: inherit;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+  border-radius: 999px;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.defect-item-token.is-rework {
-  border-bottom-color: #a855f7;
+.defect-item-token.is-in-progress {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.defect-item-token.is-completed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.defect-item-token.is-on-review {
+  background: #ecfeff;
+  color: #0f766e;
+}
+
+.defect-item-token.date-hover-match {
+  background: #e5e7eb !important;
+  color: #374151 !important;
 }
 
 .defect-inline-separator {
@@ -4113,11 +4138,6 @@ h1 {
   color: #374151;
 }
 
-.defect-status-badge.badge-rework {
-  background: #fef2f2;
-  color: #b91c1c;
-}
-
 .defect-status-modal-body {
   display: flex;
   flex-direction: column;
@@ -4183,13 +4203,6 @@ h1 {
   border-color: #86efac;
   background: #dcfce7;
   color: #166534;
-}
-
-.defect-status-option.status-rework:hover,
-.defect-status-option.status-rework.active {
-  border-color: #fca5a5;
-  background: #fef2f2;
-  color: #b91c1c;
 }
 
 .defect-description-input,
@@ -4585,12 +4598,6 @@ h1 {
   background: #f3f4f6;
   border-color: #d1d5db;
   color: #374151;
-}
-
-.badge-rework {
-  background: #fef2f2;
-  border-color: #fca5a5;
-  color: #b91c1c;
 }
 
 .badge-cat,

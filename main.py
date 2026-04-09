@@ -47,13 +47,13 @@ STATUSES = {
     "in_progress": "В работе",
     "on_review": "На проверке",
     "completed": "Выполнено",
-    "rejected": "Отклонено",
-    "rework": "Отправленно на доработку"
+    "rejected": "Отклонено"
 }
 
 STATUS_MIGRATION = {
     "new": "recorded",
     "assigned": "in_progress",
+    "rework": "in_progress",
     "ready": "completed",
     "ready_for_acceptance": "on_review",
     "accepted": "completed",
@@ -61,6 +61,7 @@ STATUS_MIGRATION = {
 }
 
 CLOSED_DEFECT_STATUSES = ("completed", "rejected", "on_review")
+MERGE_BLOCKING_DEFECT_STATUSES = ("rejected",)
 ACTIVE_DEFECT_STATUSES = tuple(status for status in STATUSES if status not in CLOSED_DEFECT_STATUSES)
 
 TEMPLATES = {
@@ -177,26 +178,37 @@ def merge_defect_texts(*texts: str) -> str:
     return "\n".join(merged_lines)
 
 
-def sync_defect_rework_status_from_items(conn, defect_id: int):
+def sync_defect_in_progress_status_from_items(conn, defect_id: int):
     defect = conn.execute("SELECT status FROM defects WHERE id = ?", (defect_id,)).fetchone()
     if not defect:
         return
 
-    has_rework_item = conn.execute(
-        "SELECT 1 FROM defect_items WHERE defect_id = ? AND status = 'rework' LIMIT 1",
+    has_active_item = conn.execute(
+        f"SELECT 1 FROM defect_items WHERE defect_id = ? AND status NOT IN ({build_not_in_clause(CLOSED_DEFECT_STATUSES)}) LIMIT 1",
+        (defect_id, *CLOSED_DEFECT_STATUSES)
+    ).fetchone()
+
+    has_in_progress_item = conn.execute(
+        "SELECT 1 FROM defect_items WHERE defect_id = ? AND status = 'in_progress' LIMIT 1",
         (defect_id,)
     ).fetchone()
 
     next_status = defect["status"]
-    if has_rework_item:
-        next_status = "rework"
-    elif defect["status"] == "rework":
+    if has_in_progress_item or (defect["status"] == "on_review" and has_active_item):
+        next_status = "in_progress"
+    elif defect["status"] == "in_progress":
         next_status = "recorded"
 
     conn.execute(
         "UPDATE defects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (next_status, defect_id)
     )
+
+
+def sync_all_defect_statuses_from_items(conn):
+    defect_ids = conn.execute("SELECT id FROM defects").fetchall()
+    for row in defect_ids:
+        sync_defect_in_progress_status_from_items(conn, row["id"])
 
 
 def get_defect_status_rank(status: str) -> int:
@@ -243,11 +255,11 @@ def merge_duplicate_window_and_door_defects(conn):
         SELECT apartment_id, category, window_number, variant_number, COUNT(*) AS defects_count
         FROM defects
         WHERE category IN ('Окна', 'Двери')
-          AND status NOT IN ({','.join('?' for _ in CLOSED_DEFECT_STATUSES)})
+          AND status NOT IN ({','.join('?' for _ in MERGE_BLOCKING_DEFECT_STATUSES)})
         GROUP BY apartment_id, category, COALESCE(window_number, -1), COALESCE(variant_number, '')
         HAVING COUNT(*) > 1
         """,
-        CLOSED_DEFECT_STATUSES,
+        MERGE_BLOCKING_DEFECT_STATUSES,
     ).fetchall()
 
     merged_groups = 0
@@ -260,7 +272,7 @@ def merge_duplicate_window_and_door_defects(conn):
               AND category = ?
               AND COALESCE(window_number, -1) = COALESCE(?, -1)
               AND COALESCE(variant_number, '') = COALESCE(?, '')
-              AND status NOT IN ({build_not_in_clause(CLOSED_DEFECT_STATUSES)})
+              AND status NOT IN ({build_not_in_clause(MERGE_BLOCKING_DEFECT_STATUSES)})
             ORDER BY datetime(created_at) ASC, id ASC
             """,
             (
@@ -268,7 +280,7 @@ def merge_duplicate_window_and_door_defects(conn):
                 group["category"],
                 group["window_number"],
                 group["variant_number"],
-                *CLOSED_DEFECT_STATUSES,
+                *MERGE_BLOCKING_DEFECT_STATUSES,
             ),
         ).fetchall()
         if len(defects) < 2:
@@ -282,7 +294,15 @@ def merge_duplicate_window_and_door_defects(conn):
 
         merged_description = merge_defect_texts(*(defect["description"] for defect in defects))
         merged_restoration = 1 if any(defect["restoration"] for defect in defects) else 0
-        merged_status = max(defects, key=lambda defect: get_defect_status_rank(defect["status"]))["status"]
+        has_review_defect = any(defect["status"] == "on_review" for defect in defects)
+        has_active_duplicate = any(
+            defect["status"] not in CLOSED_DEFECT_STATUSES
+            for defect in defects
+        )
+        if has_review_defect and has_active_duplicate:
+            merged_status = "in_progress"
+        else:
+            merged_status = max(defects, key=lambda defect: get_defect_status_rank(defect["status"]))["status"]
         merged_deadline = min(
             (defect["deadline"] for defect in defects if defect["deadline"]),
             default=keeper["deadline"],
@@ -528,11 +548,10 @@ def build_status_sort_case(column_name: str = "status"):
         CASE {column_name}
             WHEN 'recorded' THEN 1
             WHEN 'in_progress' THEN 2
-            WHEN 'rework' THEN 3
-            WHEN 'on_review' THEN 4
-            WHEN 'completed' THEN 5
-            WHEN 'rejected' THEN 6
-            ELSE 7
+            WHEN 'on_review' THEN 3
+            WHEN 'completed' THEN 4
+            WHEN 'rejected' THEN 5
+            ELSE 6
         END
     """
 
@@ -1061,7 +1080,6 @@ async def get_apartments(
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id) as total_defects,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'recorded') as recorded_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'in_progress') as in_progress_defects_count,
-               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'rework') as rework_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'on_review') as on_review_defects_count,
                (SELECT MIN(deadline) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) as earliest_deadline,
                (SELECT MIN(created_at) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) as earliest_defect_created,
@@ -1160,11 +1178,10 @@ async def get_complex_defects(complex_id: int):
                  CASE d.status
                     WHEN 'recorded' THEN 1
                     WHEN 'in_progress' THEN 2
-                    WHEN 'rework' THEN 3
-                    WHEN 'on_review' THEN 4
-                    WHEN 'completed' THEN 5
-                    WHEN 'rejected' THEN 6
-                    ELSE 7
+                    WHEN 'on_review' THEN 3
+                    WHEN 'completed' THEN 4
+                    WHEN 'rejected' THEN 5
+                    ELSE 6
                  END,
                  d.deadline IS NULL,
                  d.deadline,
@@ -1291,26 +1308,26 @@ async def create_defect(
     if category == "Окна":
         existing_defect = conn.execute(
             f"""
-            SELECT id, description, restoration
+            SELECT id, description, restoration, status
             FROM defects
             WHERE apartment_id = ? AND category = ? AND COALESCE(window_number, -1) = COALESCE(?, -1)
-              AND status NOT IN ({build_not_in_clause(CLOSED_DEFECT_STATUSES)})
+              AND status NOT IN ({build_not_in_clause(MERGE_BLOCKING_DEFECT_STATUSES)})
             ORDER BY id DESC
             LIMIT 1
             """,
-            (apartment_id, category, window_number, *CLOSED_DEFECT_STATUSES)
+            (apartment_id, category, window_number, *MERGE_BLOCKING_DEFECT_STATUSES)
         ).fetchone()
     elif category == "Двери":
         existing_defect = conn.execute(
             f"""
-            SELECT id, description, restoration
+            SELECT id, description, restoration, status
             FROM defects
             WHERE apartment_id = ? AND category = ? AND COALESCE(variant_number, '') = ?
-              AND status NOT IN ({build_not_in_clause(CLOSED_DEFECT_STATUSES)})
+              AND status NOT IN ({build_not_in_clause(MERGE_BLOCKING_DEFECT_STATUSES)})
             ORDER BY id DESC
             LIMIT 1
             """,
-            (apartment_id, category, normalized_variant_number, *CLOSED_DEFECT_STATUSES)
+            (apartment_id, category, normalized_variant_number, *MERGE_BLOCKING_DEFECT_STATUSES)
         ).fetchone()
 
     if existing_defect:
@@ -1318,13 +1335,14 @@ async def create_defect(
         existing_description = (existing_defect["description"] or "").strip()
         appended_description = description.strip()
         merged_description = "\n".join(part for part in [existing_description, appended_description] if part)
+        next_defect_status = existing_defect["status"] if existing_defect["status"] in {"new", "recorded"} else "in_progress"
         conn.execute(
             """
             UPDATE defects
-            SET description = ?, restoration = ?, status = 'rework', updated_at = CURRENT_TIMESTAMP
+            SET description = ?, restoration = ?, status = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (merged_description, 1 if restoration or existing_defect["restoration"] else 0, defect_id)
+            (merged_description, 1 if restoration or existing_defect["restoration"] else 0, next_defect_status, defect_id)
         )
     else:
         cursor = conn.execute("""
@@ -1341,7 +1359,7 @@ async def create_defect(
     
     # Парсим пункты из описания (каждая строка = отдельный пункт)
     lines = [line.strip() for line in description.split('\n') if line.strip()]
-    item_status = 'rework' if existing_defect else status
+    item_status = 'recorded' if existing_defect and existing_defect["status"] in {"new", "recorded"} else ('in_progress' if existing_defect else status)
     start_order = conn.execute(
         "SELECT COALESCE(MAX(sort_order), -1) FROM defect_items WHERE defect_id = ?",
         (defect_id,)
@@ -1406,10 +1424,9 @@ async def add_defect_item(defect_id: int, text: str = Form(...)):
 
     cursor = conn.execute(
         "INSERT INTO defect_items (defect_id, text, status, sort_order) VALUES (?, ?, ?, ?)",
-        (defect_id, text.strip(), 'rework' if existing_items_count else 'recorded', max_order + 1)
+        (defect_id, text.strip(), 'in_progress' if existing_items_count else 'recorded', max_order + 1)
     )
     item_id = cursor.lastrowid
-    sync_defect_rework_status_from_items(conn, defect_id)
     
     conn.commit()
     conn.close()
@@ -1424,16 +1441,31 @@ async def update_item_status(item_id: int, status: str = Form(...)):
         raise HTTPException(status_code=400, detail="Неверный статус")
     
     conn = get_db()
-    item = conn.execute("SELECT id, defect_id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
+    item = conn.execute("SELECT id, defect_id, status FROM defect_items WHERE id = ?", (item_id,)).fetchone()
     if not item:
         conn.close()
         raise HTTPException(status_code=404, detail="Пункт не найден")
+
+    defect = conn.execute("SELECT id, status FROM defects WHERE id = ?", (item["defect_id"],)).fetchone()
 
     conn.execute(
         "UPDATE defect_items SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (status, item_id)
     )
-    sync_defect_rework_status_from_items(conn, item["defect_id"])
+    if status == "in_progress" and defect and defect["status"] in {"new", "recorded"}:
+        conn.execute(
+            "UPDATE defects SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (item["defect_id"],)
+        )
+        conn.execute(
+            "UPDATE defect_items SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE defect_id = ?",
+            (item["defect_id"],)
+        )
+    if item["status"] in {"on_review", "completed"} and status == "in_progress" and defect and defect["status"] in {"on_review", "completed"}:
+        conn.execute(
+            "UPDATE defects SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (item["defect_id"],)
+        )
     conn.commit()
     conn.close()
     
@@ -1471,7 +1503,6 @@ async def delete_item(item_id: int):
         raise HTTPException(status_code=404, detail="Пункт не найден")
 
     conn.execute("DELETE FROM defect_items WHERE id = ?", (item_id,))
-    sync_defect_rework_status_from_items(conn, item["defect_id"])
     conn.commit()
     conn.close()
     
@@ -1564,6 +1595,21 @@ async def update_defect_status(defect_id: int, status: str = Form(...)):
         "UPDATE defects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (status, defect_id),
     )
+    if status == "in_progress":
+        conn.execute(
+            "UPDATE defect_items SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE defect_id = ? AND status = 'recorded'",
+            (defect_id,),
+        )
+    elif status == "completed":
+        conn.execute(
+            "UPDATE defect_items SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE defect_id = ?",
+            (status, defect_id),
+        )
+    elif status == "on_review":
+        conn.execute(
+            "UPDATE defect_items SET status = 'on_review', updated_at = CURRENT_TIMESTAMP WHERE defect_id = ? AND status != 'completed'",
+            (defect_id,),
+        )
     conn.commit()
     conn.close()
     
@@ -2403,8 +2449,7 @@ async def export_complex_pdf(complex_id: int, section_id: Optional[int] = None):
         ["В работе", str(by_status.get('in_progress', 0))],
         ["На проверке", str(by_status.get('on_review', 0))],
         ["Выполнено", str(by_status.get('completed', 0))],
-        ["Отклонено", str(by_status.get('rejected', 0))],
-        ["Отправленно на доработку", str(by_status.get('rework', 0))]
+        ["Отклонено", str(by_status.get('rejected', 0))]
     ]
     
     stats_table = Table(stats_data, colWidths=[8*cm, 4*cm])
