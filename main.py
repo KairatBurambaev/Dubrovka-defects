@@ -165,6 +165,42 @@ def ensure_defect_has_items(conn, defect_row):
         )
 
 
+def sync_defect_items_from_description(conn, defect_id: int, description: str, default_status: str):
+    lines = normalize_defect_text_lines(description)
+    existing_items = conn.execute(
+        "SELECT id, status FROM defect_items WHERE defect_id = ? ORDER BY sort_order, id",
+        (defect_id,)
+    ).fetchall()
+
+    shared_count = min(len(existing_items), len(lines))
+    for index in range(shared_count):
+        conn.execute(
+            "UPDATE defect_items SET text = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (lines[index], index, existing_items[index]["id"])
+        )
+
+    for index in range(shared_count, len(lines)):
+        conn.execute(
+            "INSERT INTO defect_items (defect_id, text, status, sort_order) VALUES (?, ?, ?, ?)",
+            (defect_id, lines[index], default_status, index)
+        )
+
+    for index in range(shared_count, len(existing_items)):
+        conn.execute("DELETE FROM defect_items WHERE id = ?", (existing_items[index]["id"],))
+
+
+def sync_defect_description_from_items(conn, defect_id: int):
+    rows = conn.execute(
+        "SELECT text FROM defect_items WHERE defect_id = ? ORDER BY sort_order, id",
+        (defect_id,)
+    ).fetchall()
+    description = "\n".join((row["text"] or "").strip() for row in rows if (row["text"] or "").strip())
+    conn.execute(
+        "UPDATE defects SET description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (description, defect_id)
+    )
+
+
 def merge_defect_texts(*texts: str) -> str:
     merged_lines = []
     seen = set()
@@ -294,6 +330,7 @@ def merge_duplicate_window_and_door_defects(conn):
 
         merged_description = merge_defect_texts(*(defect["description"] for defect in defects))
         merged_restoration = 1 if any(defect["restoration"] for defect in defects) else 0
+        merged_restoration_completed = 1 if any(defect["restoration_completed"] for defect in defects) else 0
         has_review_defect = any(defect["status"] == "on_review" for defect in defects)
         has_active_duplicate = any(
             defect["status"] not in CLOSED_DEFECT_STATUSES
@@ -358,7 +395,7 @@ def merge_duplicate_window_and_door_defects(conn):
         conn.execute(
             """
             UPDATE defects
-            SET description = ?, status = ?, restoration = ?, contractor_id = ?, contractor_name = ?,
+            SET description = ?, status = ?, restoration = ?, restoration_completed = ?, contractor_id = ?, contractor_name = ?,
                 executor = ?, comment_text = ?, project_name = ?, materials_info = ?, cost_amount = ?,
                 labor_cost = ?, deadline = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
@@ -367,6 +404,7 @@ def merge_duplicate_window_and_door_defects(conn):
                 merged_description,
                 merged_status,
                 merged_restoration,
+                merged_restoration_completed,
                 contractor_id,
                 contractor_name,
                 executor,
@@ -620,6 +658,7 @@ def init_db():
             category TEXT NOT NULL,
             window_number INTEGER,
             restoration INTEGER DEFAULT 0,
+            restoration_completed INTEGER DEFAULT 0,
             variant_number TEXT DEFAULT '',
             project_name TEXT DEFAULT '',
             materials_info TEXT DEFAULT '',
@@ -779,6 +818,13 @@ def init_db():
     # Миграция: добавляем колонку access_comment если её нет
     try:
         conn.execute("ALTER TABLE apartments ADD COLUMN access_comment TEXT")
+        conn.commit()
+    except:
+        pass  # Колонка уже существует
+
+    # Миграция: добавляем колонку restoration_completed если её нет
+    try:
+        conn.execute("ALTER TABLE defects ADD COLUMN restoration_completed INTEGER DEFAULT 0")
         conn.commit()
     except:
         pass  # Колонка уже существует
@@ -1308,7 +1354,7 @@ async def create_defect(
     if category == "Окна":
         existing_defect = conn.execute(
             f"""
-            SELECT id, description, restoration, status
+            SELECT id, description, restoration, restoration_completed, status
             FROM defects
             WHERE apartment_id = ? AND category = ? AND COALESCE(window_number, -1) = COALESCE(?, -1)
               AND status NOT IN ({build_not_in_clause(MERGE_BLOCKING_DEFECT_STATUSES)})
@@ -1320,7 +1366,7 @@ async def create_defect(
     elif category == "Двери":
         existing_defect = conn.execute(
             f"""
-            SELECT id, description, restoration, status
+            SELECT id, description, restoration, restoration_completed, status
             FROM defects
             WHERE apartment_id = ? AND category = ? AND COALESCE(variant_number, '') = ?
               AND status NOT IN ({build_not_in_clause(MERGE_BLOCKING_DEFECT_STATUSES)})
@@ -1339,10 +1385,16 @@ async def create_defect(
         conn.execute(
             """
             UPDATE defects
-            SET description = ?, restoration = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+            SET description = ?, restoration = ?, restoration_completed = ?, status = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (merged_description, 1 if restoration or existing_defect["restoration"] else 0, next_defect_status, defect_id)
+            (
+                merged_description,
+                1 if restoration or existing_defect["restoration"] else 0,
+                existing_defect["restoration_completed"] if (restoration or existing_defect["restoration"]) else 0,
+                next_defect_status,
+                defect_id,
+            )
         )
     else:
         cursor = conn.execute("""
@@ -1406,7 +1458,7 @@ async def add_defect_item(defect_id: int, text: str = Form(...)):
         conn.close()
         raise HTTPException(status_code=400, detail="Текст пункта не может быть пустым")
 
-    defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    defect = conn.execute("SELECT id, status FROM defects WHERE id = ?", (defect_id,)).fetchone()
     if not defect:
         conn.close()
         raise HTTPException(status_code=404, detail="Замечание не найдено")
@@ -1427,6 +1479,7 @@ async def add_defect_item(defect_id: int, text: str = Form(...)):
         (defect_id, text.strip(), 'in_progress' if existing_items_count else 'recorded', max_order + 1)
     )
     item_id = cursor.lastrowid
+    sync_defect_description_from_items(conn, defect_id)
     
     conn.commit()
     conn.close()
@@ -1479,7 +1532,7 @@ async def update_item_text(item_id: int, text: str = Form(...)):
         raise HTTPException(status_code=400, detail="Текст пункта не может быть пустым")
 
     conn = get_db()
-    item = conn.execute("SELECT id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
+    item = conn.execute("SELECT id, defect_id FROM defect_items WHERE id = ?", (item_id,)).fetchone()
     if not item:
         conn.close()
         raise HTTPException(status_code=404, detail="Пункт не найден")
@@ -1488,6 +1541,7 @@ async def update_item_text(item_id: int, text: str = Form(...)):
         "UPDATE defect_items SET text = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (cleaned_text, item_id)
     )
+    sync_defect_description_from_items(conn, item["defect_id"])
     conn.commit()
     conn.close()
     
@@ -1503,6 +1557,7 @@ async def delete_item(item_id: int):
         raise HTTPException(status_code=404, detail="Пункт не найден")
 
     conn.execute("DELETE FROM defect_items WHERE id = ?", (item_id,))
+    sync_defect_description_from_items(conn, item["defect_id"])
     conn.commit()
     conn.close()
     
@@ -1586,7 +1641,7 @@ async def update_defect_status(defect_id: int, status: str = Form(...)):
         raise HTTPException(status_code=400, detail="Неверный статус")
 
     conn = get_db()
-    defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    defect = conn.execute("SELECT id, status FROM defects WHERE id = ?", (defect_id,)).fetchone()
     if not defect:
         conn.close()
         raise HTTPException(status_code=404, detail="Замечание не найдено")
@@ -1619,7 +1674,7 @@ async def update_defect_status(defect_id: int, status: str = Form(...)):
 @app.put("/api/defects/{defect_id}/restoration")
 async def update_defect_restoration(defect_id: int, restoration: int = Form(...)):
     conn = get_db()
-    defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    defect = conn.execute("SELECT id, status, category, window_number FROM defects WHERE id = ?", (defect_id,)).fetchone()
     if not defect:
         conn.close()
         raise HTTPException(status_code=404, detail="Замечание не найдено")
@@ -1633,6 +1688,25 @@ async def update_defect_restoration(defect_id: int, restoration: int = Form(...)
     conn.close()
 
     return {"message": "Признак реставрации обновлен", "restoration": normalized_restoration}
+
+
+@app.put("/api/defects/{defect_id}/restoration-completed")
+async def update_defect_restoration_completed(defect_id: int, completed: int = Form(...)):
+    conn = get_db()
+    defect = conn.execute("SELECT id, restoration FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    if not defect:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Замечание не найдено")
+
+    normalized_completed = 1 if completed and defect["restoration"] else 0
+    conn.execute(
+        "UPDATE defects SET restoration_completed = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (normalized_completed, defect_id),
+    )
+    conn.commit()
+    conn.close()
+
+    return {"message": "Признак выполнения реставрации обновлен", "restoration_completed": normalized_completed}
 
 
 @app.get("/api/defects/{defect_id}")
@@ -1707,8 +1781,7 @@ async def update_defect_meta(
     if description is None:
         description = ""
 
-    current_category_row = conn.execute("SELECT category FROM defects WHERE id = ?", (defect_id,)).fetchone()
-    current_category = current_category_row[0] if current_category_row else ""
+    current_category = defect["category"] if defect else ""
     if current_category == "Двери":
         if normalized_variant_number not in {"Нар", "Вн", "Общ."}:
             conn.close()
@@ -1716,12 +1789,17 @@ async def update_defect_meta(
     else:
         normalized_variant_number = ""
 
+    if current_category == "Окна" and normalized_window_number is None:
+        normalized_window_number = defect["window_number"]
+
+    next_defect_status = 'in_progress'
+
     conn.execute(
         """
         UPDATE defects
         SET contractor_id = ?, contractor_name = ?, description = ?, variant_number = ?, project_name = ?,
             materials_info = ?, cost_amount = ?, labor_cost = ?, comment_text = ?, deadline = ?, window_number = ?,
-            executor = ?, restoration = ?,
+            executor = ?, restoration = ?, status = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
         """,
@@ -1739,8 +1817,15 @@ async def update_defect_meta(
             normalized_window_number,
             executor.strip(),
             restoration,
+            next_defect_status,
             defect_id
         )
+    )
+
+    sync_defect_items_from_description(conn, defect_id, description.strip(), next_defect_status)
+    conn.execute(
+        "UPDATE defect_items SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE defect_id = ?",
+        (defect_id,)
     )
     
     # Handle new photos

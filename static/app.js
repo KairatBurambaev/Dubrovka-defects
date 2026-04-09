@@ -19,6 +19,7 @@ const state = {
     accessFilter: '',
     defectsOnly: false,
     reviewOnly: false,
+    restorationOnly: false,
     sortByDefects: false,
     loading: false,
     currentDefects: [], // Store defects for category filtering
@@ -26,17 +27,18 @@ const state = {
 };
 
 // Global filter constants
-const FILTERS = ['', 'defects', 'on_review', 'in_progress', 'call', 'owner_accepted', 'complex', 'no_access'];
-const FILTER_NAMES = ['Все', 'С замечаниями', 'На проверке', 'В работе', 'Вызваные квартиры', 'Принята', 'Сложная', 'Нет доступа'];
+const FILTERS = ['', 'defects', 'restoration', 'on_review', 'in_progress', 'call', 'owner_accepted', 'complex', 'no_access'];
+const FILTER_NAMES = ['Все', 'С замечаниями', 'Реставрация', 'На проверке', 'В работе', 'Вызваные квартиры', 'Принята', 'Сложная', 'Нет доступа'];
 const FILTER_INDEXES = {
     '': 0,
     'defects': 1,
-    'on_review': 2,
-    'in_progress': 3,
-    'call': 4,
-    'owner_accepted': 5,
-    'complex': 6,
-    'no_access': 7
+    'restoration': 2,
+    'on_review': 3,
+    'in_progress': 4,
+    'call': 5,
+    'owner_accepted': 6,
+    'complex': 7,
+    'no_access': 8
 };
 const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
 const DEFECT_STATUS_LABELS = {
@@ -653,6 +655,10 @@ function renderDefectDateBadges(defect) {
     }).join('');
 }
 
+function renderDefectRestorationBadge(defectId, isCompleted) {
+    return `<button type="button" class="defect-restoration-badge ${isCompleted ? 'is-completed' : ''}" onclick="toggleDefectRestorationCompleted(${defectId}, event)">Р${isCompleted ? '<span class="defect-restoration-check">&#10003;</span>' : ''}</button>`;
+}
+
 function renderDefectTextItems(defect) {
     const items = Array.isArray(defect.items) && defect.items.length
         ? defect.items
@@ -663,6 +669,7 @@ function renderDefectTextItems(defect) {
             ${items.map((item) => {
                 const itemStatus = item.status || 'recorded';
                 const itemDateKey = getDefectItemDateKey(item, defect);
+                const isEditableItem = canEditDefectItem(item, defect);
                 const contentParts = String(item.text || '')
                     .split(/\r?\n|,/) 
                     .map((part) => part.trim())
@@ -673,11 +680,26 @@ function renderDefectTextItems(defect) {
                 const clickHandler = item.id
                     ? `onclick="toggleDefectItemLine(${item.id}, '${itemStatus}', event)"`
                     : '';
+                const doubleClickHandler = item.id && isEditableItem
+                    ? `ondblclick="startDefectItemEdit(${item.id}, event)"`
+                    : '';
+                const touchHandlers = item.id && isEditableItem
+                    ? `ontouchstart="handleDefectItemTouchStart(${item.id}, event)" ontouchend="handleDefectItemTouchEnd(event)" ontouchmove="handleDefectItemTouchCancel(event)" ontouchcancel="handleDefectItemTouchCancel(event)"`
+                    : '';
 
-                return `<button type="button" class="defect-item-token ${itemStatus === 'completed' ? 'is-completed' : itemStatus === 'on_review' ? 'is-on-review' : itemStatus === 'in_progress' ? 'is-in-progress' : ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler}>${content}</button>`;
+                return `<button type="button" class="defect-item-token ${isEditableItem ? 'is-editable' : ''} ${itemStatus === 'completed' ? 'is-completed' : itemStatus === 'on_review' ? 'is-on-review' : itemStatus === 'in_progress' ? 'is-in-progress' : ''}" data-item-id="${item.id || ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler} ${doubleClickHandler} ${touchHandlers}>${content}</button>`;
             }).join(' <span class="defect-inline-separator">•</span> ')}
         </span>
     `;
+}
+
+function canEditDefectItem(item, defect) {
+    if (!item?.id) return false;
+    if (['completed', 'on_review'].includes(defect?.status)) return true;
+    if (!item?.created_at) return false;
+    const created = new Date(item.created_at);
+    const now = new Date();
+    return ((now - created) / (1000 * 60 * 60)) <= 24;
 }
 
 function setDefectDateHover(defectId, dateKey, isActive) {
@@ -1520,6 +1542,10 @@ async function loadApartments() {
             apts = apts.filter(a => Number(a.on_review_defects_count || 0) > 0);
         }
 
+        if (state.restorationOnly) {
+            apts = apts.filter(a => apartmentNeedsRestoration(a.id));
+        }
+
         if (state.accessFilter) {
             apts = apts.filter(a => {
                 if (state.accessFilter === 'owner_accepted') {
@@ -1586,6 +1612,19 @@ function setAccessFilter(filter) {
         return;
     }
 
+    if (filter === 'restoration') {
+        state.restorationOnly = !state.restorationOnly;
+        updateDesktopFilterButtons();
+        updateMobileFilterIndicator();
+        updateMobileFilterButtons();
+        const mobileStatusFilter = document.getElementById('mobileStatusFilter');
+        if (mobileStatusFilter && !state.accessFilter) {
+            mobileStatusFilter.value = state.restorationOnly ? 'restoration' : '';
+        }
+        loadApartments();
+        return;
+    }
+
     const currentFilter = state.accessFilter;
     let nextFilter = filter;
     
@@ -1629,6 +1668,10 @@ function updateDesktopFilterButtons() {
             chip.classList.toggle('active', state.reviewOnly);
             return;
         }
+        if (chip.dataset.filter === 'restoration') {
+            chip.classList.toggle('active', state.restorationOnly);
+            return;
+        }
         chip.classList.toggle('active', chip.dataset.filter === state.accessFilter);
     });
 }
@@ -1642,10 +1685,11 @@ function updateMobileFilterIndicator() {
             parts.push(index >= 0 ? FILTER_NAMES[index] : state.accessFilter);
         }
         if (state.defectsOnly) parts.push('С замечаниями');
+        if (state.restorationOnly) parts.push('Реставрация');
         if (state.reviewOnly) parts.push('На проверке');
         const name = parts.join(' + ') || 'Все';
         indicator.textContent = name;
-        indicator.classList.toggle('filter-active', Boolean(state.accessFilter || state.defectsOnly || state.reviewOnly));
+        indicator.classList.toggle('filter-active', Boolean(state.accessFilter || state.defectsOnly || state.reviewOnly || state.restorationOnly));
         // Add animation class
         indicator.classList.add('filter-changed');
         setTimeout(() => {
@@ -1665,6 +1709,10 @@ function updateMobileFilterButtons() {
             btn.classList.toggle('active', state.reviewOnly);
             return;
         }
+        if (btn.dataset.filter === 'restoration') {
+            btn.classList.toggle('active', state.restorationOnly);
+            return;
+        }
         btn.classList.toggle('active', btn.dataset.filter === state.accessFilter);
     });
 }
@@ -1680,6 +1728,14 @@ function isAcceptedApartment(apartment) {
 
 function isNoAccessApartment(apartment) {
     return ['no_access', 'by_phone'].includes(apartment?.access_status);
+}
+
+function apartmentNeedsRestoration(apartmentId) {
+    return state.currentDefects.some((defect) => (
+        defect.apartment_id === apartmentId
+        && Number(defect.restoration || 0) === 1
+        && Number(defect.restoration_completed || 0) !== 1
+    ));
 }
 
 function isClosedDefectStatus(status) {
@@ -1779,8 +1835,16 @@ function syncDefectStatusState(id, status) {
     }
 }
 
+const defectItemTouchTimers = new Map();
+const DEFECT_ITEM_LONG_PRESS_MS = 450;
+
 async function toggleDefectItemLine(itemId, currentStatus, event) {
     if (event) event.stopPropagation();
+    const token = event?.currentTarget;
+    if (token?.dataset.longPressTriggered === '1') {
+        token.dataset.longPressTriggered = '0';
+        return;
+    }
 
     const nextStatus = currentStatus === 'completed' ? 'in_progress' : 'in_progress';
 
@@ -1798,6 +1862,106 @@ async function toggleDefectItemLine(itemId, currentStatus, event) {
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
     }
+}
+
+function handleDefectItemTouchStart(itemId, event) {
+    const token = event.currentTarget;
+    if (!token) return;
+    token.dataset.longPressTriggered = '0';
+    handleDefectItemTouchCancel(event);
+    const timer = setTimeout(() => {
+        token.dataset.longPressTriggered = '1';
+        startDefectItemEdit(itemId, event);
+    }, DEFECT_ITEM_LONG_PRESS_MS);
+    defectItemTouchTimers.set(itemId, timer);
+}
+
+function handleDefectItemTouchEnd(event) {
+    const token = event.currentTarget;
+    const itemId = Number(token?.dataset.itemId || 0);
+    if (!itemId) return;
+    const timer = defectItemTouchTimers.get(itemId);
+    if (timer) {
+        clearTimeout(timer);
+        defectItemTouchTimers.delete(itemId);
+    }
+}
+
+function handleDefectItemTouchCancel(event) {
+    const token = event.currentTarget;
+    const itemId = Number(token?.dataset.itemId || 0);
+    if (!itemId) return;
+    const timer = defectItemTouchTimers.get(itemId);
+    if (timer) {
+        clearTimeout(timer);
+        defectItemTouchTimers.delete(itemId);
+    }
+}
+
+function startDefectItemEdit(itemId, event) {
+    if (event?.preventDefault) event.preventDefault();
+    event.stopPropagation();
+    const token = event.currentTarget;
+    if (!token || token.dataset.editing === '1') return;
+
+    const defect = state.currentApartmentData?.defects?.find((entry) => entry.items?.some((item) => item.id === itemId));
+    const item = defect?.items?.find((entry) => entry.id === itemId);
+    if (!item || !canEditDefectItem(item, defect)) return;
+
+    token.dataset.editing = '1';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = item.text || '';
+    input.className = 'defect-item-inline-input';
+    input.setAttribute('aria-label', 'Редактировать строку замечания');
+
+    const finish = async (shouldSave) => {
+        if (token.dataset.editing !== '1') return;
+        token.dataset.editing = '0';
+        const nextText = input.value.trim();
+
+        if (!shouldSave) {
+            showApartmentDetail(state.currentApartment);
+            return;
+        }
+
+        try {
+            if (!nextText) {
+                const response = await fetch(`/api/defects/items/${itemId}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('delete failed');
+            } else if (nextText !== (item.text || '').trim()) {
+                const response = await fetch(`/api/defects/items/${itemId}/text`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `text=${encodeURIComponent(nextText)}`
+                });
+                if (!response.ok) throw new Error('save failed');
+            }
+            showApartmentDetail(state.currentApartment);
+        } catch (err) {
+            showToast('Ошибка сохранения', 'error');
+            showApartmentDetail(state.currentApartment);
+        }
+    };
+
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            await finish(true);
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            await finish(false);
+        }
+    });
+    input.addEventListener('blur', async () => {
+        await finish(true);
+    });
+
+    token.replaceWith(input);
+    input.focus();
+    input.select();
 }
 
 function openDefectStatusModal(id, event) {
@@ -1923,12 +2087,18 @@ function getApartmentListEmptyState() {
     const category = document.getElementById('defectCategoryFilter')?.value;
     const sectionItems = document.querySelectorAll('#filterOptions .filter-item.selected');
     const hasSectionFilter = sectionItems.length > 0;
-    const filterName = FILTER_NAMES[FILTERS.indexOf(state.accessFilter)] || 'Все';
+    const activeFilterName = state.restorationOnly
+        ? 'Реставрация'
+        : state.reviewOnly
+            ? 'На проверке'
+            : state.defectsOnly
+                ? 'С замечаниями'
+                : (FILTER_NAMES[FILTERS.indexOf(state.accessFilter)] || 'Все');
 
-    if (search || category || state.accessFilter || hasSectionFilter) {
+    if (search || category || state.accessFilter || hasSectionFilter || state.defectsOnly || state.reviewOnly || state.restorationOnly) {
         return {
             title: 'Ничего не найдено',
-            description: `Измени поиск или фильтры. Сейчас активен статус «${filterName}».`
+            description: `Измени поиск или фильтры. Сейчас активен статус «${activeFilterName}».`
         };
     }
 
@@ -2611,6 +2781,8 @@ async function saveStatus(status) {
                 const newClass = getApartmentClass(status, state.currentApartmentData.active_defects_count || 0);
                 apt.className = `apt ${newClass}`;
             }
+
+            showApartmentDetail(state.currentApartment);
         } else {
             showToast('Ошибка сохранения', 'error');
         }
@@ -2883,6 +3055,7 @@ function renderDefectCompactRow(d, index) {
     const doorVariant = isDoorCategory ? String(d.variant_number || '').trim() : '';
     const doorChipText = getDoorVariantLabel(doorVariant);
     const isRestoration = d.restoration === 1;
+    const isRestorationCompleted = d.restoration_completed === 1;
 
     const contractorName = d.contractor_name || '—';
     const executorName = d.executor || '';
@@ -2896,18 +3069,18 @@ function renderDefectCompactRow(d, index) {
     const afterPhotoUrls = afterPhotos.map(photo => `/uploads/${encodeURIComponent(photo.filename)}`);
 
     return `
-        <div class="defect-compact-row" data-defect-id="${d.id}" data-restoration="${isRestoration ? 1 : 0}">
+        <div class="defect-row defect-compact-row" data-defect-id="${d.id}" data-restoration="${isRestoration ? 1 : 0}" data-restoration-completed="${isRestorationCompleted ? 1 : 0}">
             <div class="defect-compact-main">
                 <div class="defect-compact-meta">
-                    ${isWindowCategory ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${windowChipText}</span>` : ''}
+                    ${isWindowCategory && windowChipText ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${windowChipText}</span>` : ''}
                     ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${escapeHtml(doorChipText)}</span>` : ''}
-                    ${isRestoration ? `<span class="defect-restoration-badge">Р</span>` : ''}
+                    ${isRestoration ? renderDefectRestorationBadge(d.id, isRestorationCompleted) : ''}
                     <span class="defect-compact-date" onmouseenter="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', true)" onmouseleave="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', false)">${fixedAt || '—'}</span>
                     ${extraDateBadges}
+                    <input type="text" id="defectCommentText_${d.id}" class="input defect-compact-comment-input" placeholder="Комментарий к замечанию" value="${escapeHtml(d.comment_text || '')}">
                     ${hasBeforePhotos ? `<button type="button" class="defect-photos-toggle defect-photos-icon-btn" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(beforePhotoUrls)}, 0)'><span class="defect-photos-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg></span><span class="defect-photos-count">${beforePhotos.length}</span></button>` : ''}
                     ${hasAfterPhotos ? `<button type="button" class="defect-photos-toggle defect-photos-icon-btn" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(afterPhotoUrls)}, 0)'><span class="defect-photos-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg></span><span class="defect-photos-count">${afterPhotos.length}</span></button>` : ''}
                     ${executorName ? `<span class="defect-compact-executor"><span class="defect-compact-executor-icon">${getExecutorIcon()}</span>${escapeHtml(executorName)}</span>` : ''}
-                    ${isDefectEditable(d) ? `<span class="defect-edit-btn" onclick="event.stopPropagation(); showDefectActionsForId(${d.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>` : ''}
                 </div>
                 <span class="defect-compact-desc">${summaryHtml}</span>
                 <div class="defect-compact-actions">
@@ -2936,11 +3109,12 @@ async function toggleDefectRestoration(id, event) {
 
         row.dataset.restoration = String(next);
         const existingBadge = row.querySelector('.defect-restoration-badge');
+        const savedCompleted = Number(row.dataset.restorationCompleted || 0) === 1;
         if (next) {
             if (!existingBadge) {
                 const dateNode = row.querySelector('.defect-compact-date');
                 if (dateNode) {
-                    dateNode.insertAdjacentHTML('beforebegin', '<span class="defect-restoration-badge">Р</span>');
+                    dateNode.insertAdjacentHTML('beforebegin', renderDefectRestorationBadge(id, savedCompleted));
                 }
             }
         } else if (existingBadge) {
@@ -2948,8 +3122,40 @@ async function toggleDefectRestoration(id, event) {
         }
 
         const defect = state.currentApartmentData?.defects?.find(item => item.id === id);
-        if (defect) defect.restoration = next;
+        if (defect) {
+            defect.restoration = next;
+        }
         showToast(next ? 'Отмечена реставрация' : 'Реставрация снята', 'success');
+    } catch (err) {
+        showToast('Ошибка обновления', 'error');
+    }
+}
+
+async function toggleDefectRestorationCompleted(id, event) {
+    event.stopPropagation();
+    const row = event.currentTarget?.closest('.defect-compact-row');
+    if (!row) return;
+
+    const badge = row.querySelector('.defect-restoration-badge');
+    if (!badge) return;
+
+    const defect = state.currentApartmentData?.defects?.find(item => item.id === id);
+    const current = defect?.restoration_completed === 1 || badge.classList.contains('is-completed');
+    const next = current ? 0 : 1;
+
+    try {
+        const response = await fetch(`/api/defects/${id}/restoration-completed`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `completed=${next}`
+        });
+        if (!response.ok) throw new Error('save failed');
+
+        badge.classList.toggle('is-completed', Boolean(next));
+        badge.innerHTML = `Р${next ? '<span class="defect-restoration-check">&#10003;</span>' : ''}`;
+        row.dataset.restorationCompleted = String(next);
+        if (defect) defect.restoration_completed = next;
+        showToast(next ? 'Реставрация выполнена' : 'Отметка выполнения снята', 'success');
     } catch (err) {
         showToast('Ошибка обновления', 'error');
     }
@@ -3458,8 +3664,11 @@ async function editDefect(id) {
         // For Windows, populate the window number select
         if (defect.category === 'Окна') {
             const windowSelect = document.getElementById('windowNumber');
-            windowSelect.disabled = false;
-            windowSelect.value = defect.window_number ?? '';
+            if (windowSelect) {
+                windowSelect.disabled = false;
+                windowSelect.style.display = '';
+                windowSelect.value = defect.window_number ?? '';
+            }
         }
 
         if (defect.category === 'Двери') {
@@ -3501,6 +3710,7 @@ async function saveDefectEdit() {
     const windowNumber = document.getElementById('windowNumber')?.value;
     const doorSide = document.getElementById('doorSide')?.value;
     const restoration = document.getElementById('defectRestoration')?.checked ? 1 : 0;
+    const currentStatus = document.getElementById(`defectStatus_${currentEditingDefectId}`)?.value || '';
     
     if (!category || !description) {
         showToast('Заполните все поля', 'warning');
@@ -3543,6 +3753,8 @@ async function saveDefectEdit() {
         });
         
         if (res.ok) {
+            const statusInput = document.getElementById(`defectStatus_${currentEditingDefectId}`);
+            if (statusInput) statusInput.value = 'in_progress';
             showToast('Замечание обновлено', 'success');
             currentEditingDefectId = null;
             closeDefectModal();

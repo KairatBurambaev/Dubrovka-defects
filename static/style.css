@@ -2519,6 +2519,11 @@ h1 {
   color: #5f6368;
 }
 
+.pill[data-filter="restoration"].active {
+  background: #f1f3f4;
+  color: #5f6368;
+}
+
 .pill[data-filter="call"].active {
   background: #fce7f3;
   color: #ec4899;
@@ -3412,21 +3417,35 @@ h1 {
   flex-wrap: wrap;
   order: 1;
   min-width: 0;
+  width: 100%;
 }
 
 .defect-compact-date {
+  display: inline-flex;
+  align-items: center;
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: #4b5563;
   min-width: 70px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  cursor: default;
 }
 
 .defect-compact-date-chip {
   min-width: auto;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--bg-secondary);
   cursor: default;
+}
+
+.defect-compact-comment-input {
+  flex: 1 1 220px;
+  min-width: 140px;
+  width: auto;
+  max-width: 100%;
+  height: 30px;
+  padding: 6px 10px;
+  border-radius: 10px;
 }
 
 .defect-window-chip {
@@ -3474,6 +3493,20 @@ h1 {
   border-radius: 20px;
   min-width: 28px;
   height: 20px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.defect-restoration-badge.is-completed {
+  background: var(--success-subtle);
+  color: var(--success);
+}
+
+.defect-restoration-check {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
 }
 
 .defect-compact-row-toggleable {
@@ -3531,6 +3564,23 @@ h1 {
   cursor: pointer;
   border-radius: 999px;
   transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.defect-item-token.is-editable {
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.35);
+}
+
+.defect-item-inline-input {
+  display: inline-block;
+  min-width: 180px;
+  max-width: min(100%, 420px);
+  padding: 3px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+  color: inherit;
+  background: #ffffff;
+  vertical-align: middle;
 }
 
 .defect-item-token.is-in-progress {
@@ -8507,6 +8557,11 @@ body {
 }
 
   .mobile-filter-btn[data-filter="defects"].active {
+    background: #f1f3f4;
+    color: #5f6368;
+  }
+
+  .mobile-filter-btn[data-filter="restoration"].active {
     background: #f1f3f4;
     color: #5f6368;
   }
