@@ -1523,18 +1523,21 @@ async function loadApartments() {
         let apts = await res.json();
         console.log('Loaded apartments:', apts.length);
         
-        // Fetch defects for category-based badge counts and filtering
         const catFilter = document.getElementById('defectCategoryFilter')?.value;
         const statusFilter = document.getElementById('defectStatusFilter')?.value;
-        try {
-            const defectsRes = await fetch(`/api/complexes/${state.currentComplex}/defects`);
-            if (!defectsRes.ok) {
-                throw new Error(`defects request failed: ${defectsRes.status}`);
+        const needsComplexDefects = Boolean(catFilter || statusFilter || state.restorationOnly);
+
+        if (needsComplexDefects) {
+            try {
+                const defectsRes = await fetch(`/api/complexes/${state.currentComplex}/defects`);
+                if (!defectsRes.ok) {
+                    throw new Error(`defects request failed: ${defectsRes.status}`);
+                }
+                state.currentDefects = await defectsRes.json();
+            } catch (defectsErr) {
+                console.error('Defects loading failed:', defectsErr);
+                state.currentDefects = [];
             }
-            state.currentDefects = await defectsRes.json();
-        } catch (defectsErr) {
-            console.error('Defects loading failed:', defectsErr);
-            state.currentDefects = [];
         }
         
         // Filter apartments by defects if category filter is active
@@ -1856,6 +1859,29 @@ function syncDefectStatusState(id, status) {
     }
 }
 
+function syncDefectItemStatusState(itemId, status) {
+    const defects = state.currentApartmentData?.defects;
+    if (!Array.isArray(defects)) return null;
+
+    for (const defect of defects) {
+        const item = defect.items?.find((entry) => entry.id === itemId);
+        if (!item) continue;
+        item.status = status;
+        if (status === 'in_progress' && ['on_review', 'completed', 'new', 'recorded'].includes(defect.status)) {
+            defect.status = 'in_progress';
+            syncDefectStatusState(defect.id, 'in_progress');
+        }
+        return defect;
+    }
+
+    return null;
+}
+
+function rerenderCurrentApartmentDefects() {
+    if (!Array.isArray(state.currentApartmentData?.defects)) return;
+    renderDefects(state.currentApartmentData.defects);
+}
+
 const defectItemTouchTimers = new Map();
 const DEFECT_ITEM_LONG_PRESS_MS = 450;
 
@@ -1879,7 +1905,8 @@ async function toggleDefectItemLine(itemId, currentStatus, event) {
             body: `status=${encodeURIComponent(nextStatus)}`
         });
         if (!response.ok) throw new Error('save failed');
-        showApartmentDetail(state.currentApartment);
+        syncDefectItemStatusState(itemId, nextStatus);
+        rerenderCurrentApartmentDefects();
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
     }
@@ -2035,7 +2062,7 @@ async function selectDefectStatus(id, status) {
 
     syncDefectStatusState(id, status);
     closeDefectStatusModal();
-    showApartmentDetail(state.currentApartment);
+    rerenderCurrentApartmentDefects();
     showToast('Статус обновлен', 'success');
 }
 
