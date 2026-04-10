@@ -1882,6 +1882,15 @@ function rerenderCurrentApartmentDefects() {
     renderDefects(state.currentApartmentData.defects);
 }
 
+function getCachedApartmentSummary(apartmentId) {
+    if (state.currentApartmentData?.id === apartmentId) {
+        const { defects, ...apartment } = state.currentApartmentData;
+        return { ...apartment };
+    }
+
+    return (state.filteredApartments || []).find((apartment) => apartment.id === apartmentId) || null;
+}
+
 const defectItemTouchTimers = new Map();
 const DEFECT_ITEM_LONG_PRESS_MS = 450;
 
@@ -2643,14 +2652,18 @@ async function showApartmentDetail(id) {
     if (toolbarStatus) toolbarStatus.style.display = 'flex';
     
     try {
-        const [defectsRes, aptsRes] = await Promise.all([
-            fetch(`/api/apartments/${id}/defects`),
-            fetch(`/api/complexes/${state.currentComplex}/apartments`)
-        ]);
-        
+        const cachedApartment = getCachedApartmentSummary(id);
+        const defectsRes = await fetch(`/api/apartments/${id}/defects`);
+        if (!defectsRes.ok) throw new Error(`Defects fetch failed: ${defectsRes.status}`);
         const defects = await defectsRes.json();
-        const apts = await aptsRes.json();
-        const apt = apts.find(a => a.id === id);
+        let apt = cachedApartment;
+
+        if (!apt) {
+            const aptsRes = await fetch(`/api/complexes/${state.currentComplex}/apartments`);
+            if (!aptsRes.ok) throw new Error(`Apartments fetch failed: ${aptsRes.status}`);
+            const apts = await aptsRes.json();
+            apt = apts.find(a => a.id === id);
+        }
         
         if (!apt) {
             const propType = state.currentPropertyType;
