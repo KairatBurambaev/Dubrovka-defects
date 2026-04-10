@@ -60,6 +60,7 @@ const DEFECT_STATUS_CLASSES = {
     rejected: 'badge-rejected'
 };
 const CLOSED_DEFECT_STATUSES = ['completed', 'rejected', 'on_review'];
+const COMMENT_AUTHOR_STORAGE_KEY = 'dubrovkaDefectsCommentAuthor';
 let currentFilterIndex = 0;
 let photoModalItems = [];
 let photoModalIndex = 0;
@@ -218,13 +219,6 @@ function setupEventListeners() {
                     badge.className = `defect-status-badge ${getDefectStatusBadgeClass(e.target.value)}`;
                     badge.textContent = getDefectStatusLabel(e.target.value);
                 }
-            }
-        });
-        elements.defectsList.addEventListener('input', (e) => {
-            const row = e.target.closest('.defect-row');
-            if (row) {
-                markDefectRowDirty(row);
-                scheduleDefectAutosave(row);
             }
         });
     }
@@ -1518,9 +1512,6 @@ async function loadApartments() {
             params.append('section_ids', sectionIds);
         }
         
-        // Add cache-busting timestamp
-        params.append('_', Date.now());
-        
         url += '?' + params.toString();
         
         console.log('Fetching apartments from:', url);
@@ -1782,9 +1773,8 @@ function getDefectStatusBadgeClass(status) {
 }
 
 function getStoredCommentAuthor() {
-    const storageKey = 'dubrovkaDefectsCommentAuthor';
     try {
-        return localStorage.getItem(storageKey) || '';
+        return localStorage.getItem(COMMENT_AUTHOR_STORAGE_KEY) || '';
     } catch (err) {
         return '';
     }
@@ -1798,7 +1788,7 @@ function getCurrentCommentAuthor(forcePrompt = false) {
         if (!entered || !entered.trim()) return '';
         author = entered.trim();
         try {
-            localStorage.setItem(storageKey, author);
+            localStorage.setItem(COMMENT_AUTHOR_STORAGE_KEY, author);
         } catch (err) {
             // ignore storage errors
         }
