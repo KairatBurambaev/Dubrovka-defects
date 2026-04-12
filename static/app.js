@@ -61,7 +61,6 @@ const DEFECT_STATUS_CLASSES = {
 };
 const CLOSED_DEFECT_STATUSES = ['completed', 'rejected', 'on_review'];
 const COMMENT_AUTHOR_STORAGE_KEY = 'dubrovkaDefectsCommentAuthor';
-const THEME_STORAGE_KEY = 'dubrovkaDefectsTheme';
 let currentFilterIndex = 0;
 let photoModalItems = [];
 let photoModalIndex = 0;
@@ -73,7 +72,6 @@ let wasMobileComplexLayout = window.innerWidth <= 768;
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
-    applySavedTheme();
     cacheElements();
     loadCategories();
     loadContractors();
@@ -127,28 +125,7 @@ function cacheElements() {
     elements.statsBtn = document.getElementById('statsBtn');
     elements.complexPrintBtn = document.getElementById('complexPrintBtn');
     elements.complexCommentsBtn = document.getElementById('complexCommentsBtn');
-    elements.themeToggleBtn = document.getElementById('themeToggleBtn');
-    elements.themeToggleIcon = document.getElementById('themeToggleIcon');
     elements.tabPanels = document.querySelectorAll('.tab-panel');
-}
-
-function applySavedTheme() {
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-    const isDark = savedTheme === 'dark';
-    document.body.classList.toggle('dark-theme', isDark);
-    updateThemeToggleIcon();
-}
-
-function updateThemeToggleIcon() {
-    const icon = document.getElementById('themeToggleIcon');
-    if (!icon) return;
-    icon.textContent = document.body.classList.contains('dark-theme') ? '☀' : '☾';
-}
-
-function toggleTheme() {
-    const isDark = document.body.classList.toggle('dark-theme');
-    localStorage.setItem(THEME_STORAGE_KEY, isDark ? 'dark' : 'light');
-    updateThemeToggleIcon();
 }
 
 // Setup Forms
@@ -2820,7 +2797,7 @@ function renderFloorRow(floorApts, floor, propFull) {
     
     return `
         <div class="floor-row">
-            <div class="floor-label">Этаж ${floor}</div>
+            <div class="floor-label">${floor} этаж</div>
             <div class="floor-apts">
                 ${floorApts.map(a => renderApartmentTile(a, propFull, catFilter)).join('')}
             </div>
@@ -5182,7 +5159,7 @@ async function printFilteredDefects() {
                     <tr class="${rowClass}">
                         <td class="print-col-apartment">${index === 0 ? `${escapeHtml(apartmentLabel)}${meta ? `<div class="print-apartment-meta">${escapeHtml(meta)}</div>` : ''}` : ''}</td>
                         <td class="print-col-place">${place}</td>
-                        <td class="print-col-desc">${escapeHtml(defect.description || '')}</td>
+                        <td class="print-col-desc"><div class="print-defect-items">${renderReadonlyDefectItems(defect, 'print-defect-item-token')}</div></td>
                         <td class="print-col-status"><span class="print-defect-status ${defectStatusClass}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
                     </tr>
                 `;
@@ -5213,6 +5190,9 @@ async function printFilteredDefects() {
                 .print-col-apartment { width: 160px; }
                 .print-col-place { width: 120px; }
                 .print-col-status { width: 120px; }
+                .print-defect-items { display: flex; flex-wrap: wrap; gap: 6px; }
+                .print-defect-item-token { display: inline-flex; align-items: center; gap: 4px; }
+                .print-defect-item-token .defect-item-number { font-weight: 700; }
                 .print-apartment-meta { margin-top: 4px; font-size: 11px; color: #666; }
                 .print-row-light td { background: #f7f7f7; }
                 .print-row-white td { background: #ffffff; }
