@@ -61,6 +61,7 @@ const DEFECT_STATUS_CLASSES = {
 };
 const CLOSED_DEFECT_STATUSES = ['completed', 'rejected', 'on_review'];
 const COMMENT_AUTHOR_STORAGE_KEY = 'dubrovkaDefectsCommentAuthor';
+const THEME_STORAGE_KEY = 'dubrovkaDefectsTheme';
 let currentFilterIndex = 0;
 let photoModalItems = [];
 let photoModalIndex = 0;
@@ -72,6 +73,7 @@ let wasMobileComplexLayout = window.innerWidth <= 768;
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
+    applySavedTheme();
     cacheElements();
     loadCategories();
     loadContractors();
@@ -125,7 +127,28 @@ function cacheElements() {
     elements.statsBtn = document.getElementById('statsBtn');
     elements.complexPrintBtn = document.getElementById('complexPrintBtn');
     elements.complexCommentsBtn = document.getElementById('complexCommentsBtn');
+    elements.themeToggleBtn = document.getElementById('themeToggleBtn');
+    elements.themeToggleIcon = document.getElementById('themeToggleIcon');
     elements.tabPanels = document.querySelectorAll('.tab-panel');
+}
+
+function applySavedTheme() {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    const isDark = savedTheme === 'dark';
+    document.body.classList.toggle('dark-theme', isDark);
+    updateThemeToggleIcon();
+}
+
+function updateThemeToggleIcon() {
+    const icon = document.getElementById('themeToggleIcon');
+    if (!icon) return;
+    icon.textContent = document.body.classList.contains('dark-theme') ? '☀' : '☾';
+}
+
+function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark-theme');
+    localStorage.setItem(THEME_STORAGE_KEY, isDark ? 'dark' : 'light');
+    updateThemeToggleIcon();
 }
 
 // Setup Forms
@@ -2409,6 +2432,7 @@ function renderSectionCard(title, apartments, floors, propFull) {
     return `
         <section class="section-card">
             <div class="section-header">
+                <div class="section-header-spacer" aria-hidden="true"></div>
                 <div class="section-heading section-heading-simple">
                     <span class="section-title">${title}</span>
                 </div>
@@ -2796,7 +2820,7 @@ function renderFloorRow(floorApts, floor, propFull) {
     
     return `
         <div class="floor-row">
-            <div class="floor-label">${floor} эт</div>
+            <div class="floor-label">Этаж ${floor}</div>
             <div class="floor-apts">
                 ${floorApts.map(a => renderApartmentTile(a, propFull, catFilter)).join('')}
             </div>

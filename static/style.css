@@ -10027,10 +10027,15 @@ body {
 }
 
 .section-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
-  color: #334155;
+  color: #64748b;
   letter-spacing: -0.01em;
+}
+
+body.page-complex-detail .section-heading.section-heading-simple {
+  justify-content: center;
+  padding-left: 0;
 }
 
 .section-body-container {
@@ -10051,13 +10056,16 @@ body {
 .floor-label {
   width: 48px;
   min-height: 34px;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #64748b 0%, #475569 100%);
-  border: 1px solid #475569;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   box-shadow: none;
+  justify-content: center;
+  text-align: center;
 }
 
 .floor-apts {
@@ -10968,7 +10976,11 @@ body {
   .floor-label {
     width: 42px;
     min-height: 32px;
-    font-size: 10px;
+    font-size: 12px;
+  }
+
+  body.page-complex-detail .section-heading.section-heading-simple {
+    padding-left: 0;
   }
 
   .floor-apts,
@@ -11263,4 +11275,1483 @@ body.page-complex-detail .section-stat-slate {
   background: transparent !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
+}
+
+.theme-toggle-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1);
+}
+
+body.page-complex-detail .section-header {
+  padding-top: 10px;
+  padding-bottom: 8px;
+  display: grid !important;
+  grid-template-columns: 58px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: center;
+}
+
+body.page-complex-detail .section-header-spacer {
+  width: 58px;
+  min-height: 1px;
+  grid-column: 1;
+}
+
+body.page-complex-detail .section-heading.section-heading-simple {
+  justify-content: center !important;
+  padding-left: 0 !important;
+  min-height: 18px;
+  width: 100%;
+  grid-column: 2;
+  display: flex !important;
+}
+
+body.page-complex-detail .section-title {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+  letter-spacing: -0.01em !important;
+  text-align: center;
+  width: 100%;
+}
+
+body.page-complex-detail .floor-row {
+  grid-template-columns: 58px minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+body.page-complex-detail .floor-label {
+  width: 58px !important;
+  min-height: 34px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+  line-height: 1.1;
+  text-transform: none;
+}
+
+body.dark-theme {
+  background: #0b1220;
+  color: #dbe4f0;
+}
+
+body.dark-theme .app,
+body.dark-theme .main,
+body.dark-theme .complex-detail-content,
+body.dark-theme .detail-grid,
+body.dark-theme .detail-content,
+body.dark-theme .detail-main,
+body.dark-theme .panel,
+body.dark-theme .modal-content,
+body.dark-theme .stats-popover,
+body.dark-theme .filtered-defects-modal,
+body.dark-theme .defect-comments-modal,
+body.dark-theme .complex-card,
+body.dark-theme .complex-card-red,
+body.dark-theme .complex-card-has-bg,
+body.dark-theme .section-card,
+body.dark-theme .section-group,
+body.dark-theme .section-card-mobile-flat,
+body.dark-theme .section-card-combined {
+  background: #101826 !important;
+  color: #dbe4f0 !important;
+  border-color: rgba(71, 85, 105, 0.7) !important;
+}
+
+body.dark-theme .header,
+body.dark-theme .section-header,
+body.dark-theme .section-body-container,
+body.dark-theme .section-group-header,
+body.dark-theme .modal-header,
+body.dark-theme .stats-ticket-card,
+body.dark-theme .filtered-comment-card,
+body.dark-theme .filtered-defects-table-wrap {
+  background: #121c2c !important;
+  color: #dbe4f0 !important;
+  border-color: rgba(71, 85, 105, 0.7) !important;
+}
+
+body.dark-theme .title-primary,
+body.dark-theme .title-secondary,
+body.dark-theme #jkName,
+body.dark-theme .section-title,
+body.dark-theme .filtered-defects-group-title,
+body.dark-theme .stats-ticket-title,
+body.dark-theme .stats-panel-head strong,
+body.dark-theme .modal-header h3,
+body.dark-theme .panel-header,
+body.dark-theme .complex-card-name {
+  color: #f8fbff !important;
+}
+
+body.dark-theme .header-sub,
+body.dark-theme .section-group-title,
+body.dark-theme .filtered-defects-group-meta,
+body.dark-theme .stats-ticket-period,
+body.dark-theme .stats-panel-head span,
+body.dark-theme .complex-card-info,
+body.dark-theme .floor-label,
+body.dark-theme .section-title {
+  color: #93a4bb !important;
+}
+
+body.dark-theme .input,
+body.dark-theme .select,
+body.dark-theme input,
+body.dark-theme textarea,
+body.dark-theme select {
+  background: #0e1726 !important;
+  color: #e6edf7 !important;
+  border-color: rgba(71, 85, 105, 0.85) !important;
+}
+
+body.dark-theme .pill,
+body.dark-theme .status-item,
+body.dark-theme .btn,
+body.dark-theme .theme-toggle-btn,
+body.dark-theme .section-filter-btn {
+  background: #182235 !important;
+  color: #dbe4f0 !important;
+  border-color: rgba(71, 85, 105, 0.8) !important;
+}
+
+body.dark-theme .pill:hover,
+body.dark-theme .status-item:hover,
+body.dark-theme .btn:hover,
+body.dark-theme .theme-toggle-btn:hover,
+body.dark-theme .section-filter-btn:hover {
+  background: #22314a !important;
+}
+
+body.dark-theme .theme-toggle-btn {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+body.dark-theme .header {
+  box-shadow: inset 0 -1px 0 rgba(71, 85, 105, 0.35);
+}
+
+body.dark-theme .filtered-defects-table th,
+body.dark-theme .filtered-defects-table td,
+body.dark-theme .stats-ticket-row,
+body.dark-theme .defect-row,
+body.dark-theme .defect-card,
+body.dark-theme .print-preview-card {
+  border-color: rgba(51, 65, 85, 0.9) !important;
+}
+
+body.dark-theme .filtered-defects-table td,
+body.dark-theme .filtered-comment-line,
+body.dark-theme .defect-row,
+body.dark-theme .stats-ticket-row {
+  background: transparent !important;
+  color: #dbe4f0 !important;
+}
+
+body.dark-theme .floor-apts .apt {
+  box-shadow: none !important;
+}
+
+body.dark-theme .floor-apts .apt:hover {
+  filter: brightness(1.05);
+}
+
+body.dark-theme .modal-overlay,
+body.dark-theme .modal {
+  background: rgba(3, 8, 17, 0.68) !important;
+}
+
+body.page-complex-detail .section-card-combined .section-combined-title {
+  width: calc(100% - 66px);
+  margin-left: 66px;
+  text-align: center;
+  color: #64748b !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+
+body.page-complex-detail .section-card-combined .section-combined-title-main {
+  width: 100%;
+  margin-left: 0;
+}
+
+@media (max-width: 760px) {
+  body.page-complex-detail .section-card-combined .section-combined-title {
+    width: calc(100% - 48px);
+    margin-left: 48px;
+  }
+}
+
+body.dark-theme {
+  --primary: #8ea4c4;
+  --primary-dark: #7d93b3;
+  --primary-light: #a6b8d2;
+  --primary-subtle: rgba(142, 164, 196, 0.14);
+  --success: #86bea6;
+  --success-subtle: rgba(134, 190, 166, 0.14);
+  --warning: #cdb27f;
+  --warning-subtle: rgba(205, 178, 127, 0.14);
+  --danger: #c88b97;
+  --danger-subtle: rgba(200, 139, 151, 0.14);
+  --info: #8ea4c4;
+  --info-subtle: rgba(142, 164, 196, 0.14);
+  --dark: #e6edf7;
+  --dark-2: #b7c0cc;
+  --dark-3: #96a0ad;
+  --gray: #96a0ad;
+  --gray-light: #7e8897;
+  --gray-lighter: #3a414b;
+  --gray-lightest: #20262f;
+  --bg: #171b21;
+  --card: #22272e;
+  --text: #e3e7ed;
+  --text-secondary: #99a3af;
+  --border: rgba(96, 104, 114, 0.68);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.34);
+  --shadow-xl: 0 18px 48px rgba(0, 0, 0, 0.38);
+  background:
+    radial-gradient(circle at top, rgba(97, 107, 122, 0.12), transparent 34%),
+    linear-gradient(180deg, #171b21 0%, #1b2027 100%);
+  color: var(--text);
+}
+
+body.dark-theme,
+body.dark-theme .app,
+body.dark-theme .main,
+body.dark-theme .complex-detail-content,
+body.dark-theme .detail-grid,
+body.dark-theme .detail-content,
+body.dark-theme .detail-main,
+body.dark-theme #tab-complexes,
+body.dark-theme #tab-complex-detail,
+body.dark-theme #tab-apartment-detail,
+body.dark-theme #tab-create-complex {
+  background-color: transparent !important;
+  color: var(--text) !important;
+}
+
+body.dark-theme .header {
+  background: rgba(23, 27, 33, 0.86) !important;
+  border-bottom: none !important;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+
+body.dark-theme .panel,
+body.dark-theme .modal-content,
+body.dark-theme .stats-popover,
+body.dark-theme .filtered-defects-modal,
+body.dark-theme .defect-comments-modal,
+body.dark-theme .complex-card,
+body.dark-theme .complex-card-red,
+body.dark-theme .complex-card-has-bg,
+body.dark-theme .section-card,
+body.dark-theme .section-group,
+body.dark-theme .section-card-mobile-flat,
+body.dark-theme .section-card-combined,
+body.dark-theme .create-complex-form,
+body.dark-theme .defect-form-section,
+body.dark-theme .filtered-comment-card,
+body.dark-theme .filtered-defects-table-wrap,
+body.dark-theme .stats-ticket-card,
+body.dark-theme .multi-select-dropdown,
+body.dark-theme .section-filter-wrapper .multi-select-dropdown {
+  background: linear-gradient(180deg, rgba(34, 39, 46, 0.98) 0%, rgba(30, 35, 42, 0.98) 100%) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+body.dark-theme .section-header,
+body.dark-theme .section-body-container,
+body.dark-theme .section-group-header,
+body.dark-theme .modal-header,
+body.dark-theme .panel-header,
+body.dark-theme .stats-ticket-head,
+body.dark-theme .stats-panel-head,
+body.dark-theme .filtered-defects-group,
+body.dark-theme .section-combined-block {
+  background: transparent !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+body.dark-theme .title-primary,
+body.dark-theme .title-secondary,
+body.dark-theme #jkName,
+body.dark-theme .section-title,
+body.dark-theme .section-combined-title,
+body.dark-theme .section-group-title,
+body.dark-theme .filtered-defects-group-title,
+body.dark-theme .stats-ticket-title,
+body.dark-theme .stats-panel-head strong,
+body.dark-theme .modal-header h3,
+body.dark-theme .complex-card-name,
+body.dark-theme .empty-state h3,
+body.dark-theme .form-header h2,
+body.dark-theme label {
+  color: var(--text) !important;
+}
+
+body.dark-theme .header-sub,
+body.dark-theme .section-group-subtitle,
+body.dark-theme .filtered-defects-group-meta,
+body.dark-theme .stats-ticket-period,
+body.dark-theme .stats-panel-head span,
+body.dark-theme .complex-card-info,
+body.dark-theme .floor-label,
+body.dark-theme .section-title,
+body.dark-theme .empty-state p,
+body.dark-theme .hint,
+body.dark-theme .subtitle,
+body.dark-theme .section-combined-title,
+body.dark-theme .filtered-comment-location-label {
+  color: var(--text-secondary) !important;
+}
+
+body.dark-theme .input,
+body.dark-theme .select,
+body.dark-theme input,
+body.dark-theme textarea,
+body.dark-theme select {
+  background: #1a1f26 !important;
+  color: var(--text) !important;
+  border-color: rgba(71, 85, 105, 0.82) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+body.dark-theme input::placeholder,
+body.dark-theme textarea::placeholder {
+  color: #77808c !important;
+}
+
+body.dark-theme .pill,
+body.dark-theme .status-item,
+body.dark-theme .btn,
+body.dark-theme .theme-toggle-btn,
+body.dark-theme .section-filter-btn,
+body.dark-theme .mobile-filter-btn,
+body.dark-theme .mobile-dropdown-filter,
+body.dark-theme .filter-item {
+  background: linear-gradient(180deg, #2a3038 0%, #242a32 100%) !important;
+  color: var(--text) !important;
+  border-color: rgba(71, 85, 105, 0.78) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+body.dark-theme .pill:hover,
+body.dark-theme .status-item:hover,
+body.dark-theme .btn:hover,
+body.dark-theme .theme-toggle-btn:hover,
+body.dark-theme .section-filter-btn:hover,
+body.dark-theme .mobile-filter-btn:hover,
+body.dark-theme .filter-item:hover {
+  background: linear-gradient(180deg, #343b45 0%, #2d343d 100%) !important;
+  border-color: rgba(142, 164, 196, 0.42) !important;
+}
+
+body.dark-theme .pill.active,
+body.dark-theme .filter-item.selected,
+body.dark-theme .mobile-filter-btn.active,
+body.dark-theme .section-filter-wrapper.active .section-filter-btn {
+  background: linear-gradient(180deg, rgba(142, 164, 196, 0.2) 0%, rgba(142, 164, 196, 0.12) 100%) !important;
+  color: #edf2f7 !important;
+  border-color: rgba(142, 164, 196, 0.5) !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"].active,
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"]:hover {
+  background: linear-gradient(180deg, rgba(134, 190, 166, 0.22) 0%, rgba(134, 190, 166, 0.12) 100%) !important;
+  color: #e5f4ec !important;
+  border-color: rgba(134, 190, 166, 0.45) !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="call"].active,
+body.dark-theme .toolbar-status .status-item[data-status="call"]:hover {
+  background: linear-gradient(180deg, rgba(142, 164, 196, 0.22) 0%, rgba(142, 164, 196, 0.12) 100%) !important;
+  color: #edf2f7 !important;
+  border-color: rgba(142, 164, 196, 0.45) !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"].active,
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"]:hover {
+  background: linear-gradient(180deg, rgba(205, 178, 127, 0.22) 0%, rgba(205, 178, 127, 0.12) 100%) !important;
+  color: #f3e8d2 !important;
+  border-color: rgba(205, 178, 127, 0.42) !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="no_access"].active,
+body.dark-theme .toolbar-status .status-item[data-status="no_access"]:hover,
+body.dark-theme .toolbar-status .status-item[data-status="complex"].active,
+body.dark-theme .toolbar-status .status-item[data-status="complex"]:hover,
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"].active,
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"]:hover {
+  background: linear-gradient(180deg, rgba(200, 139, 151, 0.2) 0%, rgba(200, 139, 151, 0.1) 100%) !important;
+  color: #f2dfe4 !important;
+  border-color: rgba(200, 139, 151, 0.38) !important;
+}
+
+body.dark-theme .modal-close {
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+}
+
+body.dark-theme .modal-close:hover {
+  color: var(--text) !important;
+  background: rgba(142, 164, 196, 0.1) !important;
+}
+
+body.dark-theme .filtered-defects-table,
+body.dark-theme .filtered-defects-table th,
+body.dark-theme .filtered-defects-table td,
+body.dark-theme .stats-ticket-row,
+body.dark-theme .defect-row,
+body.dark-theme .defect-card,
+body.dark-theme .print-preview-card,
+body.dark-theme .comment-item,
+body.dark-theme .filtered-comment-line {
+  border-color: var(--border) !important;
+}
+
+body.dark-theme .filtered-defects-table th {
+  background: rgba(124, 180, 255, 0.12) !important;
+  color: #e7f1ff !important;
+}
+
+body.dark-theme .filtered-defects-table td,
+body.dark-theme .filtered-comment-line,
+body.dark-theme .defect-row,
+body.dark-theme .stats-ticket-row,
+body.dark-theme .comment-item,
+body.dark-theme .defect-comments-list .comment {
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+body.dark-theme .empty-state,
+body.dark-theme .empty-state .empty-icon {
+  color: var(--text-secondary) !important;
+}
+
+body.dark-theme .apt {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .apt.apt-available { background: #1a2333 !important; color: #c8d3e2 !important; }
+body.dark-theme .apt.apt-owner_accepted { background: #123226 !important; color: #8ee2bd !important; }
+body.dark-theme .apt.apt-call { background: #162a45 !important; color: #9cc6ff !important; }
+body.dark-theme .apt.apt-by_phone { background: #2a2342 !important; color: #c5b2ff !important; }
+body.dark-theme .apt.apt-in_progress { background: #3b3017 !important; color: #f4cf7a !important; }
+body.dark-theme .apt.apt-complex { background: #3a1f2a !important; color: #ff9db0 !important; }
+body.dark-theme .apt.apt-no_access { background: #35252a !important; color: #ffb0bc !important; }
+body.dark-theme .apt.apt-defects { background: #2c2335 !important; color: #cab8ff !important; }
+
+body.dark-theme .apt:hover {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+}
+
+body.dark-theme .apt-badge-total { background: #ff7d8f !important; color: #fff !important; border-color: #101826 !important; }
+body.dark-theme .apt-badge-new { background: #f4c96b !important; color: #2c2106 !important; border-color: #101826 !important; }
+body.dark-theme .apt-badge-review { background: #7cb4ff !important; color: #0b1220 !important; border-color: #101826 !important; }
+body.dark-theme .apt-badge-completed { background: #5fd0a5 !important; color: #072116 !important; border-color: #101826 !important; }
+
+body.dark-theme .badge-recorded,
+body.dark-theme .defect-status-badge.badge-recorded,
+body.dark-theme .badge-new,
+body.dark-theme .defect-status-badge.badge-new {
+  background: rgba(244, 201, 107, 0.18) !important;
+  color: #f4d78f !important;
+}
+
+body.dark-theme .badge-progress,
+body.dark-theme .defect-status-badge.badge-progress {
+  background: rgba(124, 180, 255, 0.18) !important;
+  color: #b4d3ff !important;
+}
+
+body.dark-theme .badge-on-review,
+body.dark-theme .defect-status-badge.badge-on-review {
+  background: rgba(166, 140, 255, 0.18) !important;
+  color: #d0c2ff !important;
+}
+
+body.dark-theme .badge-completed,
+body.dark-theme .defect-status-badge.badge-completed {
+  background: rgba(95, 208, 165, 0.18) !important;
+  color: #aef0d2 !important;
+}
+
+body.dark-theme .badge-rejected,
+body.dark-theme .defect-status-badge.badge-rejected {
+  background: rgba(255, 125, 143, 0.18) !important;
+  color: #ffc0cb !important;
+}
+
+body.dark-theme .stats-chart-grid-line {
+  stroke: rgba(148, 163, 184, 0.24);
+}
+
+body.dark-theme .stats-chart-axis-label,
+body.dark-theme .stats-chart-legend-item {
+  color: var(--text-secondary) !important;
+  fill: var(--text-secondary) !important;
+}
+
+body.dark-theme .mobile-filter-indicator {
+  background: rgba(124, 180, 255, 0.12) !important;
+  color: #dfeeff !important;
+  border-color: rgba(124, 180, 255, 0.34) !important;
+}
+
+body.dark-theme .section-card-combined .section-combined-title,
+body.dark-theme .section-card-combined .section-combined-title-main,
+body.dark-theme .section-title,
+body.dark-theme .floor-label {
+  color: var(--text-secondary) !important;
+}
+
+body.dark-theme .theme-toggle-btn {
+  background: linear-gradient(180deg, #2b3139 0%, #242a32 100%) !important;
+  color: #d7dee7 !important;
+  border-color: rgba(142, 164, 196, 0.18) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22) !important;
+}
+
+body.dark-theme .theme-toggle-btn:hover {
+  background: linear-gradient(180deg, #353c45 0%, #2d343d 100%) !important;
+  color: #eef2f6 !important;
+}
+
+body.dark-theme .modal-overlay,
+body.dark-theme .modal {
+  background: rgba(3, 8, 17, 0.72) !important;
+}
+
+body.dark-theme .header::after,
+body.dark-theme .header::before {
+  display: none !important;
+}
+
+body.dark-theme .defect-item-token,
+body.dark-theme .filtered-defect-item-token,
+body.dark-theme .defect-item-token.date-hover-match {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .defect-item-token.is-in-progress,
+body.dark-theme .filtered-defect-item-token.is-in-progress {
+  color: #cdb27f !important;
+}
+
+body.dark-theme .defect-item-token.is-completed,
+body.dark-theme .filtered-defect-item-token.is-completed {
+  color: #86bea6 !important;
+}
+
+body.dark-theme .defect-item-token.is-on-review,
+body.dark-theme .filtered-defect-item-token.is-on-review {
+  color: #a6b8d2 !important;
+}
+
+body.dark-theme .defect-item-token.date-hover-match {
+  color: #99a3af !important;
+}
+
+body.dark-theme .header,
+body.dark-theme.page-home .header,
+body.dark-theme.page-complex-detail .header,
+body.dark-theme.page-apartment-detail .header {
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+body.dark-theme .header::before,
+body.dark-theme .header::after,
+body.dark-theme.page-home .header::before,
+body.dark-theme.page-home .header::after,
+body.dark-theme.page-complex-detail .header::before,
+body.dark-theme.page-complex-detail .header::after,
+body.dark-theme.page-apartment-detail .header::before,
+body.dark-theme.page-apartment-detail .header::after {
+  content: none !important;
+  display: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .toolbar-status .status-item {
+  background: linear-gradient(180deg, #2b3138 0%, #252b32 100%) !important;
+  color: #d7dde5 !important;
+  border-color: #4b5561 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .toolbar-status .status-item:hover,
+body.dark-theme .toolbar-status .status-item.active {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"],
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"].active,
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"]:hover {
+  background: linear-gradient(180deg, #26382f 0%, #222f29 100%) !important;
+  border-color: #5f8b74 !important;
+  color: #b8dcc9 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="call"],
+body.dark-theme .toolbar-status .status-item[data-status="call"].active,
+body.dark-theme .toolbar-status .status-item[data-status="call"]:hover {
+  background: linear-gradient(180deg, #32303a 0%, #2b2933 100%) !important;
+  border-color: #8d7a9e !important;
+  color: #d7cce2 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"],
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"].active,
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"]:hover {
+  background: linear-gradient(180deg, #393428 0%, #312d23 100%) !important;
+  border-color: #9a8860 !important;
+  color: #e2d4b5 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"],
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"].active,
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"]:hover {
+  background: linear-gradient(180deg, #2a3138 0%, #252b31 100%) !important;
+  border-color: #72808e !important;
+  color: #c4ced8 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="no_access"],
+body.dark-theme .toolbar-status .status-item[data-status="no_access"].active,
+body.dark-theme .toolbar-status .status-item[data-status="no_access"]:hover {
+  background: linear-gradient(180deg, #3a2e31 0%, #31272a 100%) !important;
+  border-color: #9a6f77 !important;
+  color: #e2c7cd !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="complex"],
+body.dark-theme .toolbar-status .status-item[data-status="complex"].active,
+body.dark-theme .toolbar-status .status-item[data-status="complex"]:hover {
+  background: linear-gradient(180deg, #433137 0%, #39292f 100%) !important;
+  border-color: #b07a85 !important;
+  color: #efd0d7 !important;
+}
+
+body.dark-theme {
+  --primary: #5aa2ff;
+  --primary-dark: #3e86e6;
+  --primary-light: #7cb8ff;
+  --primary-subtle: rgba(90, 162, 255, 0.18);
+  --success: #35c46b;
+  --success-subtle: rgba(53, 196, 107, 0.18);
+  --warning: #ffbf47;
+  --warning-subtle: rgba(255, 191, 71, 0.18);
+  --danger: #ff6b7a;
+  --danger-subtle: rgba(255, 107, 122, 0.18);
+  --info: #66c2ff;
+  --info-subtle: rgba(102, 194, 255, 0.18);
+  --bg: #0b0d11;
+  --card: #13161b;
+  --text: #eef2f7;
+  --text-secondary: #98a2b3;
+  --border: #2a313b;
+  background: #0b0d11 !important;
+  color: var(--text) !important;
+}
+
+body.dark-theme,
+body.dark-theme .app,
+body.dark-theme .main,
+body.dark-theme #tab-complexes,
+body.dark-theme #tab-complex-detail,
+body.dark-theme #tab-apartment-detail,
+body.dark-theme #tab-create-complex,
+body.dark-theme .complex-detail-content,
+body.dark-theme .detail-grid,
+body.dark-theme .detail-content,
+body.dark-theme .detail-main {
+  background: #0b0d11 !important;
+  color: var(--text) !important;
+}
+
+body.dark-theme .header,
+body.dark-theme .toolbar,
+body.dark-theme .panel,
+body.dark-theme .modal-content,
+body.dark-theme .stats-popover,
+body.dark-theme .filtered-defects-modal,
+body.dark-theme .defect-comments-modal,
+body.dark-theme .complex-card,
+body.dark-theme .complex-card-red,
+body.dark-theme .complex-card-has-bg,
+body.dark-theme .section-card,
+body.dark-theme .section-group,
+body.dark-theme .section-card-mobile-flat,
+body.dark-theme .section-card-combined,
+body.dark-theme .create-complex-form,
+body.dark-theme .defect-form-section,
+body.dark-theme .filtered-comment-card,
+body.dark-theme .filtered-defects-table-wrap,
+body.dark-theme .stats-ticket-card,
+body.dark-theme .multi-select-dropdown,
+body.dark-theme .section-filter-wrapper .multi-select-dropdown,
+body.dark-theme .section-header,
+body.dark-theme .section-body-container,
+body.dark-theme .section-group-header,
+body.dark-theme .panel-header,
+body.dark-theme .modal-header,
+body.dark-theme .stats-ticket-head,
+body.dark-theme .stats-panel-head,
+body.dark-theme .section-combined-block,
+body.dark-theme .filtered-defects-group {
+  background: #13161b !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .title-primary,
+body.dark-theme .title-secondary,
+body.dark-theme #jkName,
+body.dark-theme .section-title,
+body.dark-theme .section-combined-title,
+body.dark-theme .section-group-title,
+body.dark-theme .filtered-defects-group-title,
+body.dark-theme .stats-ticket-title,
+body.dark-theme .stats-panel-head strong,
+body.dark-theme .modal-header h3,
+body.dark-theme .panel-header,
+body.dark-theme .complex-card-name,
+body.dark-theme .empty-state h3,
+body.dark-theme .form-header h2,
+body.dark-theme label {
+  color: #eef2f7 !important;
+}
+
+body.dark-theme .header-sub,
+body.dark-theme .section-group-subtitle,
+body.dark-theme .filtered-defects-group-meta,
+body.dark-theme .stats-ticket-period,
+body.dark-theme .stats-panel-head span,
+body.dark-theme .complex-card-info,
+body.dark-theme .floor-label,
+body.dark-theme .section-title,
+body.dark-theme .section-combined-title,
+body.dark-theme .empty-state p,
+body.dark-theme .hint,
+body.dark-theme .subtitle,
+body.dark-theme .filtered-comment-location-label {
+  color: #98a2b3 !important;
+}
+
+body.dark-theme .input,
+body.dark-theme .select,
+body.dark-theme input,
+body.dark-theme textarea,
+body.dark-theme select {
+  background: #11151b !important;
+  color: #eef2f7 !important;
+  border-color: #313845 !important;
+}
+
+body.dark-theme .pill,
+body.dark-theme .btn,
+body.dark-theme .theme-toggle-btn,
+body.dark-theme .section-filter-btn,
+body.dark-theme .mobile-filter-btn,
+body.dark-theme .mobile-dropdown-filter,
+body.dark-theme .filter-item {
+  background: #1b2027 !important;
+  color: #eef2f7 !important;
+  border-color: #313845 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .pill:hover,
+body.dark-theme .btn:hover,
+body.dark-theme .theme-toggle-btn:hover,
+body.dark-theme .section-filter-btn:hover,
+body.dark-theme .mobile-filter-btn:hover,
+body.dark-theme .filter-item:hover {
+  background: #232933 !important;
+  border-color: #465062 !important;
+}
+
+body.dark-theme .pill.active,
+body.dark-theme .filter-item.selected,
+body.dark-theme .mobile-filter-btn.active,
+body.dark-theme .section-filter-wrapper.active .section-filter-btn {
+  background: #1b232d !important;
+  color: #dcebff !important;
+  border-color: #5aa2ff !important;
+}
+
+body.dark-theme .toolbar-status .status-item {
+  background: #1a1f26 !important;
+  border-color: #343c49 !important;
+  color: #d7dde8 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"],
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"].active,
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"]:hover {
+  background: #14261b !important;
+  border-color: #35c46b !important;
+  color: #8ff0b0 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="call"],
+body.dark-theme .toolbar-status .status-item[data-status="call"].active,
+body.dark-theme .toolbar-status .status-item[data-status="call"]:hover {
+  background: #1a2030 !important;
+  border-color: #5aa2ff !important;
+  color: #9ecaff !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"],
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"].active,
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"]:hover {
+  background: #2c2414 !important;
+  border-color: #ffbf47 !important;
+  color: #ffd987 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"],
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"].active,
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"]:hover {
+  background: #15232b !important;
+  border-color: #66c2ff !important;
+  color: #9bdcff !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="no_access"],
+body.dark-theme .toolbar-status .status-item[data-status="no_access"].active,
+body.dark-theme .toolbar-status .status-item[data-status="no_access"]:hover {
+  background: #2c171b !important;
+  border-color: #ff6b7a !important;
+  color: #ffb2bb !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="complex"],
+body.dark-theme .toolbar-status .status-item[data-status="complex"].active,
+body.dark-theme .toolbar-status .status-item[data-status="complex"]:hover {
+  background: #2b1631 !important;
+  border-color: #d16dff !important;
+  color: #ebb1ff !important;
+}
+
+body.dark-theme .apt.apt-available { background: #1a1f26 !important; color: #c5ceda !important; }
+body.dark-theme .apt.apt-owner_accepted { background: #12301d !important; color: #8ff0b0 !important; }
+body.dark-theme .apt.apt-call { background: #18263c !important; color: #9ecaff !important; }
+body.dark-theme .apt.apt-by_phone { background: #16303a !important; color: #9bdcff !important; }
+body.dark-theme .apt.apt-in_progress { background: #3a2e16 !important; color: #ffd987 !important; }
+body.dark-theme .apt.apt-complex { background: #331738 !important; color: #ebb1ff !important; }
+body.dark-theme .apt.apt-no_access { background: #3a1b20 !important; color: #ffb2bb !important; }
+body.dark-theme .apt.apt-defects { background: #232638 !important; color: #bac4ff !important; }
+
+body.dark-theme .apt-badge-total { background: #ff6b7a !important; color: #fff !important; border-color: #171a20 !important; }
+body.dark-theme .apt-badge-new { background: #ffbf47 !important; color: #241a08 !important; border-color: #171a20 !important; }
+body.dark-theme .apt-badge-review { background: #5aa2ff !important; color: #0b1320 !important; border-color: #171a20 !important; }
+body.dark-theme .apt-badge-completed { background: #35c46b !important; color: #081b0f !important; border-color: #171a20 !important; }
+
+body.dark-theme .filtered-defects-table th {
+  background: #1c222b !important;
+  color: #eef2f7 !important;
+}
+
+body.dark-theme .filtered-defects-table td,
+body.dark-theme .filtered-comment-line,
+body.dark-theme .defect-row,
+body.dark-theme .stats-ticket-row,
+body.dark-theme .comment-item,
+body.dark-theme .defect-comments-list .comment,
+body.dark-theme .empty-state {
+  background: transparent !important;
+  color: #eef2f7 !important;
+}
+
+body.dark-theme .stats-chart-grid-line {
+  stroke: #29303a !important;
+}
+
+body.dark-theme .stats-chart-axis-label,
+body.dark-theme .stats-chart-legend-item {
+  color: #98a2b3 !important;
+  fill: #98a2b3 !important;
+}
+
+body.dark-theme .toolbar-status .status-item {
+  background: #1a1f26 !important;
+  border-color: #343c49 !important;
+  color: #d7dde8 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"],
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"].active,
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"]:hover {
+  background: #27b883 !important;
+  border-color: #27b883 !important;
+  color: #083b2a !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="call"],
+body.dark-theme .toolbar-status .status-item[data-status="call"].active,
+body.dark-theme .toolbar-status .status-item[data-status="call"]:hover {
+  background: #d85a97 !important;
+  border-color: #d85a97 !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"],
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"].active,
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"]:hover {
+  background: #e3cd63 !important;
+  border-color: #d8bf52 !important;
+  color: #5f470d !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"],
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"].active,
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"]:hover {
+  background: #8dcde9 !important;
+  border-color: #71bddf !important;
+  color: #113f57 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="no_access"],
+body.dark-theme .toolbar-status .status-item[data-status="no_access"].active,
+body.dark-theme .toolbar-status .status-item[data-status="no_access"]:hover {
+  background: #7f8d9f !important;
+  border-color: #7f8d9f !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="complex"],
+body.dark-theme .toolbar-status .status-item[data-status="complex"].active,
+body.dark-theme .toolbar-status .status-item[data-status="complex"]:hover {
+  background: #d94b5f !important;
+  border-color: #d94b5f !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .apt.apt-available {
+  background: #d9e0e8 !important;
+  color: #425164 !important;
+}
+
+body.dark-theme .apt.apt-owner_accepted {
+  background: #138b7f !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .apt.apt-call {
+  background: #d85a97 !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .apt.apt-by_phone {
+  background: #7fb3df !important;
+  color: #162d44 !important;
+}
+
+body.dark-theme .apt.apt-in_progress {
+  background: #dfd57a !important;
+  color: #594d08 !important;
+}
+
+body.dark-theme .apt.apt-ready_for_acceptance {
+  background: #9fded7 !important;
+  color: #134742 !important;
+}
+
+body.dark-theme .apt.apt-complex {
+  background: #cb2455 !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .apt.apt-no_access {
+  background: #818a96 !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .apt.apt-defects {
+  background: #dfd57a !important;
+  color: #594d08 !important;
+}
+
+body.dark-theme .apt-badge-total {
+  background: #1f2937 !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+body.dark-theme .apt-badge-new {
+  background: #f5efe3 !important;
+  color: #8a6a35 !important;
+}
+
+body.dark-theme .apt-badge-review {
+  background: #7DE3D6 !important;
+  color: #111111 !important;
+}
+
+body.dark-theme .apt-badge-completed {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+body.dark-theme.page-complex-detail .main,
+body.dark-theme.page-complex-detail .complex-detail-content,
+body.dark-theme.page-complex-detail .complex-detail-main,
+body.dark-theme.page-complex-detail #apartmentsContainer,
+body.dark-theme.page-complex-detail .sections-grid,
+body.dark-theme.page-complex-detail .sections-grid.sections-grid-combined,
+body.dark-theme.page-complex-detail .section-body-container,
+body.dark-theme.page-complex-detail .section-card-combined .section-body-container,
+body.dark-theme.page-complex-detail .section-body,
+body.dark-theme.page-complex-detail .section-body-combined,
+body.dark-theme.page-complex-detail .section-combined-row,
+body.dark-theme.page-complex-detail .section-combined-floors {
+  background: #0b0d11 !important;
+  border-top: 0 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .pill,
+body.dark-theme .mobile-filter-btn,
+body.dark-theme .toolbar-status .status-item,
+body.dark-theme .section-filter-btn,
+body.dark-theme .filter-item {
+  background: #1a1f26 !important;
+  color: #d7dde8 !important;
+  border-color: #343c49 !important;
+}
+
+body.dark-theme .pill:hover,
+body.dark-theme .mobile-filter-btn:hover,
+body.dark-theme .toolbar-status .status-item:hover,
+body.dark-theme .section-filter-btn:hover,
+body.dark-theme .filter-item:hover {
+  background: #222831 !important;
+  color: #e7ecf3 !important;
+  border-color: #424b59 !important;
+}
+
+body.dark-theme .pill.active,
+body.dark-theme .mobile-filter-btn.active,
+body.dark-theme .filter-item.selected,
+body.dark-theme .section-filter-wrapper.active .section-filter-btn {
+  background: #202a36 !important;
+  color: #dcebff !important;
+  border-color: #5aa2ff !important;
+}
+
+body.dark-theme .toolbar-status .status-item.active {
+  color: inherit !important;
+}
+
+body.dark-theme .toolbar-status .status-item:not(.active):not(:hover) {
+  background: #1a1f26 !important;
+  color: #d7dde8 !important;
+  border-color: #343c49 !important;
+}
+
+body.dark-theme .stats-shell,
+body.dark-theme .stats-shell-ticket,
+body.dark-theme .stats-dashboard,
+body.dark-theme .stats-chart-wrap,
+body.dark-theme .stats-ticket-list,
+body.dark-theme .stats-chart-shell,
+body.dark-theme .stats-chart-panel,
+body.dark-theme .stats-today-panel {
+  background: #171a20 !important;
+  color: #eef2f7 !important;
+}
+
+body.dark-theme .stats-ticket-card,
+body.dark-theme .stats-chart-panel,
+body.dark-theme .stats-today-panel,
+body.dark-theme .stats-popover {
+  background: #171a20 !important;
+  border-color: #2a313b !important;
+}
+
+body.dark-theme .stats-ticket-row {
+  background: transparent !important;
+}
+
+body.dark-theme .defect-item-token.is-in-progress,
+body.dark-theme .filtered-defect-item-token.is-in-progress {
+  background: transparent !important;
+  color: #92400e !important;
+}
+
+body.dark-theme .defect-item-token.is-completed,
+body.dark-theme .filtered-defect-item-token.is-completed {
+  background: transparent !important;
+  color: #166534 !important;
+}
+
+body.dark-theme .defect-item-token.is-on-review,
+body.dark-theme .filtered-defect-item-token.is-on-review {
+  background: transparent !important;
+  color: #0f766e !important;
+  border-radius: 0 !important;
+}
+
+body.dark-theme .defect-item-token.date-hover-match,
+body.dark-theme .filtered-defect-item-token.date-hover-match {
+  background: transparent !important;
+  color: #374151 !important;
+}
+
+body.dark-theme.page-complex-detail .section-group,
+body.dark-theme.page-complex-detail .section-group-header,
+body.dark-theme.page-complex-detail .section-card,
+body.dark-theme.page-complex-detail .section-card-combined,
+body.dark-theme.page-complex-detail .section-header,
+body.dark-theme.page-complex-detail .section-header-spacer,
+body.dark-theme.page-complex-detail .section-combined-block,
+body.dark-theme.page-complex-detail .section-combined-title,
+body.dark-theme.page-complex-detail .section-combined-title-main {
+  background: #0b0d11 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+body.dark-theme .toolbar-status .status-item,
+body.dark-theme .pill,
+body.dark-theme .mobile-filter-btn,
+body.dark-theme .section-filter-btn,
+body.dark-theme .filter-item {
+  background: #1a1f26 !important;
+  color: #d7dde8 !important;
+  border-color: #343c49 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .toolbar-status .status-item:hover,
+body.dark-theme .pill:hover,
+body.dark-theme .mobile-filter-btn:hover,
+body.dark-theme .section-filter-btn:hover,
+body.dark-theme .filter-item:hover {
+  background: #232933 !important;
+  color: #eef2f7 !important;
+  border-color: #465062 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .toolbar-status .status-item.active,
+body.dark-theme .pill.active,
+body.dark-theme .mobile-filter-btn.active,
+body.dark-theme .filter-item.selected,
+body.dark-theme .section-filter-wrapper.active .section-filter-btn {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 0 18px rgba(255,255,255,0.08) !important;
+}
+
+body.dark-theme .defect-status-badge.badge-recorded,
+body.dark-theme .defect-status-badge.badge-new,
+body.dark-theme .defect-compact-status.badge-new {
+  background: #f5efe3 !important;
+  color: #8a6a35 !important;
+}
+
+body.dark-theme .defect-status-badge.badge-progress {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+body.dark-theme .defect-status-badge.badge-on-review {
+  background: #ecfeff !important;
+  color: #0f766e !important;
+}
+
+body.dark-theme .defect-status-badge.badge-completed {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+body.dark-theme .defect-status-badge.badge-rejected {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+}
+
+body.dark-theme .date-hover-match,
+body.dark-theme .defect-item-token.date-hover-match,
+body.dark-theme .filtered-defect-item-token.date-hover-match,
+body.dark-theme .defect-print-item-token.date-hover-match {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  color: #99a3af !important;
+}
+
+body.dark-theme.page-complex-detail,
+body.dark-theme.page-complex-detail .main,
+body.dark-theme.page-complex-detail #tab-complex-detail,
+body.dark-theme.page-complex-detail .complex-detail-content,
+body.dark-theme.page-complex-detail .complex-detail-main,
+body.dark-theme.page-complex-detail #apartmentsContainer,
+body.dark-theme.page-complex-detail .sections-grid,
+body.dark-theme.page-complex-detail .sections-grid.sections-grid-combined {
+  background: #0b0d11 !important;
+  background-image: none !important;
+}
+
+body.dark-theme.page-complex-detail .complex-detail-content,
+body.dark-theme.page-complex-detail .sections-grid {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+  border-top: 0 !important;
+}
+
+body.dark-theme .toolbar-status .status-item,
+body.dark-theme .toolbar-status .status-item:hover,
+body.dark-theme .pill,
+body.dark-theme .pill:hover,
+body.dark-theme .mobile-filter-btn,
+body.dark-theme .mobile-filter-btn:hover,
+body.dark-theme .section-filter-btn,
+body.dark-theme .section-filter-btn:hover,
+body.dark-theme .filter-item,
+body.dark-theme .filter-item:hover {
+  background: #1a1f26 !important;
+  color: #d7dde8 !important;
+  border-color: #343c49 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .pill.active,
+body.dark-theme .mobile-filter-btn.active,
+body.dark-theme .filter-item.selected,
+body.dark-theme .section-filter-wrapper.active .section-filter-btn {
+  background: #202a36 !important;
+  color: #dcebff !important;
+  border-color: #5aa2ff !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 0 18px rgba(255,255,255,0.08) !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"].active {
+  background: #34d399 !important;
+  border-color: #34d399 !important;
+  color: #064e3b !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="call"].active {
+  background: #ec4899 !important;
+  border-color: #ec4899 !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"].active {
+  background: #fde047 !important;
+  border-color: #facc15 !important;
+  color: #713f12 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"].active {
+  background: #bae6fd !important;
+  border-color: #38bdf8 !important;
+  color: #0369a1 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="no_access"].active {
+  background: #94a3b8 !important;
+  border-color: #94a3b8 !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="complex"].active {
+  background: #ff4040 !important;
+  border-color: #ff4040 !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .defect-status-badge.badge-recorded,
+body.dark-theme .defect-status-badge.badge-new,
+body.dark-theme .defect-compact-status.badge-new {
+  background: #f5efe3 !important;
+  color: #8a6a35 !important;
+}
+
+body.dark-theme .defect-status-badge.badge-progress {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+body.dark-theme .defect-status-badge.badge-on-review {
+  background: #ecfeff !important;
+  color: #0f766e !important;
+}
+
+body.dark-theme .defect-status-badge.badge-completed {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+body.dark-theme .defect-status-badge.badge-rejected {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+}
+
+body.dark-theme [class*="date-hover-match"] {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+html:has(body.dark-theme) {
+  background: #0b0d11 !important;
+}
+
+body.dark-theme,
+body.dark-theme.page-complex-detail,
+body.dark-theme .tab-panel,
+body.dark-theme .tab-panel.active,
+body.dark-theme .main,
+body.dark-theme #tab-complex-detail,
+body.dark-theme .complex-detail-content,
+body.dark-theme .complex-detail-main,
+body.dark-theme #apartmentsContainer,
+body.dark-theme .sections-grid,
+body.dark-theme .sections-grid.sections-grid-combined,
+body.dark-theme .mobile-filter-indicator,
+body.dark-theme .mobile-filter-buttons {
+  background: #0b0d11 !important;
+  background-image: none !important;
+  border-color: transparent !important;
+}
+
+body.dark-theme.page-complex-detail .main {
+  padding-top: 56px !important;
+}
+
+body.dark-theme.page-complex-detail #tab-complex-detail,
+body.dark-theme.page-complex-detail .complex-detail-content,
+body.dark-theme.page-complex-detail .complex-detail-main,
+body.dark-theme.page-complex-detail #apartmentsContainer,
+body.dark-theme.page-complex-detail .sections-grid,
+body.dark-theme.page-complex-detail .sections-grid.sections-grid-combined {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  border-top: 0 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .defect-item-token,
+body.dark-theme .filtered-defect-item-token,
+body.dark-theme .defect-print-item-token,
+body.dark-theme .defect-item-token.is-in-progress,
+body.dark-theme .defect-item-token.is-completed,
+body.dark-theme .defect-item-token.is-on-review,
+body.dark-theme .filtered-defect-item-token.is-in-progress,
+body.dark-theme .filtered-defect-item-token.is-completed,
+body.dark-theme .filtered-defect-item-token.is-on-review,
+body.dark-theme .defect-item-token.date-hover-match,
+body.dark-theme .filtered-defect-item-token.date-hover-match,
+body.dark-theme .defect-print-item-token.date-hover-match {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .defect-item-token.is-in-progress,
+body.dark-theme .filtered-defect-item-token.is-in-progress {
+  color: #92400e !important;
+}
+
+body.dark-theme .defect-item-token.is-completed,
+body.dark-theme .filtered-defect-item-token.is-completed {
+  color: #166534 !important;
+}
+
+body.dark-theme .defect-item-token.is-on-review,
+body.dark-theme .filtered-defect-item-token.is-on-review {
+  color: #0f766e !important;
+}
+
+body.dark-theme .defect-item-token.date-hover-match,
+body.dark-theme .filtered-defect-item-token.date-hover-match,
+body.dark-theme .defect-print-item-token.date-hover-match,
+body.dark-theme [class*="date-hover-match"] {
+  color: #374151 !important;
+}
+
+body.dark-theme .defect-status-badge.badge-recorded,
+body.dark-theme .defect-status-badge.badge-recorded:hover,
+body.dark-theme .defect-status-badge.badge-recorded:active,
+body.dark-theme .defect-status-badge.badge-new,
+body.dark-theme .defect-status-badge.badge-new:hover,
+body.dark-theme .defect-status-badge.badge-new:active {
+  background: #f5efe3 !important;
+  color: #8a6a35 !important;
+}
+
+body.dark-theme .defect-status-badge.badge-progress,
+body.dark-theme .defect-status-badge.badge-progress:hover,
+body.dark-theme .defect-status-badge.badge-progress:active {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+body.dark-theme .defect-status-badge.badge-on-review,
+body.dark-theme .defect-status-badge.badge-on-review:hover,
+body.dark-theme .defect-status-badge.badge-on-review:active {
+  background: #ecfeff !important;
+  color: #0f766e !important;
+}
+
+body.dark-theme .defect-status-badge.badge-completed,
+body.dark-theme .defect-status-badge.badge-completed:hover,
+body.dark-theme .defect-status-badge.badge-completed:active {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+body.dark-theme .defect-status-badge.badge-rejected,
+body.dark-theme .defect-status-badge.badge-rejected:hover,
+body.dark-theme .defect-status-badge.badge-rejected:active {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
 }
