@@ -42,8 +42,8 @@ const FILTER_INDEXES = {
 };
 const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
 const DEFECT_STATUS_LABELS = {
-    new: 'Новое',
-    recorded: 'Новое',
+    new: 'Зафиксированно',
+    recorded: 'Зафиксированно',
     in_progress: 'В работе',
     on_review: 'На проверке',
     completed: 'Выполнено',
@@ -124,6 +124,7 @@ function cacheElements() {
     elements.defectFilterPanel = document.getElementById('defectFilterPanel');
     elements.statsBtn = document.getElementById('statsBtn');
     elements.complexPrintBtn = document.getElementById('complexPrintBtn');
+    elements.complexCommentsBtn = document.getElementById('complexCommentsBtn');
     elements.tabPanels = document.querySelectorAll('.tab-panel');
 }
 
@@ -203,6 +204,11 @@ function setupEventListeners() {
         elements.defectsList.addEventListener('input', (e) => {
             const row = e.target.closest('.defect-row');
             if (row) {
+                if (e.target.matches('[id^="defectCommentText_"]')) {
+                    markDefectRowDirty(row);
+                    scheduleDefectCommentAutosave(row, e.target);
+                    return;
+                }
                 markDefectRowDirty(row);
                 scheduleDefectAutosave(row);
             }
@@ -393,8 +399,27 @@ function updateHeader(showBack, showAdd) {
         const showComplexPrint = state.currentTab === 'complex-detail' && !!state.currentComplex && !state.currentApartment;
         elements.complexPrintBtn.style.display = showComplexPrint ? 'inline-flex' : 'none';
     }
+    if (elements.complexCommentsBtn) {
+        const showComplexComments = state.currentTab === 'complex-detail' && !!state.currentComplex && !state.currentApartment;
+        elements.complexCommentsBtn.style.display = showComplexComments ? 'inline-flex' : 'none';
+    }
     if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'none';
     if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'none';
+}
+
+async function ensureCurrentComplexDefectsLoaded(force = false) {
+    if (!state.currentComplex) return [];
+    if (!force && Array.isArray(state.currentDefects) && state.currentDefects.length) {
+        return state.currentDefects;
+    }
+
+    const defectsRes = await fetch(`/api/complexes/${state.currentComplex}/defects`, { cache: 'no-store' });
+    if (!defectsRes.ok) {
+        throw new Error(`defects request failed: ${defectsRes.status}`);
+    }
+
+    state.currentDefects = await defectsRes.json();
+    return state.currentDefects;
 }
 
 let adminMode = false;
@@ -560,8 +585,7 @@ function handleCategoryChange() {
             windowGroup.style.display = 'block';
             if (windowSelect) {
                 let options = '<option value="">Выберите</option>';
-                options += '<option value="0">Общ.</option>';
-                for (let i = 1; i <= 20; i++) {
+                for (let i = 1; i <= 14; i++) {
                     options += `<option value="${i}">Об${i}</option>`;
                 }
                 windowSelect.innerHTML = options;
@@ -591,16 +615,14 @@ function handleCategoryChange() {
 }
 
 function getWindowChipText(windowNumber) {
-    if (windowNumber === 0 || windowNumber === '0') return 'Общ.';
     if (windowNumber === null || windowNumber === undefined || windowNumber === '') return '';
     return `Об${escapeHtml(windowNumber)}`;
 }
 
 function getDoorVariantLabel(variant) {
     const normalized = String(variant || '').trim();
-    if (normalized === 'Нар') return 'Наружная';
-    if (normalized === 'Вн') return 'Внутренняя';
-    if (normalized === 'Общ.') return 'Общ.';
+    if (normalized === 'Межкомнатная') return 'Межкомнатная';
+    if (normalized === 'Входная') return 'Входная';
     return normalized;
 }
 
@@ -673,17 +695,37 @@ function getDefectItemStatusClass(itemStatus) {
 
 function renderReadonlyDefectItems(defect, baseClass = 'defect-item-token') {
     const items = getSortedDefectItems(defect);
-    return items.map((item, index) => {
+    let itemNumber = 0;
+    return items.flatMap((item) => {
         const itemStatus = item.status || 'recorded';
         const contentParts = String(item.text || '')
             .split(/\r?\n|,/) 
             .map((part) => part.trim())
             .filter(Boolean);
-        const content = contentParts.length
-            ? contentParts.map((part) => escapeHtml(part)).join(', ')
-            : escapeHtml(String(item.text || ''));
-        return `<span class="${baseClass} ${getDefectItemStatusClass(itemStatus)}"><span class="defect-item-number">${index + 1}.</span> ${content}</span>`;
+        const normalizedParts = contentParts.length ? contentParts : [String(item.text || '').trim()];
+
+        return normalizedParts
+            .filter(Boolean)
+            .map((part) => {
+                itemNumber += 1;
+                return `<span class="${baseClass} ${getDefectItemStatusClass(itemStatus)}"><span class="defect-item-number">${itemNumber}.</span> ${escapeHtml(part)}</span>`;
+            });
     }).join(' ');
+}
+
+function getDefectPrintPhotos(defect) {
+    const directPhotos = Array.isArray(defect?.photos) ? defect.photos : [];
+    const itemPhotos = Array.isArray(defect?.items)
+        ? defect.items.flatMap((item) => Array.isArray(item?.photos) ? item.photos : [])
+        : [];
+
+    const seen = new Set();
+    return [...directPhotos, ...itemPhotos].filter((photo) => {
+        const key = `${photo?.id || ''}:${photo?.filename || ''}`;
+        if (!photo?.filename || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 }
 
 function renderDefectTextItems(defect) {
@@ -702,17 +744,18 @@ function renderDefectTextItems(defect) {
                 const content = contentParts.length
                     ? contentParts.map((part) => escapeHtml(part)).join(', ')
                     : escapeHtml(String(item.text || ''));
+                const itemPhotoUrls = (item.photos || []).map((photo) => `/uploads/${encodeURIComponent(photo.filename)}`);
                 const clickHandler = item.id
                     ? `onclick="toggleDefectItemLine(${item.id}, '${itemStatus}', event)"`
                     : '';
-                const doubleClickHandler = item.id && isEditableItem
-                    ? `ondblclick="startDefectItemEdit(${item.id}, event)"`
+                const mouseHandlers = item.id && isEditableItem
+                    ? `onmousedown="handleDefectItemMouseDown(${item.id}, event)" onmouseup="handleDefectItemMouseUp(event)" onmouseleave="handleDefectItemMouseCancel(event)"`
                     : '';
                 const touchHandlers = item.id && isEditableItem
                     ? `ontouchstart="handleDefectItemTouchStart(${item.id}, event)" ontouchend="handleDefectItemTouchEnd(event)" ontouchmove="handleDefectItemTouchCancel(event)" ontouchcancel="handleDefectItemTouchCancel(event)"`
                     : '';
 
-                return `<button type="button" class="defect-item-token ${isEditableItem ? 'is-editable' : ''} ${getDefectItemStatusClass(itemStatus)}" data-item-id="${item.id || ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler} ${doubleClickHandler} ${touchHandlers}><span class="defect-item-number">${index + 1}.</span> ${content}</button>`;
+                return `<button type="button" class="defect-item-token ${isEditableItem ? 'is-editable' : ''} ${getDefectItemStatusClass(itemStatus)}" data-item-id="${item.id || ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler} ${mouseHandlers} ${touchHandlers}><span class="defect-item-number">${index + 1}.</span> ${content}${itemPhotoUrls.length ? ` <span class="defect-item-photo-icon" title="Открыть фото" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(itemPhotoUrls)}, 0)' aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="12" height="12"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"></path><circle cx="12" cy="13" r="4"></circle></svg><span class="defect-item-photo-count">${itemPhotoUrls.length}</span></span>` : ''}${isEditableItem ? ` <span class="defect-item-edit-icon" title="Редактировать" onclick="startDefectItemEdit(${item.id}, event)" aria-hidden="true">✎</span>` : ''}</button>`;
             }).join(' ')}
         </span>
     `;
@@ -720,11 +763,44 @@ function renderDefectTextItems(defect) {
 
 function canEditDefectItem(item, defect) {
     if (!item?.id) return false;
-    if (['completed', 'on_review'].includes(defect?.status)) return true;
     if (!item?.created_at) return false;
     const created = new Date(item.created_at);
     const now = new Date();
     return ((now - created) / (1000 * 60 * 60)) <= 24;
+}
+
+function collectDefectPhotos(defect) {
+    const seen = new Set();
+    const photos = [];
+
+    const pushPhoto = (photo) => {
+        if (!photo?.filename) return;
+        const key = `${photo.id || ''}:${photo.filename}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        photos.push(photo);
+    };
+
+    (defect?.photos || []).forEach(pushPhoto);
+    (defect?.items || []).forEach((item) => (item?.photos || []).forEach(pushPhoto));
+
+    return photos;
+}
+
+function syncDefectDraftState(id) {
+    const defects = state.currentApartmentData?.defects;
+    if (!Array.isArray(defects)) return;
+
+    const defect = defects.find((item) => item.id === id);
+    if (!defect) return;
+
+    const descriptionField = document.getElementById(`defectDescription_${id}`);
+    const commentField = document.getElementById(`defectCommentText_${id}`);
+    const executorField = document.getElementById(`defectExecutor_${id}`);
+
+    if (descriptionField) defect.description = descriptionField.value;
+    if (commentField) defect.comment_text = commentField.value;
+    if (executorField) defect.executor = executorField.value;
 }
 
 function setDefectDateHover(defectId, dateKey, isActive) {
@@ -1529,11 +1605,7 @@ async function loadApartments() {
 
         if (needsComplexDefects) {
             try {
-                const defectsRes = await fetch(`/api/complexes/${state.currentComplex}/defects`);
-                if (!defectsRes.ok) {
-                    throw new Error(`defects request failed: ${defectsRes.status}`);
-                }
-                state.currentDefects = await defectsRes.json();
+                await ensureCurrentComplexDefectsLoaded(true);
             } catch (defectsErr) {
                 console.error('Defects loading failed:', defectsErr);
                 state.currentDefects = [];
@@ -1859,6 +1931,18 @@ function syncDefectStatusState(id, status) {
     }
 }
 
+function calculateDefectStatusFromItems(defect) {
+    const itemStatuses = Array.isArray(defect?.items)
+        ? defect.items.map((item) => item.status || 'recorded')
+        : [];
+
+    if (!itemStatuses.length) return defect?.status || 'recorded';
+    if (itemStatuses.some((status) => status === 'in_progress')) return 'in_progress';
+    if (itemStatuses.every((status) => status === 'completed')) return 'completed';
+    if (itemStatuses.some((status) => status === 'on_review')) return 'on_review';
+    return 'recorded';
+}
+
 function syncDefectItemStatusState(itemId, status) {
     const defects = state.currentApartmentData?.defects;
     if (!Array.isArray(defects)) return null;
@@ -1867,10 +1951,9 @@ function syncDefectItemStatusState(itemId, status) {
         const item = defect.items?.find((entry) => entry.id === itemId);
         if (!item) continue;
         item.status = status;
-        if (status === 'in_progress' && ['on_review', 'completed', 'new', 'recorded'].includes(defect.status)) {
-            defect.status = 'in_progress';
-            syncDefectStatusState(defect.id, 'in_progress');
-        }
+        const nextDefectStatus = calculateDefectStatusFromItems(defect);
+        defect.status = nextDefectStatus;
+        syncDefectStatusState(defect.id, nextDefectStatus);
         return defect;
     }
 
@@ -1902,9 +1985,14 @@ async function toggleDefectItemLine(itemId, currentStatus, event) {
         return;
     }
 
-    const nextStatus = currentStatus === 'completed' ? 'in_progress' : 'in_progress';
+    const normalizedStatus = currentStatus === 'new' ? 'recorded' : (currentStatus || 'recorded');
+    let nextStatus = 'in_progress';
 
-    if (currentStatus === nextStatus) {
+    if (normalizedStatus === 'in_progress') nextStatus = 'on_review';
+    if (normalizedStatus === 'on_review') nextStatus = 'completed';
+    if (normalizedStatus === 'completed') nextStatus = 'in_progress';
+
+    if (normalizedStatus === nextStatus) {
         return;
     }
     try {
@@ -1955,10 +2043,45 @@ function handleDefectItemTouchCancel(event) {
     }
 }
 
+function handleDefectItemMouseDown(itemId, event) {
+    if (event.button !== 0) return;
+    const token = event.currentTarget;
+    if (!token) return;
+    token.dataset.longPressTriggered = '0';
+    handleDefectItemMouseCancel(event);
+    const timer = setTimeout(() => {
+        token.dataset.longPressTriggered = '1';
+        startDefectItemEdit(itemId, event);
+    }, DEFECT_ITEM_LONG_PRESS_MS);
+    defectItemTouchTimers.set(itemId, timer);
+}
+
+function handleDefectItemMouseUp(event) {
+    const token = event.currentTarget;
+    const itemId = Number(token?.dataset.itemId || 0);
+    if (!itemId) return;
+    const timer = defectItemTouchTimers.get(itemId);
+    if (timer) {
+        clearTimeout(timer);
+        defectItemTouchTimers.delete(itemId);
+    }
+}
+
+function handleDefectItemMouseCancel(event) {
+    const token = event.currentTarget;
+    const itemId = Number(token?.dataset.itemId || 0);
+    if (!itemId) return;
+    const timer = defectItemTouchTimers.get(itemId);
+    if (timer) {
+        clearTimeout(timer);
+        defectItemTouchTimers.delete(itemId);
+    }
+}
+
 function startDefectItemEdit(itemId, event) {
     if (event?.preventDefault) event.preventDefault();
-    event.stopPropagation();
-    const token = event.currentTarget;
+    if (event?.stopPropagation) event.stopPropagation();
+    const token = event.currentTarget?.closest?.('.defect-item-token') || event.currentTarget;
     if (!token || token.dataset.editing === '1') return;
 
     const defect = state.currentApartmentData?.defects?.find((entry) => entry.items?.some((item) => item.id === itemId));
@@ -2061,6 +2184,15 @@ async function selectDefectStatus(id, status) {
         return;
     }
 
+    const pendingTimer = defectAutosaveTimers.get(String(id)) || defectAutosaveTimers.get(id);
+    if (pendingTimer) {
+        clearTimeout(pendingTimer);
+        defectAutosaveTimers.delete(String(id));
+        defectAutosaveTimers.delete(id);
+    }
+
+    syncDefectDraftState(id);
+
     applyDefectStatusUI(id, status);
 
     const ok = await updateDefectStatus(id, status);
@@ -2071,17 +2203,12 @@ async function selectDefectStatus(id, status) {
 
     syncDefectStatusState(id, status);
     closeDefectStatusModal();
-    rerenderCurrentApartmentDefects();
     showToast('Статус обновлен', 'success');
+    reloadPageAfterStatusChange();
 }
 
 async function cycleDefectStatus(id, event) {
-    const currentStatus = document.getElementById(`defectStatus_${id}`)?.value || '';
-    if (currentStatus === 'completed') {
-        if (event) event.stopPropagation();
-        return;
-    }
-    openDefectStatusModal(id, event);
+    if (event) event.stopPropagation();
 }
 
 function getApartmentWorkflowClass(apartment) {
@@ -2170,21 +2297,70 @@ function formatApartmentBadgeCount(count) {
 }
 
 function getApartmentBadgeCount(apartment, catFilter) {
-    let badgeCount = apartment.active_defects_count || 0;
+    let badgeCount = Math.max(0, Number(apartment.active_defects_count || 0) - Number(apartment.recorded_defects_count || 0));
     if (catFilter && state.currentDefects.length) {
-        badgeCount = state.currentDefects.filter(d => d.apartment_id === apartment.id && d.category === catFilter && !isClosedDefectStatus(d.status)).length;
+        badgeCount = state.currentDefects.filter(
+            d => d.apartment_id === apartment.id && d.category === catFilter && !isClosedDefectStatus(d.status) && d.status !== 'recorded'
+        ).length;
     }
     return badgeCount;
+}
+
+function getApartmentSortCount(apartment, catFilter) {
+    let activeOrNewCount = Number(apartment.active_defects_count || 0);
+
+    if (catFilter && state.currentDefects.length) {
+        activeOrNewCount = state.currentDefects.filter(
+            d => d.apartment_id === apartment.id && d.category === catFilter && !isClosedDefectStatus(d.status)
+        ).length;
+    }
+
+    if (activeOrNewCount > 0) return activeOrNewCount;
+
+    return Number(apartment.on_review_defects_count || 0);
+}
+
+function getApartmentSortMeta(apartment, catFilter) {
+    let newCount = Number(apartment.recorded_defects_count || 0);
+    let openCount = Math.max(0, Number(apartment.active_defects_count || 0) - newCount);
+    let reviewCount = Number(apartment.on_review_defects_count || 0);
+
+    if (catFilter && state.currentDefects.length) {
+        const categoryDefects = state.currentDefects.filter(
+            (d) => d.apartment_id === apartment.id && d.category === catFilter
+        );
+
+        newCount = categoryDefects.filter((d) => d.status === 'recorded').length;
+        openCount = categoryDefects.filter((d) => !isClosedDefectStatus(d.status) && d.status !== 'recorded').length;
+        reviewCount = categoryDefects.filter((d) => d.status === 'on_review').length;
+    }
+
+    const totalOpenAndNew = openCount + newCount;
+
+    if (openCount === 0 && newCount === 0) {
+        return { rank: 0, count: reviewCount, openCount, newCount, reviewCount, totalOpenAndNew };
+    }
+
+    if (newCount > 0 && openCount === 0) {
+        return { rank: 1, count: newCount, openCount, newCount, reviewCount, totalOpenAndNew };
+    }
+
+    if (openCount > 0 && newCount > 0) {
+        return { rank: 3, count: totalOpenAndNew, openCount, newCount, reviewCount, totalOpenAndNew };
+    }
+
+    return { rank: 2, count: openCount, openCount, newCount, reviewCount, totalOpenAndNew };
 }
 
 function renderApartmentTile(apartment, propFull, catFilter) {
     const deadlineClass = getDeadlineClass(apartment);
     const cls = getApartmentClass(apartment.access_status, apartment.active_defects_count);
-    const isAccepted = isAcceptedApartment(apartment);
     const badgeCount = getApartmentBadgeCount(apartment, catFilter);
-    const badge = (badgeCount > 0 && !isAccepted) ? `<span class="apt-badge">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
+    const badge = badgeCount > 0 ? `<span class="apt-badge apt-badge-total">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
+    const newCount = Number(apartment.recorded_defects_count || 0);
+    const newBadge = newCount > 0 ? `<span class="apt-badge apt-badge-new">${formatApartmentBadgeCount(newCount)}</span>` : '';
     const onReviewCount = Number(apartment.on_review_defects_count || 0);
-    const reviewBadge = (onReviewCount > 0 && !isAccepted) ? `<span class="apt-badge apt-badge-review">${onReviewCount}</span>` : '';
+    const reviewBadge = onReviewCount > 0 ? `<span class="apt-badge apt-badge-review">${formatApartmentBadgeCount(onReviewCount)}</span>` : '';
     const accessPhone = String(apartment.access_phone || '').trim();
     const accessComment = String(apartment.access_comment || '').trim();
     const tooltip = apartment.access_status === 'by_phone'
@@ -2201,6 +2377,7 @@ function renderApartmentTile(apartment, propFull, catFilter) {
                  onclick="showApartmentDetail(${apartment.id})">
                 ${apartment.number}
                 ${badge}
+                ${newBadge}
                 ${reviewBadge}
             </div>
         </div>
@@ -2309,15 +2486,61 @@ function splitCombinedSectionsIntoRows(sectionItems) {
     return rows;
 }
 
-function renderCombinedSectionCard(sectionItems, propFull, uniqueBuildingsCount) {
+function splitSectionFloorsIntoChunks(sectionItem) {
+    const sortedFloors = Object.keys(sectionItem.floors)
+        .map(Number)
+        .sort((a, b) => b - a);
+
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1440;
+    const isMobile = viewportWidth <= 760;
+    const sidePadding = isMobile ? 24 : 32;
+    const rowGap = 30;
+    const availableWidth = Math.max(viewportWidth - sidePadding, 320);
+    const estimatedWidth = Math.min(getCombinedSectionWidth(sectionItem.floors), availableWidth);
+    const columnCount = Math.max(1, Math.floor((availableWidth + rowGap) / (estimatedWidth + rowGap)));
+    const chunkSize = Math.max(1, Math.ceil(sortedFloors.length / columnCount));
+
+    if (sortedFloors.length <= chunkSize) {
+        return [{ ...sectionItem, floorRangeLabel: '' }];
+    }
+
+    const chunks = [];
+    for (let i = 0; i < sortedFloors.length; i += chunkSize) {
+        const chunkFloors = sortedFloors.slice(i, i + chunkSize);
+        const floors = {};
+
+        chunkFloors.forEach((floor) => {
+            floors[floor] = sectionItem.floors[floor];
+        });
+
+        chunks.push({
+            ...sectionItem,
+            floors
+        });
+    }
+
+    return chunks;
+}
+
+function renderCombinedSectionCard(sectionItems, propFull, uniqueBuildingsCount, options = {}) {
     if (!sectionItems.length) return '';
 
-    const rows = splitCombinedSectionsIntoRows(sectionItems);
+    const { splitSingleSectionFloors = false } = options;
+    const isSingleSplitSection = splitSingleSectionFloors && sectionItems.length === 1;
+    const renderItems = isSingleSplitSection ? splitSectionFloorsIntoChunks(sectionItems[0]) : sectionItems;
+    const singleSectionTitle = isSingleSplitSection
+        ? (uniqueBuildingsCount > 1
+            ? `Корпус ${sectionItems[0].buildingNumber} • Секция ${sectionItems[0].sectionNumber}`
+            : `Секция ${sectionItems[0].sectionNumber}`)
+        : '';
+
+    const rows = splitCombinedSectionsIntoRows(renderItems);
 
     return `
         <section class="section-card section-card-combined">
             <div class="section-body-container">
                 <div class="section-body section-body-combined">
+                    ${singleSectionTitle ? `<div class="section-combined-title section-combined-title-main">${singleSectionTitle}</div>` : ''}
                     ${rows.map((row) => `
                         <div class="section-combined-row">
                             ${row.map(({ sectionNumber, buildingNumber, floors, estimatedWidth }) => {
@@ -2328,7 +2551,7 @@ function renderCombinedSectionCard(sectionItems, propFull, uniqueBuildingsCount)
 
                                 return `
                                     <div class="section-combined-block" style="width:${estimatedWidth}px; max-width:100%;">
-                                        <div class="section-combined-title">${title}</div>
+                                        ${singleSectionTitle ? '' : `<div class="section-combined-title">${title}</div>`}
                                         <div class="section-combined-floors">
                                             ${sortedFloors.map((floor) => {
                                                 const floorApts = floors[floor].sort((a, b) => a.number - b.number);
@@ -2364,7 +2587,6 @@ function renderApartments(apartments) {
         const emptyState = getApartmentListEmptyState();
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-icon">#</div>
                 <h3>${emptyState.title}</h3>
                 <p>${emptyState.description}</p>
             </div>
@@ -2405,7 +2627,10 @@ function renderApartments(apartments) {
         const sortedBySection = {};
 
         visibleApartments
-            .filter((apartment) => getApartmentBadgeCount(apartment, catFilter) > 0)
+            .filter((apartment) => {
+                const meta = getApartmentSortMeta(apartment, catFilter);
+                return meta.totalOpenAndNew > 0 || meta.reviewCount > 0;
+            })
             .forEach((apartment) => {
             const sectionNumber = apartment.section_number || 0;
             if (!sortedBySection[sectionNumber]) {
@@ -2422,7 +2647,6 @@ function renderApartments(apartments) {
             const emptyState = getApartmentListEmptyState();
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">#</div>
                     <h3>${emptyState.title}</h3>
                     <p>Для выбранных фильтров нет квартир с открытыми замечаниями.</p>
                 </div>
@@ -2436,21 +2660,18 @@ function renderApartments(apartments) {
             <div class="${sortedGridClass}">
                 ${sortedSectionNumbers.map((sectionNumber) => {
                     const sectionApartments = sortedBySection[sectionNumber].sort((a, b) => {
-                        const countA = getApartmentBadgeCount(a, catFilter);
-                        const countB = getApartmentBadgeCount(b, catFilter);
-                        if (countA !== countB) return countA - countB;
+                        const metaA = getApartmentSortMeta(a, catFilter);
+                        const metaB = getApartmentSortMeta(b, catFilter);
+                        if (metaA.rank !== metaB.rank) return metaA.rank - metaB.rank;
+                        if (metaA.count !== metaB.count) return metaA.count - metaB.count;
                         return Number(a.number) - Number(b.number);
                     });
 
                     return `
                         <section class="section-card section-card-sorted">
-                            <div class="section-header">
-                                <div class="section-heading section-heading-simple">
-                                    <span class="section-title">Секция ${sectionNumber}</span>
-                                </div>
-                            </div>
-                            <div class="section-body-container">
-                                <div class="apt-sort-grid">
+                            <div class="section-body-container section-body-container-sorted">
+                                <div class="section-combined-title">Секция ${sectionNumber}</div>
+                                <div class="apt-sort-grid apt-sort-grid-sorted">
                                     ${sectionApartments.map(apartment => renderApartmentTile(apartment, propFull, catFilter)).join('')}
                                 </div>
                             </div>
@@ -2543,7 +2764,9 @@ function renderApartments(apartments) {
             .filter(Boolean);
 
         html = '<div class="sections-grid sections-grid-combined">';
-        html += renderCombinedSectionCard(combinedSections, propFull, uniqueBuildings.size);
+        html += renderCombinedSectionCard(combinedSections, propFull, uniqueBuildings.size, {
+            splitSingleSectionFloors: selectedSectionIds.length === 1 && combinedSections.length === 1
+        });
     }
     
     container.innerHTML = html + '</div>';
@@ -2635,9 +2858,12 @@ function getDeadlineClass(apt) {
 
 // Apartment Detail
 async function showApartmentDetail(id) {
+    const isSameApartment = state.currentApartment === id;
     state.currentApartment = id;
-    state.currentApartmentData = null;
-    setPageTitle('Загрузка...', '');
+    if (!isSameApartment) {
+        state.currentApartmentData = null;
+        setPageTitle('Загрузка...', '');
+    }
     showTab('apartment-detail');
     updateHeader(true, false);
     
@@ -2652,18 +2878,13 @@ async function showApartmentDetail(id) {
     if (toolbarStatus) toolbarStatus.style.display = 'flex';
     
     try {
-        const cachedApartment = getCachedApartmentSummary(id);
         const defectsRes = await fetch(`/api/apartments/${id}/defects`);
         if (!defectsRes.ok) throw new Error(`Defects fetch failed: ${defectsRes.status}`);
         const defects = await defectsRes.json();
-        let apt = cachedApartment;
-
-        if (!apt) {
-            const aptsRes = await fetch(`/api/complexes/${state.currentComplex}/apartments`);
-            if (!aptsRes.ok) throw new Error(`Apartments fetch failed: ${aptsRes.status}`);
-            const apts = await aptsRes.json();
-            apt = apts.find(a => a.id === id);
-        }
+        const aptsRes = await fetch(`/api/complexes/${state.currentComplex}/apartments`);
+        if (!aptsRes.ok) throw new Error(`Apartments fetch failed: ${aptsRes.status}`);
+        const apts = await aptsRes.json();
+        const apt = apts.find(a => a.id === id);
         
         if (!apt) {
             const propType = state.currentPropertyType;
@@ -2672,11 +2893,15 @@ async function showApartmentDetail(id) {
             return;
         }
         
+        state.filteredApartments = Array.isArray(apts) ? [...apts] : [];
         state.currentApartmentData = { ...apt, defects };
+        syncApartmentStatusButtons(apt.access_status === 'available' ? '' : apt.access_status);
         const propType = state.currentPropertyType;
         const propLabel = propType === 'апартаменты' ? 'Апартамент' : 'Квартира';
         
-        setPageTitle(`${propLabel} ${apt.number}`, '');
+        if (!isSameApartment) {
+            setPageTitle(`${propLabel} ${apt.number}`, '');
+        }
         
         renderDefects(defects);
     } catch (err) {
@@ -2686,28 +2911,50 @@ async function showApartmentDetail(id) {
 }
 
 // Status Functions
-function setStatus(status) {
+function syncApartmentStatusButtons(status) {
     document.querySelectorAll('.status-item').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.status === status) {
-            btn.classList.add('active');
-        }
+        btn.classList.toggle('active', Boolean(status) && btn.dataset.status === status);
     });
+}
 
-    applyApartmentStatusLocally(status);
+function updateApartmentSummaryCache(apartmentId, updates = {}) {
+    const apartment = (state.filteredApartments || []).find((entry) => entry.id === apartmentId);
+    if (!apartment) return;
+    Object.assign(apartment, updates);
+}
+
+function reloadPageAfterStatusChange() {
+    if (state.currentApartment) {
+        showApartmentDetail(state.currentApartment);
+        return;
+    }
+    window.location.reload();
+}
+
+function setStatus(status) {
+    const statusButton = document.querySelector(`.status-item[data-status="${status}"]`);
+    const isButtonActive = statusButton?.classList.contains('active');
+    const currentStatus = state.currentApartmentData?.access_status || '';
+    const nextStatus = status === 'in_progress' && (isButtonActive || currentStatus === 'in_progress')
+        ? 'available'
+        : status;
+
+    syncApartmentStatusButtons(nextStatus === 'available' ? '' : nextStatus);
+
+    applyApartmentStatusLocally(nextStatus);
     
-    if (status === 'by_phone') {
+    if (nextStatus === 'by_phone') {
         showPhoneModal();
         return;
     }
     
-    if (status === 'complex') {
-        saveStatus(status);
+    if (nextStatus === 'complex') {
+        saveStatus(nextStatus);
         showComplexModal();
         return;
     }
     
-    saveStatus(status);
+    saveStatus(nextStatus);
 }
 
 function applyApartmentStatusLocally(status) {
@@ -2715,6 +2962,10 @@ function applyApartmentStatusLocally(status) {
     if (state.currentApartmentData) {
         state.currentApartmentData.access_status = status;
     }
+    if (state.currentApartment) {
+        updateApartmentSummaryCache(state.currentApartment, { access_status: status });
+    }
+    syncApartmentStatusButtons(status === 'available' ? '' : status);
     if (apt && state.currentApartmentData) {
         const newClass = getApartmentClass(status, state.currentApartmentData.active_defects_count || 0);
         apt.className = `apt ${newClass}`;
@@ -2775,9 +3026,13 @@ async function savePhoneAndStatus() {
             currentApartment.access_phone = phone;
             currentApartment.access_status = 'by_phone';
         }
+        if (state.currentApartment) {
+            updateApartmentSummaryCache(state.currentApartment, { access_phone: phone, access_status: 'by_phone' });
+        }
         
         closePhoneModal();
         showToast('Сохранено', 'success');
+        reloadPageAfterStatusChange();
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
     }
@@ -2820,9 +3075,13 @@ async function saveComplexAndStatus() {
             currentApartment.access_comment = comment;
             currentApartment.access_status = 'complex';
         }
+        if (state.currentApartment) {
+            updateApartmentSummaryCache(state.currentApartment, { access_comment: comment, access_status: 'complex' });
+        }
         
         closeComplexModal();
         showToast('Сохранено', 'success');
+        reloadPageAfterStatusChange();
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
     }
@@ -2842,8 +3101,7 @@ async function saveStatus(status) {
             showToast('Статус сохранен', 'success');
 
             applyApartmentStatusLocally(status);
-
-            showApartmentDetail(state.currentApartment);
+            reloadPageAfterStatusChange();
         } else {
             showToast('Ошибка сохранения', 'error');
         }
@@ -2867,6 +3125,9 @@ async function savePhone() {
         });
         
         state.currentApartmentData.access_phone = phone;
+        if (state.currentApartment) {
+            updateApartmentSummaryCache(state.currentApartment, { access_phone: phone });
+        }
         showToast('Телефон сохранен', 'success');
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
@@ -2889,6 +3150,9 @@ async function deletePhone() {
         if (phoneInput) phoneInput.value = '';
         
         state.currentApartmentData.access_phone = null;
+        if (state.currentApartment) {
+            updateApartmentSummaryCache(state.currentApartment, { access_phone: null });
+        }
         showToast('Телефон удален', 'success');
     } catch (err) {
         showToast('Ошибка удаления', 'error');
@@ -2909,6 +3173,9 @@ async function saveComment() {
         });
         
         state.currentApartmentData.access_comment = comment;
+        if (state.currentApartment) {
+            updateApartmentSummaryCache(state.currentApartment, { access_comment: comment });
+        }
         showToast('Комментарий сохранен', 'success');
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
@@ -2918,18 +3185,16 @@ async function saveComment() {
 // Defects
 function getCategoryIcon(category) {
     const icons = {
-        'Стены/Пол/Потолок': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 10h6"/><path d="M9 14h6"/></svg>',
+        'Общестроительные работы': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 10h6"/><path d="M9 14h6"/></svg>',
         'Окна': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 4v16"/><path d="M4 12h16"/></svg>',
         'Двери': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V5a2 2 0 0 1 2-2h8v18"/><path d="M10 12h.01"/></svg>',
         'Сантехника': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h7a4 4 0 0 1 4 4v1H9"/><path d="M9 9v4a3 3 0 0 0 6 0V9"/><path d="M5 9h14"/></svg>',
         'Электрика': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 6 14h5l-1 8 7-12h-5z"/></svg>',
-        'Отопление': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v10a4 4 0 1 0 8 0V3"/><path d="M12 3v12"/></svg>',
         'Вентиляция': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h7"/><path d="M13 12h7"/><path d="M12 4v7"/><path d="M12 13v7"/><circle cx="12" cy="12" r="2"/></svg>',
-        'Балкон/Лоджия': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V9h12v11"/><path d="M9 9V5h6v4"/></svg>',
-        'Другое': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 1 1 5.8 1c-.4 1.2-1.9 1.8-2.4 2.5-.3.4-.4.8-.4 1.5"/><path d="M12 17h.01"/></svg>'
+        'Прочее': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 1 1 5.8 1c-.4 1.2-1.9 1.8-2.4 2.5-.3.4-.4.8-.4 1.5"/><path d="M12 17h.01"/></svg>'
     };
 
-    return icons[category] || icons['Другое'];
+    return icons[category] || icons['Прочее'];
 }
 
 function getCategoryKey(category) {
@@ -2992,6 +3257,11 @@ function scheduleDefectAutosave(row) {
     if (prevTimer) clearTimeout(prevTimer);
 
     const timer = setTimeout(() => {
+        const currentRow = document.querySelector(`.defect-row[data-defect-id="${defectId}"]`);
+        if (!currentRow || !currentRow.isConnected) {
+            defectAutosaveTimers.delete(defectId);
+            return;
+        }
         defectAutosaveTimers.delete(defectId);
         saveDefectMeta(defectId, { silentSuccess: true });
     }, 700);
@@ -2999,12 +3269,66 @@ function scheduleDefectAutosave(row) {
     defectAutosaveTimers.set(defectId, timer);
 }
 
+function scheduleDefectCommentAutosave(row, sourceElement = null) {
+    const defectId = row?.dataset?.defectId;
+    if (!defectId) return;
+
+    const prevTimer = defectAutosaveTimers.get(defectId);
+    if (prevTimer) clearTimeout(prevTimer);
+
+    const timer = setTimeout(() => {
+        const currentRow = document.querySelector(`.defect-row[data-defect-id="${defectId}"]`);
+        if (!currentRow || !currentRow.isConnected) {
+            defectAutosaveTimers.delete(defectId);
+            return;
+        }
+        defectAutosaveTimers.delete(defectId);
+        saveDefectCommentText(defectId, { silentSuccess: true, sourceElement });
+    }, 700);
+
+    defectAutosaveTimers.set(defectId, timer);
+}
+
+async function saveDefectCommentText(id, options = {}) {
+    const { silentSuccess = false, sourceElement = null } = options;
+    if (sourceElement && !sourceElement.isConnected) return;
+
+    const commentField = document.getElementById(`defectCommentText_${id}`);
+    if (!commentField) return;
+
+    const commentText = commentField.value.trim();
+
+    try {
+        const response = await fetch(`/api/defects/${id}/comment-text`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `comment_text=${encodeURIComponent(commentText)}`
+        });
+
+        if (!response.ok) {
+            let message = 'Ошибка сохранения комментария';
+            try {
+                const payload = await response.json();
+                if (payload?.detail) message = payload.detail;
+            } catch (err) {}
+            throw new Error(message);
+        }
+
+        const currentDefect = state.currentApartmentData?.defects?.find((item) => item.id === Number(id));
+        if (currentDefect) currentDefect.comment_text = commentText;
+        const row = document.querySelector(`.defect-row[data-defect-id="${id}"]`);
+        if (row) markDefectRowClean(row);
+        if (!silentSuccess) showToast('Сохранено', 'success');
+    } catch (err) {
+        showToast(err.message || 'Ошибка сохранения комментария', 'error');
+    }
+}
+
 function renderDefectCard(d, index) {
     const summaryText = escapeHtml(getDefectSummaryText(d));
     const fixedAt = formatDate(d.created_at);
     const windowNumber = d.window_number ?? '';
-    const photos = d.photos || [];
-    const photoCount = photos.length;
+    const photos = collectDefectPhotos(d);
     const mediaHtml = renderDefectMedia(photos);
     const statusLabel = getDefectStatusLabel(d.status);
     const statusBadgeClass = getDefectStatusBadgeClass(d.status);
@@ -3017,7 +3341,6 @@ function renderDefectCard(d, index) {
             <div class="defect-card-header">
                 <div class="defect-card-header-meta">
                     <span class="defect-date">${fixedAt || 'Без даты'}</span>
-                    ${photoCount ? `<button type="button" class="defect-photos-toggle-mini" onclick='openDefectPhoto(${JSON.stringify(photos.map(p => `/uploads/${encodeURIComponent(p.filename)}`))}, 0)'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg> ${photoCount}</button>` : ''}
                     <input type="text" id="defectExecutor_${d.id}" class="input defect-executor-input" placeholder="Подрядчик / Монтажник" value="${executorValue}" style="width: 180px;">
                 </div>
                 <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</button>
@@ -3033,7 +3356,7 @@ function renderDefectCard(d, index) {
                     ${renderContractorOptions(d.contractor_id || '')}
                 </select>
                 <div class="defect-comment-wrap">
-                    <textarea id="defectCommentText_${d.id}" class="input defect-comment-input" placeholder="Комментарий" rows="1">${escapeHtml(d.comment_text || '')}</textarea>
+                    <textarea id="defectCommentText_${d.id}" class="input defect-comment-input" placeholder="Комментарий" rows="1" onblur="saveDefectCommentText(${d.id}, { silentSuccess: true, sourceElement: this })">${escapeHtml(d.comment_text || '')}</textarea>
                     ${commentsCount ? `<button type="button" class="btn btn-xs btn-secondary" onclick="showDefectComments(${d.id})">💬 ${commentsCount}</button>` : ''}
                 </div>
             </div>
@@ -3050,7 +3373,7 @@ function renderDefects(defects) {
         container.innerHTML = `
             <div class="empty-state">
                 <h3>Нет замечаний</h3>
-                <button class="btn btn-sm btn-primary" onclick="showAddDefectForm()">Добавить замечание</button>
+                <button class="status-item status-item-action" onclick="showAddDefectForm()">Добавить замечание</button>
             </div>
         `;
         return;
@@ -3121,14 +3444,6 @@ function renderDefectCompactRow(d, index) {
     const contractorName = d.contractor_name || '—';
     const executorName = d.executor || '';
 
-    const allPhotos = d.photos || [];
-    const beforePhotos = allPhotos.filter(p => !p.photo_type || p.photo_type === 'before');
-    const afterPhotos = allPhotos.filter(p => p.photo_type === 'after');
-    const hasBeforePhotos = beforePhotos.length > 0;
-    const hasAfterPhotos = afterPhotos.length > 0;
-    const beforePhotoUrls = beforePhotos.map(photo => `/uploads/${encodeURIComponent(photo.filename)}`);
-    const afterPhotoUrls = afterPhotos.map(photo => `/uploads/${encodeURIComponent(photo.filename)}`);
-
     return `
         <div class="defect-row defect-compact-row" data-defect-id="${d.id}" data-restoration="${isRestoration ? 1 : 0}" data-restoration-completed="${isRestorationCompleted ? 1 : 0}">
             <div class="defect-compact-main">
@@ -3138,9 +3453,7 @@ function renderDefectCompactRow(d, index) {
                     ${isRestoration ? renderDefectRestorationBadge(d.id, isRestorationCompleted) : ''}
                     <span class="defect-compact-date" onmouseenter="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', true)" onmouseleave="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', false)">${fixedAt || '—'}</span>
                     ${extraDateBadges}
-                    <input type="text" id="defectCommentText_${d.id}" class="input defect-compact-comment-input" placeholder="Комментарий к замечанию" value="${escapeHtml(d.comment_text || '')}">
-                    ${hasBeforePhotos ? `<button type="button" class="defect-photos-toggle defect-photos-icon-btn" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(beforePhotoUrls)}, 0)'><span class="defect-photos-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg></span><span class="defect-photos-count">${beforePhotos.length}</span></button>` : ''}
-                    ${hasAfterPhotos ? `<button type="button" class="defect-photos-toggle defect-photos-icon-btn" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(afterPhotoUrls)}, 0)'><span class="defect-photos-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="4"></circle></svg></span><span class="defect-photos-count">${afterPhotos.length}</span></button>` : ''}
+                    <input type="text" id="defectCommentText_${d.id}" class="input defect-compact-comment-input" placeholder="Комментарий к замечанию" value="${escapeHtml(d.comment_text || '')}" onblur="saveDefectCommentText(${d.id}, { silentSuccess: true, sourceElement: this })">
                     ${executorName ? `<span class="defect-compact-executor"><span class="defect-compact-executor-icon">${getExecutorIcon()}</span>${escapeHtml(executorName)}</span>` : ''}
                 </div>
                 <span class="defect-compact-desc">${summaryHtml}</span>
@@ -3316,34 +3629,111 @@ async function deleteDefect(id) {
 }
 
 async function saveDefectMeta(id, options = {}) {
-    const { silentSuccess = false } = options;
+    const { silentSuccess = false, sourceElement = null } = options;
+    if (sourceElement && !sourceElement.isConnected) {
+        return;
+    }
+
+    const currentDefect = state.currentApartmentData?.defects?.find((item) => item.id === Number(id));
+    const defectItemsPayload = Array.isArray(currentDefect?.items)
+        ? currentDefect.items.map((item, index) => ({
+            id: item.id || null,
+            key: item.key || `existing-${item.id || index}`,
+            text: String(item.text || '').trim()
+        })).filter((item) => item.text)
+        : [];
     const contractorField = document.getElementById(`defectContractor_${id}`);
-    const contractorId = contractorField ? contractorField.value : null;
+    const contractorId = contractorField ? contractorField.value : (currentDefect?.contractor_id || null);
     const executorField = document.getElementById(`defectExecutor_${id}`);
-    const executor = executorField ? executorField.value.trim() : '';
-    const description = document.getElementById(`defectDescription_${id}`)?.value.trim() || '';
-    const commentText = document.getElementById(`defectCommentText_${id}`)?.value.trim() || '';
-    const status = document.getElementById(`defectStatus_${id}`)?.value || '';
+    const executor = executorField ? executorField.value.trim() : String(currentDefect?.executor || '');
+    const descriptionField = document.getElementById(`defectDescription_${id}`);
+    const description = descriptionField
+        ? descriptionField.value.trim()
+        : (defectItemsPayload.length ? defectItemsPayload.map((item) => item.text).join('\n') : String(currentDefect?.description || ''));
+    const commentField = document.getElementById(`defectCommentText_${id}`);
+    const commentText = commentField ? commentField.value.trim() : String(currentDefect?.comment_text || '');
+    const status = document.getElementById(`defectStatus_${id}`)?.value || String(currentDefect?.status || '');
+    const windowNumber = currentDefect?.window_number ?? '';
+    const variantNumber = String(currentDefect?.variant_number || '');
+    const restoration = Number(currentDefect?.restoration || 0);
+    const projectName = String(currentDefect?.project_name || '');
+    const materialsInfo = String(currentDefect?.materials_info || '');
+    const costAmount = String(currentDefect?.cost_amount || '');
+    const laborCost = String(currentDefect?.labor_cost || '');
+    const deadline = currentDefect?.deadline || '';
+
+    if (!currentDefect && !contractorField && !executorField && !descriptionField && !commentField) {
+        return;
+    }
 
     try {
         if (status) {
-            await fetch(`/api/defects/${id}`, {
+            const statusResponse = await fetch(`/api/defects/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `status=${encodeURIComponent(status)}`
             });
+            if (!statusResponse.ok) {
+                let message = 'Ошибка сохранения статуса';
+                try {
+                    const payload = await statusResponse.json();
+                    if (payload?.detail) message = payload.detail;
+                } catch (err) {}
+                throw new Error(message);
+            }
         }
-        const metaBody = `contractor_id=${encodeURIComponent(contractorId || '')}&comment_text=${encodeURIComponent(commentText)}&description=${encodeURIComponent(description)}&executor=${encodeURIComponent(executor)}`;
-        await fetch(`/api/defects/${id}/meta`, {
+        const metaBody = [
+            `contractor_id=${encodeURIComponent(contractorId || '')}`,
+            `comment_text=${encodeURIComponent(commentText)}`,
+            `description=${encodeURIComponent(description)}`,
+            `executor=${encodeURIComponent(executor)}`,
+            `defect_items_json=${encodeURIComponent(JSON.stringify(defectItemsPayload))}`,
+            `window_number=${encodeURIComponent(windowNumber)}`,
+            `variant_number=${encodeURIComponent(variantNumber)}`,
+            `restoration=${encodeURIComponent(restoration)}`,
+            `project_name=${encodeURIComponent(projectName)}`,
+            `materials_info=${encodeURIComponent(materialsInfo)}`,
+            `cost_amount=${encodeURIComponent(costAmount)}`,
+            `labor_cost=${encodeURIComponent(laborCost)}`,
+            `deadline=${encodeURIComponent(deadline)}`
+        ].join('&');
+        const metaResponse = await fetch(`/api/defects/${id}/meta`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: metaBody
         });
+        if (!metaResponse.ok) {
+            let message = 'Ошибка сохранения';
+            try {
+                const payload = await metaResponse.json();
+                if (payload?.detail) message = payload.detail;
+            } catch (err) {
+                try {
+                    const text = await metaResponse.text();
+                    if (text) message = text;
+                } catch (readErr) {}
+            }
+            throw new Error(message);
+        }
+        if (currentDefect) {
+            currentDefect.contractor_id = contractorId || null;
+            currentDefect.executor = executor;
+            currentDefect.description = description;
+            currentDefect.comment_text = commentText;
+            currentDefect.window_number = windowNumber === '' ? null : Number(windowNumber);
+            currentDefect.variant_number = variantNumber;
+            currentDefect.restoration = restoration;
+            currentDefect.project_name = projectName;
+            currentDefect.materials_info = materialsInfo;
+            currentDefect.cost_amount = costAmount;
+            currentDefect.labor_cost = laborCost;
+            currentDefect.deadline = deadline || null;
+        }
         const row = document.querySelector(`.defect-row[data-defect-id="${id}"]`);
         if (row) markDefectRowClean(row);
         if (!silentSuccess) showToast('Сохранено', 'success');
     } catch (err) {
-        showToast('Ошибка сохранения', 'error');
+        showToast(err.message || 'Ошибка сохранения', 'error');
     }
 }
 
@@ -3357,7 +3747,7 @@ async function updateItemStatus(id, status) {
         });
         if (!response.ok) throw new Error('save failed');
         showToast('Сохранено', 'success');
-        showApartmentDetail(state.currentApartment);
+        reloadPageAfterStatusChange();
     } catch (err) {
         showToast('Ошибка сохранения', 'error');
     }
@@ -3599,10 +3989,8 @@ function showAddDefectForm(prefillCategory = '') {
     const form = document.getElementById('addDefectForm');
     if (form) form.reset();
     resetSelectedDefectPhotos();
+    addDefectFormItem();
     
-    const previewGrid = document.getElementById('previewGridBefore');
-    if (previewGrid) previewGrid.innerHTML = '';
-
     const categoryInput = document.getElementById('defectCategory');
     if (categoryInput) {
         categoryInput.value = prefillCategory || '';
@@ -3686,10 +4074,14 @@ function formatDateTime(dateStr) {
 }
 
 let currentEditingDefectId = null;
-let selectedDefectPhotoFiles = [];
+let defectFormItemsState = [];
+let selectedDefectPhotoFilesByItem = {};
+let activeDefectPhotoItemKey = null;
 
 function resetSelectedDefectPhotos() {
-    selectedDefectPhotoFiles = [];
+    selectedDefectPhotoFilesByItem = {};
+    defectFormItemsState = [];
+    activeDefectPhotoItemKey = null;
     const inputIds = ['defectPhotosBefore', 'defectPhotosBeforeGallery', 'defectPhotosBeforeCamera'];
     inputIds.forEach(id => {
         const input = document.getElementById(id);
@@ -3697,8 +4089,100 @@ function resetSelectedDefectPhotos() {
     });
 }
 
-function getSelectedDefectPhotoFiles() {
-    return selectedDefectPhotoFiles;
+function createDefectFormItemKey() {
+    return `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function syncDefectFormDescription() {
+    const input = document.getElementById('defectDescription');
+    if (!input) return;
+    input.value = defectFormItemsState
+        .map((item) => String(item.text || '').trim())
+        .filter(Boolean)
+        .join('\n');
+}
+
+function getDefectFormItemsPayload() {
+    return defectFormItemsState
+        .map((item) => ({
+            id: item.id || null,
+            key: item.key,
+            text: String(item.text || '').trim()
+        }))
+        .filter((item) => item.text);
+}
+
+function addDefectFormItem(prefill = {}) {
+    defectFormItemsState.push({
+        key: prefill.key || createDefectFormItemKey(),
+        id: prefill.id || null,
+        text: prefill.text || '',
+        existingPhotos: Array.isArray(prefill.existingPhotos) ? prefill.existingPhotos : []
+    });
+    renderDefectFormItems();
+}
+
+function updateDefectFormItem(key, value) {
+    const item = defectFormItemsState.find((entry) => entry.key === key);
+    if (!item) return;
+    item.text = value;
+    syncDefectFormDescription();
+}
+
+function removeDefectFormItem(key) {
+    defectFormItemsState = defectFormItemsState.filter((item) => item.key !== key);
+    delete selectedDefectPhotoFilesByItem[key];
+    if (!defectFormItemsState.length) {
+        addDefectFormItem();
+        return;
+    }
+    renderDefectFormItems();
+}
+
+function getSelectedDefectPhotoFiles(itemKey = '') {
+    return selectedDefectPhotoFilesByItem[itemKey] || [];
+}
+
+function renderDefectItemPhotos(itemKey, existingPhotos = []) {
+    const selectedPhotos = getSelectedDefectPhotoFiles(itemKey);
+    return `
+        <div class="previews defect-item-previews">
+            ${existingPhotos.map((photo) => `
+                <div class="preview-item is-existing">
+                    <img src="/uploads/${encodeURIComponent(photo.filename)}" alt="Фото замечания">
+                </div>
+            `).join('')}
+            ${selectedPhotos.map((file, index) => `
+                <div class="preview-item">
+                    <img src="${URL.createObjectURL(file)}" alt="Фото замечания">
+                    <button class="preview-remove" type="button" onclick="removeSelectedFile('${itemKey}', ${index})">×</button>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderDefectFormItems() {
+    const editor = document.getElementById('defectItemsEditor');
+    if (!editor) return;
+    syncDefectFormDescription();
+    editor.innerHTML = defectFormItemsState.map((item, index) => `
+        <div class="defect-form-item-row">
+            <div class="defect-form-item-head">
+                <span class="defect-form-item-index">${index + 1}.</span>
+                <input
+                    type="text"
+                    class="input defect-form-item-input"
+                    value="${escapeHtml(item.text || '')}"
+                    placeholder="Добавьте отдельное замечание"
+                    oninput="updateDefectFormItem('${item.key}', this.value)"
+                >
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openDefectGallery('${item.key}')">Фото</button>
+                <button type="button" class="btn btn-sm" onclick="removeDefectFormItem('${item.key}')">×</button>
+            </div>
+            ${renderDefectItemPhotos(item.key, item.existingPhotos)}
+        </div>
+    `).join('');
 }
 
 async function editDefect(id) {
@@ -3720,7 +4204,21 @@ async function editDefect(id) {
         document.getElementById('defectCategory').disabled = true; // Cannot change category
         handleCategoryChange();
         
-        document.getElementById('defectDescription').value = defect.description || '';
+        defectFormItemsState = (Array.isArray(defect.items) ? defect.items : []).map((item) => ({
+            key: createDefectFormItemKey(),
+            id: item.id,
+            text: item.text || '',
+            existingPhotos: Array.isArray(item.photos) ? item.photos : []
+        }));
+        if (!defectFormItemsState.length) {
+            addDefectFormItem({ text: defect.description || '', existingPhotos: Array.isArray(defect.photos) ? defect.photos : [] });
+        } else if (Array.isArray(defect.photos) && defect.photos.length) {
+            defectFormItemsState[0].existingPhotos = [
+                ...(defectFormItemsState[0].existingPhotos || []),
+                ...defect.photos
+            ];
+        }
+        renderDefectFormItems();
         
         // For Windows, populate the window number select
         if (defect.category === 'Окна') {
@@ -3738,23 +4236,7 @@ async function editDefect(id) {
         }
         
         document.getElementById('defectRestoration').checked = Boolean(defect.restoration);
-        resetSelectedDefectPhotos();
-        
-        // Show existing photos
-        const previewGrid = document.getElementById('previewGridBefore');
-        if (previewGrid) {
-            previewGrid.innerHTML = '';
-            if (defect.photos?.length) {
-                defect.photos.forEach(photo => {
-                    const div = document.createElement('div');
-                    div.className = 'preview-item';
-                    div.innerHTML = `
-                        <img src="/uploads/${encodeURIComponent(photo.filename)}">
-                    `;
-                    previewGrid.appendChild(div);
-                });
-            }
-        }
+        selectedDefectPhotoFilesByItem = {};
         
         if (modal) modal.classList.add('active');
         
@@ -3767,11 +4249,11 @@ async function saveDefectEdit() {
     if (!currentEditingDefectId) return;
     
     const category = document.getElementById('defectCategory')?.value;
-    const description = document.getElementById('defectDescription')?.value.trim();
+    const defectItems = getDefectFormItemsPayload();
+    const description = defectItems.map((item) => item.text).join('\n');
     const windowNumber = document.getElementById('windowNumber')?.value;
     const doorSide = document.getElementById('doorSide')?.value;
     const restoration = document.getElementById('defectRestoration')?.checked ? 1 : 0;
-    const currentStatus = document.getElementById(`defectStatus_${currentEditingDefectId}`)?.value || '';
     
     if (!category || !description) {
         showToast('Заполните все поля', 'warning');
@@ -3784,13 +4266,14 @@ async function saveDefectEdit() {
     }
 
     if (category === 'Двери' && !doorSide) {
-        showToast('Выберите часть двери: Нар, Вн или Общ.', 'warning');
+        showToast('Выберите тип двери: Межкомнатная или Входная.', 'warning');
         return;
     }
     
     try {
         const formData = new FormData();
         formData.append('description', description);
+        formData.append('defect_items_json', JSON.stringify(defectItems));
         if (category === 'Окна' && windowNumber) {
             formData.append('window_number', windowNumber);
         } else {
@@ -3800,13 +4283,13 @@ async function saveDefectEdit() {
         formData.append('restoration', restoration);
         
         // Add new photos
-        const photos = getSelectedDefectPhotoFiles();
-        if (photos) {
-            for (let i = 0; i < photos.length; i++) {
-                formData.append('photos', photos[i]);
+        defectItems.forEach((item) => {
+            getSelectedDefectPhotoFiles(item.key).forEach((file) => {
+                formData.append('photos', file);
                 formData.append('photo_types', 'before');
-            }
-        }
+                formData.append('photo_item_keys', item.key);
+            });
+        });
         
         const res = await fetch(`/api/defects/${currentEditingDefectId}/meta`, {
             method: 'PUT',
@@ -3814,8 +4297,6 @@ async function saveDefectEdit() {
         });
         
         if (res.ok) {
-            const statusInput = document.getElementById(`defectStatus_${currentEditingDefectId}`);
-            if (statusInput) statusInput.value = 'in_progress';
             showToast('Замечание обновлено', 'success');
             currentEditingDefectId = null;
             closeDefectModal();
@@ -3850,43 +4331,27 @@ function handleFileSelect(e, type = 'before') {
     if (e.target) e.target.value = '';
 }
 
-function renderSelectedFiles(input, type = 'before') {
-    const files = type === 'before' ? getSelectedDefectPhotoFiles() : Array.from(input?.files || []);
-    const gridId = type === 'after' ? 'previewGridAfter' : 'previewGridBefore';
-    const grid = document.getElementById(gridId);
-    
-    if (!grid) return;
-    grid.innerHTML = '';
-    
-    Array.from(files).forEach((file, index) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const div = document.createElement('div');
-            div.className = 'preview-item';
-            div.innerHTML = `
-                <img src="${e.target.result}">
-                <button class="preview-remove" type="button" onclick="removeSelectedFile('${input?.id || ''}', ${index}, '${type}')">×</button>
-            `;
-            grid.appendChild(div);
-        };
-        reader.readAsDataURL(file);
-    });
+function renderSelectedFiles() {
+    renderDefectFormItems();
 }
 
-function appendSelectedFiles(sourceInput, targetInput, type = 'before') {
+function appendSelectedFiles(sourceInput, targetInput, type = 'before', itemKey = '') {
     if (!sourceInput?.files?.length) {
         return;
     }
 
-    appendFilesToSelection(Array.from(sourceInput.files), type, targetInput);
+    appendFilesToSelection(Array.from(sourceInput.files), type, targetInput, itemKey);
     sourceInput.value = '';
 }
 
-function appendFilesToSelection(filesToAppend, type = 'before', targetInput = null) {
+function appendFilesToSelection(filesToAppend, type = 'before', targetInput = null, itemKey = '') {
     if (type === 'before') {
-        selectedDefectPhotoFiles = selectedDefectPhotoFiles.concat(filesToAppend);
-        syncFilesToInput(targetInput || document.getElementById('defectPhotosBefore'), selectedDefectPhotoFiles);
-        renderSelectedFiles(targetInput || document.getElementById('defectPhotosBefore'), type);
+        const resolvedItemKey = itemKey || activeDefectPhotoItemKey;
+        if (!resolvedItemKey) return;
+        const currentFiles = getSelectedDefectPhotoFiles(resolvedItemKey);
+        selectedDefectPhotoFilesByItem[resolvedItemKey] = currentFiles.concat(filesToAppend);
+        syncFilesToInput(targetInput || document.getElementById('defectPhotosBefore'), selectedDefectPhotoFilesByItem[resolvedItemKey]);
+        renderSelectedFiles();
         return;
     }
 
@@ -3923,45 +4388,29 @@ function syncFilesToInput(targetInput, files) {
     }
 }
 
-function removeSelectedFile(inputId, indexToRemove, type = 'before') {
-    if (type === 'before') {
-        selectedDefectPhotoFiles = selectedDefectPhotoFiles.filter((_, index) => index !== indexToRemove);
-        syncFilesToInput(document.getElementById('defectPhotosBefore'), selectedDefectPhotoFiles);
-        renderSelectedFiles(document.getElementById('defectPhotosBefore'), type);
-        return;
-    }
-
-    const input = document.getElementById(inputId);
-    if (!input) {
-        return;
-    }
-
-    const transfer = new DataTransfer();
-    Array.from(input.files || []).forEach((file, index) => {
-        if (index !== indexToRemove) {
-            transfer.items.add(file);
-        }
-    });
-    input.files = transfer.files;
-    renderSelectedFiles(input, type);
+function removeSelectedFile(itemKey, indexToRemove) {
+    selectedDefectPhotoFilesByItem[itemKey] = getSelectedDefectPhotoFiles(itemKey).filter((_, index) => index !== indexToRemove);
+    renderSelectedFiles();
 }
 
-function openDefectGallery() {
-    launchDefectFilePicker({ accept: 'image/*', multiple: true }, 'before');
+function openDefectGallery(itemKey = '') {
+    activeDefectPhotoItemKey = itemKey;
+    launchDefectFilePicker({ accept: 'image/*', multiple: true }, 'before', itemKey);
 }
 
-function openDefectCamera() {
-    launchDefectFilePicker({ accept: 'image/*', capture: 'environment' }, 'before');
+function openDefectCamera(itemKey = '') {
+    activeDefectPhotoItemKey = itemKey;
+    launchDefectFilePicker({ accept: 'image/*', capture: 'environment' }, 'before', itemKey);
 }
 
-function launchDefectFilePicker(options = {}, type = 'before') {
+function launchDefectFilePicker(options = {}, type = 'before', itemKey = '') {
     const picker = document.createElement('input');
     picker.type = 'file';
     picker.accept = options.accept || 'image/*';
     picker.multiple = Boolean(options.multiple);
     if (options.capture) picker.capture = options.capture;
     picker.addEventListener('change', () => {
-        appendSelectedFiles(picker, document.getElementById('defectPhotosBefore'), type);
+        appendSelectedFiles(picker, document.getElementById('defectPhotosBefore'), type, itemKey);
     }, { once: true });
     picker.click();
 }
@@ -3976,7 +4425,8 @@ async function handleAddDefect(e) {
     }
     
     const category = document.getElementById('defectCategory')?.value;
-    const description = document.getElementById('defectDescription')?.value.trim();
+    const defectItems = getDefectFormItemsPayload();
+    const description = defectItems.map((item) => item.text).join('\n');
     const status = 'new';
     const windowNumber = document.getElementById('windowNumber')?.value;
     const doorSide = document.getElementById('doorSide')?.value;
@@ -3995,7 +4445,7 @@ async function handleAddDefect(e) {
     }
 
     if (category === 'Двери' && !doorSide) {
-        showToast('Выберите часть двери: Нар, Вн или Общ.', 'warning');
+        showToast('Выберите тип двери: Межкомнатная или Входная.', 'warning');
         return;
     }
     
@@ -4005,19 +4455,20 @@ async function handleAddDefect(e) {
         const formData = new FormData();
         formData.append('category', category);
         formData.append('description', description);
+        formData.append('defect_items_json', JSON.stringify(defectItems));
         formData.append('status', status);
         
         if (windowNumber) formData.append('window_number', windowNumber);
         if (category === 'Двери') formData.append('variant_number', doorSide);
         if (restoration) formData.append('restoration', restoration);
         
-        const photosBefore = getSelectedDefectPhotoFiles();
-        if (photosBefore) {
-            for (let i = 0; i < photosBefore.length; i++) {
-                formData.append('photos', photosBefore[i]);
+        defectItems.forEach((item) => {
+            getSelectedDefectPhotoFiles(item.key).forEach((file) => {
+                formData.append('photos', file);
                 formData.append('photo_types', 'before');
-            }
-        }
+                formData.append('photo_item_keys', item.key);
+            });
+        });
         
         const res = await fetch(`/api/apartments/${state.currentApartment}/defects`, {
             method: 'POST',
@@ -4198,6 +4649,9 @@ function getDefectPrintLocation(defect) {
         return `Окно ${escapeHtml(String(defect.window_number))}`;
     }
     if (category === 'Двери') {
+        const variant = String(defect?.variant_number || '').trim();
+        if (variant === 'Входная') return 'Входная дверь';
+        if (variant === 'Межкомнатная') return 'Межкомнатная дверь';
         return 'Дверь';
     }
     return escapeHtml(String(category));
@@ -4295,7 +4749,7 @@ async function printDefects() {
     if (!state.currentApartment) return;
     
     try {
-        const res = await fetch(`/api/apartments/${state.currentApartment}/defects`);
+        const res = await fetch(`/api/apartments/${state.currentApartment}/defects`, { cache: 'no-store' });
         const defects = await res.json();
         
         if (!defects.length) {
@@ -4313,18 +4767,25 @@ async function printDefects() {
         const defectPages = splitDefectsForPrint(defects);
 
         const renderRowsHtml = (pageDefects, startIndex) => pageDefects.map((d, index) => {
-            const photos = Array.isArray(d.photos) ? d.photos : [];
+            const photos = getDefectPrintPhotos(d);
+            const defectNumber = startIndex + index + 1;
             const photoHtml = photos.length
-                ? `<div class="photo-stack">${photos.map((photo, photoIndex) => `<figure class="photo-item"><img src="${window.location.origin}/uploads/${encodeURIComponent(photo.filename)}" alt="Фото ${photoIndex + 1}"><figcaption>Фото ${startIndex + index + 1}.${photoIndex + 1}</figcaption></figure>`).join('')}</div>`
-                : '<div class="photo-placeholder">Новое замечание</div>';
+                ? `<div class="photo-stack">${photos.map((photo, photoIndex) => `<figure class="photo-item"><img src="${window.location.origin}/uploads/${encodeURIComponent(photo.filename)}" alt="Фото ${defectNumber}.${photoIndex + 1}"><figcaption>Фото ${defectNumber}.${photoIndex + 1}</figcaption></figure>`).join('')}</div>`
+                : '';
+            const rowClass = index % 2 === 0 ? 'print-row-light' : 'print-row-white';
 
             return `
-                <tr class="defect-print-item">
-                    <td class="num-cell">${startIndex + index + 1}.</td>
+                <tr class="defect-print-item ${rowClass}">
+                    <td class="num-cell">${defectNumber}.</td>
                     <td class="place-cell">${getDefectPrintLocation(d)}</td>
                     <td class="desc-cell"><div class="defect-print-items">${renderReadonlyDefectItems(d, 'defect-print-item-token')}</div></td>
-                    <td class="photo-cell">${photoHtml}</td>
                 </tr>
+                ${photoHtml ? `
+                    <tr class="defect-print-photos-row ${rowClass}">
+                        <td class="num-cell"></td>
+                        <td class="photos-cell" colspan="2">${photoHtml}</td>
+                    </tr>
+                ` : ''}
             `;
         }).join('');
 
@@ -4343,7 +4804,7 @@ async function printDefects() {
                             <div>${printDate}</div>
                         </div>
 
-                        <div class="field-line">Дольщик: ${renderPrintLine('', 'line-person')}<span class="hint">(Фамилия, Имя, Отчество)</span></div>
+                        <div class="field-line">Дольщик / Лицо по доверенности: ${renderPrintLine('', 'line-person')}<span class="hint">(Фамилия, Имя, Отчество)</span></div>
                         <div class="field-line">Подрядчик (Застройщик/уполномоченный представитель): ${renderPrintLine('', 'line-contractor')}<span class="hint">(наименование организации, должность, Фамилия, Имя, Отчество представителя)</span></div>
                         <div class="field-line">Квартира № ${renderPrintLine(apt.number, 'line-apt-number')}, расположенная по адресу: ${renderPrintLine(complexAddress, 'line-address')}</div>
 
@@ -4357,7 +4818,6 @@ async function printDefects() {
                                 <th>№</th>
                                 <th>Место замечания</th>
                                 <th>Описание дефекта</th>
-                                <th>Фото</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -4370,15 +4830,15 @@ async function printDefects() {
                         <div>Стороны настоящим удостоверяют, что на дату подписания настоящего акта (текущую дату) акт содержит все замечания, выявленные Дольщиком в результате осмотра указанной квартиры. Иные недостатки, не указанные в настоящем акте, Дольщиком на момент его подписания не предъявляются.</div>
 
                         <div class="section">Фотоматериалы:</div>
-                        <div>Фотографии, размещённые в столбце «Фото» перечня замечаний, являются неотъемлемой частью настоящего акта. Каждое фото сделано при осмотре квартиры ${photoDate} и достоверно отображает указанный дефект.</div>
+                        <div>Фотографии, размещённые под соответствующим замечанием перечня, являются неотъемлемой частью настоящего акта. Каждое фото сделано при осмотре квартиры ${photoDate} и достоверно отображает указанный дефект.</div>
 
                         <div class="section">Обязательства Подрядчика:</div>
-                        <div>Подрядчик обязуется устранить замечания, указанные в настоящем акте, в срок до «__» _________ 20 г. (либо в порядке и сроки, предусмотренные договором). О завершении устранения замечаний Подрядчик уведомляет Дольщика не позднее чем за 3 рабочих дня до даты повторной приёмки.</div>
+                        <div>Подрядчик обязуется устранить замечания, указанные в настоящем акте, в срок до «__» _________ 20__г. (либо в порядке и сроки, предусмотренные договором). О завершении устранения замечаний Подрядчик уведомляет Дольщика не позднее чем за 3 рабочих дня до даты повторной приёмки.</div>
 
                         <div class="section">Подписи сторон:</div>
                         <div class="signature-grid">
                             <div class="signature-block">
-                                <div><strong>Дольщик</strong></div>
+                                <div><strong>Дольщик / Лицо по доверенности</strong></div>
                                 <div class="signature-line">_______________ /________________________/</div>
                                 <div class="hint">(подпись) (расшифровка)</div>
                             </div>
@@ -4404,7 +4864,7 @@ async function printDefects() {
                 <meta charset="UTF-8">
                 <title>Акт № ${actNumber}</title>
                 <style>
-                    @page { margin: 12mm; }
+                    @page { margin: 12mm; size: A4 portrait; }
                     body { font-family: "Times New Roman", serif; margin: 0; color: #111; font-size: 14px; line-height: 1.45; }
                     .print-page { padding: 3mm 4mm 6mm; box-sizing: border-box; position: relative; page-break-after: always; }
                     .print-page:last-child { page-break-after: auto; }
@@ -4423,20 +4883,24 @@ async function printDefects() {
                     .defect-print-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
                     .defect-print-table th,
                     .defect-print-table td { border: 1px solid #111; padding: 8px; vertical-align: top; }
-                    .defect-print-table th { text-align: left; }
+                    .defect-print-table th { text-align: left; background: #f3f4f6; }
                     .num-cell { width: 42px; }
-                    .place-cell { width: 22%; }
-                     .desc-cell { width: 38%; }
+                    .place-cell { width: 28%; }
+                    .desc-cell { width: auto; }
+                    .print-row-light td { background: #f7f7f7; }
+                    .print-row-white td { background: #ffffff; }
+                    .defect-print-photos-row td { border-top: 0; }
+                    .photos-cell { padding-top: 2px; padding-bottom: 12px; }
                     .defect-print-items { display: flex; flex-wrap: wrap; gap: 6px; }
                     .defect-print-item-token { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; color: #111; }
                     .defect-print-item-token.is-in-progress { background: #fef3c7; color: #92400e; }
                     .defect-print-item-token.is-on-review { background: #ecfeff; color: #0f766e; }
                     .defect-print-item-token.is-completed { background: #dcfce7; color: #166534; }
                     .defect-item-number { font-weight: 600; }
-                    .photo-stack { display: flex; flex-wrap: wrap; gap: 8px; }
-                    .photo-item { margin: 0; width: 150px; }
-                    .photo-item img { width: 100%; max-height: 120px; object-fit: cover; border: 1px solid #999; display: block; }
-                    .photo-item figcaption { font-size: 11px; text-align: center; margin-top: 3px; }
+                    .photo-stack { display: flex; flex-wrap: wrap; gap: 12px; }
+                    .photo-item { margin: 0; width: 300px; max-width: 100%; }
+                    .photo-item img { width: 100%; max-height: 240px; object-fit: cover; border: 1px solid #999; display: block; }
+                    .photo-item figcaption { font-size: 12px; text-align: center; margin-top: 4px; font-weight: 600; }
                     .photo-placeholder { color: #666; font-style: italic; }
                     .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 24px; }
                     .signature-block { margin-top: 18px; }
@@ -4497,8 +4961,58 @@ function getFilteredDefectGroups() {
         .map(apartment => ({ apartment, defects: grouped.get(apartment.id) || [] }));
 }
 
-function showFilteredDefectsModal() {
+function renderFilteredDefectCommentList(comments) {
+    if (!comments.length) {
+        return '<div class="filtered-comments-empty">Замечаний нет</div>';
+    }
+
+    return `
+        <div class="filtered-comment-list">
+            ${comments.map(comment => `
+                <article class="filtered-comment-card">
+                    <div class="filtered-comment-line">
+                        ${comment.location ? `<span class="filtered-comment-location-label">${escapeHtml(comment.location)}:</span> ` : ''}<span class="filtered-comment-value">${escapeHtml(comment.text || '').replace(/\n/g, '<br>')}</span>
+                    </div>
+                </article>
+            `).join('')}
+        </div>
+    `;
+}
+
+async function getFilteredDefectCommentGroups() {
+    const apartmentIds = (state.filteredApartments || []).map((apartment) => apartment.id);
+    const categoryFilter = document.getElementById('defectCategoryFilter')?.value || '';
+    if (!apartmentIds.length || !state.currentComplex) return [];
+
+    const body = new URLSearchParams();
+    body.set('apartment_ids_json', JSON.stringify(apartmentIds));
+    if (categoryFilter) body.set('category_filter', categoryFilter);
+
+    const res = await fetch(`/api/complexes/${state.currentComplex}/item-comments`, {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+    });
+
+    if (!res.ok) {
+        throw new Error(`item comments request failed: ${res.status}`);
+    }
+
+    const groups = await res.json();
+    return groups.filter((group) => Array.isArray(group.comments) && group.comments.length);
+}
+
+async function showFilteredDefectsModal() {
     if (!state.currentComplex) return;
+
+    try {
+        await ensureCurrentComplexDefectsLoaded(true);
+    } catch (err) {
+        console.error('Defects loading failed:', err);
+        showToast('Ошибка загрузки замечаний', 'error');
+        return;
+    }
 
     const groups = getFilteredDefectGroups();
     if (!groups.length) {
@@ -4547,14 +5061,75 @@ function showFilteredDefectsModal() {
     modal.classList.add('active');
 }
 
+async function showFilteredDefectCommentsModal() {
+    if (!state.currentComplex) return;
+
+    try {
+        await ensureCurrentComplexDefectsLoaded(true);
+    } catch (err) {
+        console.error('Defects loading failed:', err);
+        showToast('Ошибка загрузки замечаний', 'error');
+        return;
+    }
+
+    let groups;
+    try {
+        groups = await getFilteredDefectCommentGroups();
+    } catch (err) {
+        console.error('Comments loading failed:', err);
+        showToast('Ошибка загрузки комментариев', 'error');
+        return;
+    }
+
+    if (!groups.length) {
+        showToast('Нет комментариев для показа', 'warning');
+        return;
+    }
+
+    const body = document.getElementById('filteredDefectCommentsBody');
+    const modal = document.getElementById('filteredDefectCommentsModal');
+    if (!body || !modal) return;
+
+    body.innerHTML = groups.map(({ apartment, comments }) => {
+        const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
+        const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
+        const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
+        const meta = [section, floor].filter(Boolean).join(' • ');
+
+        return `
+            <section class="filtered-defects-group">
+                <div class="filtered-defects-group-title">${escapeHtml(apartmentLabel)}</div>
+                ${meta ? `<div class="filtered-defects-group-meta">${escapeHtml(meta)}</div>` : ''}
+                ${renderFilteredDefectCommentList(comments)}
+            </section>
+        `;
+    }).join('');
+
+    modal.classList.add('active');
+}
+
 function closeFilteredDefectsModal(event) {
     if (event && event.target !== event.currentTarget) return;
     const modal = document.getElementById('filteredDefectsModal');
     if (modal) modal.classList.remove('active');
 }
 
+function closeFilteredDefectCommentsModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('filteredDefectCommentsModal');
+    if (modal) modal.classList.remove('active');
+}
+
 async function printFilteredDefects() {
     if (!state.currentComplex) return;
+
+    try {
+        await ensureCurrentComplexDefectsLoaded(true);
+    } catch (err) {
+        console.error('Defects loading failed:', err);
+        showToast('Ошибка загрузки замечаний', 'error');
+        return;
+    }
 
     const groups = getFilteredDefectGroups();
     if (!groups.length) {
@@ -4569,15 +5144,22 @@ async function printFilteredDefects() {
                 const place = getDefectPrintLocation(defect);
                 const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
                 const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
-                const meta = [section, floor].filter(Boolean).join(' • ');
-                const statusLabel = apartment.access_status ? getAccessStatusName(apartment.access_status) : '';
-                const statusClass = apartment.access_status ? `print-status-${apartment.access_status}` : '';
+                const meta = [section, floor].filter(Boolean).join(' ');
+                const rowClass = index % 2 === 0 ? 'print-row-light' : 'print-row-white';
+                const defectStatusClass = {
+                    recorded: 'print-defect-status-recorded',
+                    new: 'print-defect-status-new',
+                    in_progress: 'print-defect-status-progress',
+                    on_review: 'print-defect-status-review',
+                    completed: 'print-defect-status-completed',
+                    rejected: 'print-defect-status-rejected',
+                }[defect.status] || 'print-defect-status-recorded';
                 return `
-                    <tr>
-                        <td class="print-col-apartment">${index === 0 ? `${escapeHtml(apartmentLabel)}${meta ? `<div class="print-apartment-meta">${escapeHtml(meta)}</div>` : ''}${statusLabel ? `<div class="print-apartment-status ${statusClass}">${escapeHtml(statusLabel)}</div>` : ''}` : ''}</td>
+                    <tr class="${rowClass}">
+                        <td class="print-col-apartment">${index === 0 ? `${escapeHtml(apartmentLabel)}${meta ? `<div class="print-apartment-meta">${escapeHtml(meta)}</div>` : ''}` : ''}</td>
                         <td class="print-col-place">${place}</td>
                         <td class="print-col-desc">${escapeHtml(defect.description || '')}</td>
-                        <td class="print-col-status">${escapeHtml(getDefectStatusLabel(defect.status))}</td>
+                        <td class="print-col-status"><span class="print-defect-status ${defectStatusClass}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
                     </tr>
                 `;
             });
@@ -4596,7 +5178,7 @@ async function printFilteredDefects() {
             <meta charset="UTF-8">
             <title>${title}</title>
             <style>
-                @page { margin: 12mm; }
+                @page { margin: 12mm; size: A4 landscape; }
                 body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #111; font-size: 12px; }
                 .sheet { padding: 10mm 4mm; }
                 h1 { margin: 0 0 6px; font-size: 18px; }
@@ -4608,13 +5190,14 @@ async function printFilteredDefects() {
                 .print-col-place { width: 120px; }
                 .print-col-status { width: 120px; }
                 .print-apartment-meta { margin-top: 4px; font-size: 11px; color: #666; }
-                .print-apartment-status { margin-top: 4px; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; }
-                .print-status-owner_accepted { background: #d1fae5; color: #059669; }
-                .print-status-call { background: #fce7f3; color: #ec4899; }
-                .print-status-in_progress { background: #fef7e0; color: #f59e0b; }
-                .print-status-no_access { background: #f1f3f4; color: #5f6368; }
-                .print-status-complex { background: #fce8e6; color: #ea4335; }
-                .print-status-by_phone { background: #e8f0fe; color: #4285f4; }
+                .print-row-light td { background: #f7f7f7; }
+                .print-row-white td { background: #ffffff; }
+                .print-defect-status { font-weight: 700; padding: 2px 8px; border-radius: 999px; display: inline-block; }
+                .print-defect-status-recorded, .print-defect-status-new { background: #e5e7eb; color: #374151; }
+                .print-defect-status-progress { background: #fef3c7; color: #92400e; }
+                .print-defect-status-review { background: #ccfbf1; color: #115e59; }
+                .print-defect-status-completed { background: #dcfce7; color: #166534; }
+                .print-defect-status-rejected { background: #fee2e2; color: #991b1b; }
                 tr { page-break-inside: avoid; }
             </style>
         </head>
@@ -4635,6 +5218,89 @@ async function printFilteredDefects() {
                         ${rowsHtml}
                     </tbody>
                 </table>
+            </div>
+        </body>
+        </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.document.title = title;
+    setTimeout(() => printWindow.print(), 150);
+}
+
+async function printFilteredDefectComments() {
+    if (!state.currentComplex) return;
+
+    let groups;
+    try {
+        groups = await getFilteredDefectCommentGroups();
+    } catch (err) {
+        console.error('Comments loading failed:', err);
+        showToast('Ошибка загрузки комментариев', 'error');
+        return;
+    }
+
+    if (!groups.length) {
+        showToast('Нет комментариев для печати', 'warning');
+        return;
+    }
+
+    const title = 'Комментарии по отфильтрованным квартирам';
+    const subtitle = state.currentComplexData?.name ? escapeHtml(state.currentComplexData.name) : '';
+    const contentHtml = groups.map(({ apartment, comments }) => {
+        const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
+        const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
+        const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
+        const meta = [section, floor].filter(Boolean).join(' • ');
+
+        return `
+            <section class="print-comment-group">
+                <div class="print-comment-head">
+                    <h2>${escapeHtml(apartmentLabel)}</h2>
+                    ${meta ? `<div class="print-comment-meta">${escapeHtml(meta)}</div>` : ''}
+                </div>
+                <div class="print-comment-list">
+                    ${comments.map((comment) => `
+                        <div class="print-comment-line">
+                            ${comment.location ? `<span class="print-comment-location">${escapeHtml(comment.location)}:</span> ` : ''}<span>${escapeHtml(comment.text || '').replace(/\n/g, '<br>')}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </section>
+        `;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+        <!DOCTYPE html>
+        <html lang="ru">
+        <head>
+            <meta charset="UTF-8">
+            <title>${title}</title>
+            <style>
+                @page { margin: 12mm; size: A4 portrait; }
+                body { font-family: Arial, sans-serif; margin: 0; color: #111; font-size: 12px; }
+                .sheet { padding: 10mm 4mm; }
+                h1 { margin: 0 0 6px; font-size: 18px; }
+                .subtitle { margin-bottom: 14px; color: #555; }
+                .print-comment-group { margin-bottom: 18px; page-break-inside: avoid; }
+                .print-comment-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 8px; }
+                .print-comment-group h2 { margin: 0; font-size: 16px; }
+                .print-comment-meta { margin: 0; color: #666; text-align: right; }
+                .print-comment-list { display: flex; flex-direction: column; }
+                .print-comment-line { padding: 6px 8px; }
+                .print-comment-line:nth-child(odd) { background: #f7f7f7; }
+                .print-comment-location { font-weight: 700; }
+            </style>
+        </head>
+        <body>
+            <div class="sheet">
+                <h1>${title}</h1>
+                ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
+                ${contentHtml}
             </div>
         </body>
         </html>
@@ -4709,6 +5375,96 @@ function formatStatsPercent(count, total) {
     return `${Math.round((count / total) * 1000) / 10}%`;
 }
 
+function formatStatsShortDate(dateValue) {
+    if (!dateValue) return '';
+    return new Date(dateValue).toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit'
+    });
+}
+
+function renderStatsTrendChart(timeline) {
+    if (!Array.isArray(timeline) || !timeline.length) {
+        return '<div class="stats-chart-empty">Нет данных для графика</div>';
+    }
+
+    const series = [
+        { key: 'remaining_with_defects', label: 'Остаток с замечаниями', color: '#e60042' },
+        { key: 'with_defects', label: 'С замечаниями', color: '#111111' },
+        { key: 'call', label: 'Вызов', color: '#e969a8' },
+        { key: 'accepted', label: 'Принято', color: '#009d91' },
+        { key: 'no_access', label: 'Нет доступа', color: '#64748b' }
+    ];
+
+    const width = 760;
+    const height = 320;
+    const padding = { top: 20, right: 20, bottom: 34, left: 42 };
+    const innerWidth = width - padding.left - padding.right;
+    const innerHeight = height - padding.top - padding.bottom;
+    const maxValue = Math.max(1, ...timeline.flatMap((point) => series.map((item) => Number(point[item.key] || 0))));
+    const ySteps = 4;
+    const xStep = timeline.length > 1 ? innerWidth / (timeline.length - 1) : 0;
+    const toX = (index) => padding.left + (index * xStep);
+    const toY = (value) => padding.top + innerHeight - ((Number(value || 0) / maxValue) * innerHeight);
+
+    const gridLines = Array.from({ length: ySteps + 1 }, (_, index) => {
+        const value = Math.round((maxValue / ySteps) * index);
+        const y = padding.top + innerHeight - (innerHeight / ySteps) * index;
+        return `
+            <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="stats-chart-grid-line"></line>
+            <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="stats-chart-axis-label">${value}</text>
+        `;
+    }).join('');
+
+    const linePaths = series.map((item) => {
+        const points = timeline.map((point, index) => `${toX(index)},${toY(point[item.key])}`).join(' ');
+        const lastPoint = timeline[timeline.length - 1];
+        return `
+            <polyline fill="none" stroke="${item.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${points}"></polyline>
+            <circle cx="${toX(timeline.length - 1)}" cy="${toY(lastPoint[item.key])}" r="4" fill="${item.color}"></circle>
+        `;
+    }).join('');
+
+    const firstLabel = formatStatsShortDate(timeline[0]?.date);
+    const midLabel = formatStatsShortDate(timeline[Math.floor((timeline.length - 1) / 2)]?.date);
+    const lastLabel = formatStatsShortDate(timeline[timeline.length - 1]?.date);
+
+    return `
+        <div class="stats-chart-shell">
+            <svg viewBox="0 0 ${width} ${height}" class="stats-chart" role="img" aria-label="График статистики за все время">
+                ${gridLines}
+                ${linePaths}
+                <text x="${padding.left}" y="${height - 8}" text-anchor="start" class="stats-chart-axis-label">${firstLabel}</text>
+                <text x="${padding.left + innerWidth / 2}" y="${height - 8}" text-anchor="middle" class="stats-chart-axis-label">${midLabel}</text>
+                <text x="${width - padding.right}" y="${height - 8}" text-anchor="end" class="stats-chart-axis-label">${lastLabel}</text>
+            </svg>
+            <div class="stats-chart-legend">
+                ${series.map((item) => `
+                    <span class="stats-chart-legend-item">
+                        <svg class="stats-chart-legend-icon" viewBox="0 0 18 10" aria-hidden="true">
+                            <line x1="1" y1="5" x2="17" y2="5" stroke="${item.color}" stroke-width="3" stroke-linecap="round"></line>
+                            <circle cx="13" cy="5" r="2.5" fill="${item.color}"></circle>
+                        </svg>
+                        ${item.label}
+                    </span>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function getStatsPrintRows(stats) {
+    const totalApartments = stats.total_apartments || 0;
+    const todayMetrics = stats.today_metrics || {};
+    return [
+        { label: 'Вызов', value: todayMetrics.call || 0, percent: formatStatsPercent(todayMetrics.call || 0, totalApartments), tone: 'call' },
+        { label: 'Принято', value: todayMetrics.accepted || 0, percent: formatStatsPercent(todayMetrics.accepted || 0, totalApartments), tone: 'accepted' },
+        { label: 'Нет доступа', value: todayMetrics.no_access || 0, percent: formatStatsPercent(todayMetrics.no_access || 0, totalApartments), tone: 'no-access' },
+        { label: 'Остаток с замечаниями', value: todayMetrics.remaining_with_defects || 0, percent: formatStatsPercent(todayMetrics.remaining_with_defects || 0, totalApartments), tone: 'defects' },
+        { label: 'С замечаниями', value: todayMetrics.with_defects || 0, percent: formatStatsPercent(todayMetrics.with_defects || 0, totalApartments), tone: 'remaining' }
+    ];
+}
+
 function refreshStatsModal() {
     loadStats(document.getElementById('statsBody'), document.getElementById('statsModal'));
 }
@@ -4728,72 +5484,49 @@ async function showStatsModal() {
 
 async function loadStats(body, modal) {
     try {
-        const statsRes = await fetch(`/api/complexes/${state.currentComplex}/statistics?${getStatsQueryString()}`);
+        const statsRes = await fetch(`/api/complexes/${state.currentComplex}/statistics?${getStatsQueryString()}`, { cache: 'no-store' });
         if (!statsRes.ok) throw new Error(`Statistics request failed: ${statsRes.status}`);
         const stats = await statsRes.json();
-        
-        // Set min date from first defect
         statsMinDate = stats.first_defect_date || statsDate;
-        
-        const totalApartments = stats.total_apartments || 0;
-        const allTimeApartmentsWithDefects = stats.all_time_apartments_with_defects || 0;
-        const periodOpenDefects = stats.period_open_defects || 0;
-        const periodApartmentsWithDefects = stats.period_apartments_with_defects || 0;
-        const statusChangeRows = stats.period_status_changes || [];
-        const accessStats = stats.by_access_status || [];
-        const statusPeriodNet = stats.status_period_net || {};
-        const complexName = stats.complex_name || document.getElementById('jkName')?.textContent || 'ЖК';
-        const periodLabel = statsMode === 'range'
-            ? formatStatsPeriodLabel(statsRangeStart || stats.period_start, statsRangeEnd || stats.period_end)
-            : formatStatsPeriodLabel(statsDate || stats.period_start, statsDate || stats.period_end);
 
-        const getCurrentStatusCount = (status) => accessStats.find((row) => row.access_status === status)?.count || 0;
-        const formatStatsDelta = (value) => {
-            if (value > 0) return `+${value}`;
-            if (value < 0) return `${value}`;
-            return '0';
-        };
-        const deltaLabel = statsMode === 'range' ? 'за период' : 'за день';
-        const acceptedTotal = getCurrentStatusCount('owner_accepted') + getCurrentStatusCount('tech_accepted');
-        const noAccessTotal = getCurrentStatusCount('no_access');
-        const callTotal = getCurrentStatusCount('call');
+        const totalApartments = stats.total_apartments || 0;
+        const complexName = stats.complex_name || document.getElementById('jkName')?.textContent || 'ЖК';
+        const periodLabel = formatStatsPeriodLabel(stats.first_defect_date || stats.period_start, new Date().toISOString().split('T')[0]);
+        const todayLabel = formatStatsPeriodLabel(new Date().toISOString().split('T')[0], new Date().toISOString().split('T')[0]);
+        const todayMetrics = stats.today_metrics || {};
+        const timeline = stats.timeline || [];
         const isApartmentType = state.currentPropertyType === 'апартаменты';
 
         const statRows = [
             {
                 label: 'Вызов',
-                value: callTotal,
-                percent: formatStatsPercent(callTotal, totalApartments),
-                delta: formatStatsDelta(statusPeriodNet.call || 0),
+                value: todayMetrics.call || 0,
+                percent: formatStatsPercent(todayMetrics.call || 0, totalApartments),
                 tone: 'call'
             },
             {
-                label: 'Приняты',
-                value: acceptedTotal,
-                percent: formatStatsPercent(acceptedTotal, totalApartments),
-                delta: formatStatsDelta((statusPeriodNet.owner_accepted || 0) + (statusPeriodNet.tech_accepted || 0)),
+                label: 'Принято',
+                value: todayMetrics.accepted || 0,
+                percent: formatStatsPercent(todayMetrics.accepted || 0, totalApartments),
                 tone: 'accepted'
             },
             {
                 label: 'Нет доступа',
-                value: noAccessTotal,
-                percent: formatStatsPercent(noAccessTotal, totalApartments),
-                delta: formatStatsDelta(statusPeriodNet.no_access || 0),
+                value: todayMetrics.no_access || 0,
+                percent: formatStatsPercent(todayMetrics.no_access || 0, totalApartments),
                 tone: 'no-access'
             },
             {
-                label: 'С замечаниями',
-                value: stats.with_defects || 0,
-                percent: formatStatsPercent(stats.with_defects || 0, totalApartments),
-                delta: formatStatsDelta(periodApartmentsWithDefects || 0),
+                label: 'Остаток с замечаниями',
+                value: todayMetrics.remaining_with_defects || 0,
+                percent: formatStatsPercent(todayMetrics.remaining_with_defects || 0, totalApartments),
                 tone: 'defects'
             },
             {
-                label: 'С замечаниями за все время',
-                value: allTimeApartmentsWithDefects,
-                percent: formatStatsPercent(allTimeApartmentsWithDefects, totalApartments),
-                delta: formatStatsDelta(periodApartmentsWithDefects || 0),
-                tone: 'all-time'
+                label: 'С замечаниями',
+                value: todayMetrics.with_defects || 0,
+                percent: formatStatsPercent(todayMetrics.with_defects || 0, totalApartments),
+                tone: 'remaining'
             }
         ];
 
@@ -4802,11 +5535,11 @@ async function loadStats(body, modal) {
                 <div class="stats-ticket-head">
                     <div class="stats-ticket-copy">
                         <div class="stats-ticket-title">${complexName}</div>
-                        <span class="stats-ticket-period">${periodLabel}</span>
+                        <span class="stats-ticket-period">График за все время: ${periodLabel}</span>
                     </div>
                     <div class="stats-ticket-head-actions">
-                        <button class="btn btn-secondary btn-compact" onclick="printStatsReport()">Печать</button>
-                        <button class="btn btn-secondary btn-compact" onclick="exportStatsPdf()">PDF</button>
+                        <button class="pill pill-stats" onclick="printStatsReport()">Печать</button>
+                        <button class="pill pill-stats" onclick="exportStatsPdf()">PDF</button>
                     </div>
                     <div class="stats-ticket-total">
                         <span>${isApartmentType ? 'Апартаментов' : 'Квартир'}</span>
@@ -4814,41 +5547,30 @@ async function loadStats(body, modal) {
                     </div>
                 </div>
 
-                <div class="stats-toolbar stats-toolbar-ticket">
-                    <div class="stats-mode-switch">
-                        <button class="pill ${statsMode === 'day' ? 'active' : ''}" onclick="setStatsMode('day')">День</button>
-                        <button class="pill ${statsMode === 'range' ? 'active' : ''}" onclick="setStatsMode('range')">Период</button>
-                    </div>
-                    <div class="stats-date-range">
-                        ${statsMode === 'range' ? `
-                            <label class="stats-date-picker" for="statsDateStart">
-                                <span>С</span>
-                                <input type="date" id="statsDateStart" value="${statsRangeStart}" min="${statsMinDate}" max="${new Date().toISOString().split('T')[0]}" onchange="changeStatsRange('start', this.value)" oninput="changeStatsRange('start', this.value)">
-                            </label>
-                            <label class="stats-date-picker" for="statsDateEnd">
-                                <span>По</span>
-                                <input type="date" id="statsDateEnd" value="${statsRangeEnd}" min="${statsMinDate}" max="${new Date().toISOString().split('T')[0]}" onchange="changeStatsRange('end', this.value)" oninput="changeStatsRange('end', this.value)">
-                            </label>
-                        ` : `
-                            <label class="stats-date-picker" for="statsDateInput">
-                                <span>Дата</span>
-                                <input type="date" id="statsDateInput" value="${statsDate}" min="${statsMinDate}" max="${new Date().toISOString().split('T')[0]}" onchange="changeStatsDate(this.value)" oninput="changeStatsDate(this.value)">
-                            </label>
-                        `}
-                    </div>
-                </div>
-
-                <div class="stats-ticket-layout">
-                    <div class="stats-ticket-panel stats-ticket-card">
+                <div class="stats-dashboard">
+                    <div class="stats-today-panel stats-ticket-card">
+                        <div class="stats-panel-head">
+                            <strong>Сегодня</strong>
+                            <span>${todayLabel}</span>
+                        </div>
                         <div class="stats-ticket-list">
                             ${statRows.map((row) => `
                                 <div class="stats-ticket-row stats-ticket-row-${row.tone}">
                                     <label>${row.label}</label>
                                     <strong>${row.value}</strong>
                                     <em>${row.percent}</em>
-                                    <span>${row.delta} ${deltaLabel}</span>
                                 </div>
                             `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="stats-chart-panel stats-ticket-card">
+                        <div class="stats-panel-head">
+                            <strong>Динамика за все время</strong>
+                            <span>С ${formatStatsShortDate(stats.first_defect_date)} по ${formatStatsShortDate(new Date().toISOString().split('T')[0])}</span>
+                        </div>
+                        <div class="stats-chart-wrap">
+                            ${renderStatsTrendChart(timeline)}
                         </div>
                     </div>
                 </div>
@@ -4919,34 +5641,20 @@ function changeStatsRange(edge, newDate) {
 }
 
 function printStatsReport() {
-    const statsRes = fetch(`/api/complexes/${state.currentComplex}/statistics?${getStatsQueryString()}`).then(r => r.json());
+    const statsRes = fetch(`/api/complexes/${state.currentComplex}/statistics?${getStatsQueryString()}`, { cache: 'no-store' }).then(r => r.json());
     
     statsRes.then(stats => {
         const totalApartments = stats.total_apartments || 0;
-        const periodApartmentsWithDefects = stats.period_apartments_with_defects || 0;
-        const allTimeApartmentsWithDefects = stats.all_time_apartments_with_defects || 0;
         const jkName = stats.complex_name || document.getElementById('jkName').textContent;
-        const statusChangeRows = stats.period_status_changes || [];
-        const periodLabel = statsMode === 'range'
-            ? formatStatsPeriodLabel(statsRangeStart || stats.period_start, statsRangeEnd || stats.period_end)
-            : formatStatsPeriodLabel(statsDate || stats.period_start, statsDate || stats.period_end);
-        const acceptedCount = statusChangeRows
-            .filter((row) => ['owner_accepted', 'tech_accepted'].includes(row.access_status))
-            .reduce((sum, row) => sum + row.count, 0);
-        const noAccessCount = statusChangeRows.find((row) => row.access_status === 'no_access')?.count || 0;
-        const callCount = statusChangeRows.find((row) => row.access_status === 'call')?.count || 0;
-        const rows = [
-            ['С замечаниями', periodApartmentsWithDefects, formatStatsPercent(periodApartmentsWithDefects, totalApartments)],
-            ['Приняты', acceptedCount, formatStatsPercent(acceptedCount, totalApartments)],
-            ['Нет доступа', noAccessCount, formatStatsPercent(noAccessCount, totalApartments)],
-            ['Вызов', callCount, formatStatsPercent(callCount, totalApartments)],
-        ].map((row) => `
+        const periodLabel = formatStatsPeriodLabel(stats.first_defect_date || stats.period_start, new Date().toISOString().split('T')[0]);
+        const rows = getStatsPrintRows(stats).map((row) => `
             <tr>
-                <td>${row[0]}</td>
-                <td>${row[1]}</td>
-                <td>${row[2]}</td>
+                <td>${row.label}</td>
+                <td>${row.value}</td>
+                <td>${row.percent}</td>
             </tr>
         `).join('');
+        const chartHtml = renderStatsTrendChart(stats.timeline || []);
         
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
@@ -4956,18 +5664,22 @@ function printStatsReport() {
                 <title>Отчет - ${jkName}</title>
                 <style>
                     * { box-sizing: border-box; }
-                    body { font-family: Arial, sans-serif; padding: 24px; max-width: 900px; margin: 0 auto; color: #111; }
+                    @page { margin: 12mm; size: A4 portrait; }
+                    body { font-family: Arial, sans-serif; padding: 24px; max-width: 1200px; margin: 0 auto; color: #111; }
                     h1 { font-size: 26px; margin-bottom: 6px; }
                     .report-date { color: #555; margin-bottom: 18px; font-size: 14px; }
-                    .summary { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 24px; border: 1px solid #111; }
-                    .summary-box { padding: 16px; border-right: 1px solid #111; }
-                    .summary-box:last-child { border-right: none; }
-                    .summary-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin-bottom: 6px; }
-                    .summary-value { font-size: 32px; font-weight: bold; }
-                    .summary-meta { font-size: 13px; color: #444; margin-top: 4px; }
                     table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
                     th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
                     th { background: #111; color: #fff; font-weight: 700; font-size: 12px; text-transform: uppercase; }
+                    .chart-block { border: 1px solid #ddd; padding: 16px; margin-bottom: 24px; }
+                    .chart-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+                    .stats-chart-shell { display: flex; flex-direction: column; gap: 12px; }
+                    .stats-chart { width: 100%; height: auto; display: block; }
+                    .stats-chart-grid-line { stroke: #e2e8f0; stroke-width: 1; }
+                    .stats-chart-axis-label { fill: #64748b; font-size: 11px; }
+                    .stats-chart-legend { display: flex; flex-wrap: wrap; gap: 10px 14px; }
+                    .stats-chart-legend-item { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #334155; }
+                    .stats-chart-legend-item i { display: inline-block; width: 10px; height: 10px; border-radius: 999px; }
                     .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; }
                     @media print { body { padding: 0; } }
                 </style>
@@ -4975,22 +5687,10 @@ function printStatsReport() {
             <body>
                 <h1>${jkName}</h1>
                 <p class="report-date">Период: ${periodLabel}</p>
-                
-                <div class="summary">
-                    <div class="summary-box">
-                        <div class="summary-label">Квартир</div>
-                        <div class="summary-value">${totalApartments}</div>
-                    </div>
-                    <div class="summary-box">
-                        <div class="summary-label">С замечаниями</div>
-                        <div class="summary-value">${periodApartmentsWithDefects}</div>
-                        <div class="summary-meta">${formatStatsPercent(periodApartmentsWithDefects, totalApartments)} от общего числа</div>
-                    </div>
-                    <div class="summary-box">
-                        <div class="summary-label">С замечаниями за все время</div>
-                        <div class="summary-value">${allTimeApartmentsWithDefects}</div>
-                        <div class="summary-meta">${formatStatsPercent(allTimeApartmentsWithDefects, totalApartments)} от общего числа квартир</div>
-                    </div>
+
+                <div class="chart-block">
+                    <div class="chart-title">График за все время</div>
+                    ${chartHtml}
                 </div>
                 
                 <table>

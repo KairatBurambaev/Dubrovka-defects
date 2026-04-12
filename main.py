@@ -17,6 +17,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.graphics.shapes import Drawing, PolyLine, String, Line, Circle, Rect
 import io
 
 
@@ -24,26 +25,36 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 DB_PATH = BASE_DIR / "dubrovka_defects.db"
+DEFECT_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".heic", ".heif"}
+COMMENT_UPLOAD_EXTENSIONS = DEFECT_UPLOAD_EXTENSIONS
+UPLOAD_CONTENT_TYPE_EXTENSIONS = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/bmp": ".bmp",
+    "image/heic": ".heic",
+    "image/heif": ".heif",
+}
 
 app = FastAPI(title="ЖК Дубровка - Перспектива Инжиниринг гарантийный сервис")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 CATEGORIES = [
-    "Стены/Пол/Потолок",
+    "Общестроительные работы",
     "Окна",
     "Двери",
     "Сантехника",
     "Электрика",
-    "Отопление",
     "Вентиляция",
-    "Балкон/Лоджия",
-    "Другое"
+    "Прочее"
 ]
 
 STATUSES = {
-    "new": "Новое",
-    "recorded": "Новое",
+    "new": "Зафиксированно",
+    "recorded": "Зафиксированно",
     "in_progress": "В работе",
     "on_review": "На проверке",
     "completed": "Выполнено",
@@ -65,7 +76,7 @@ MERGE_BLOCKING_DEFECT_STATUSES = ("rejected",)
 ACTIVE_DEFECT_STATUSES = tuple(status for status in STATUSES if status not in CLOSED_DEFECT_STATUSES)
 
 TEMPLATES = {
-    "Стены/Пол/Потолок": [
+    "Общестроительные работы": [
         "Трещина на стене",
         "Неровная поверхность стены",
         "Отслоение штукатурки",
@@ -98,27 +109,21 @@ TEMPLATES = {
         "Течет кран",
         "Не смывает унитаз",
         "Засор в раковине",
-        "Нет горячей воды"
+        "Нет горячей воды",
+        "Холодная батарея",
+        "Течет батарея",
+        "Шум в батарее"
     ],
     "Электрика": [
         "Не работает розетка",
         "Не горит свет",
         "Нет заземления"
     ],
-    "Отопление": [
-        "Холодная батарея",
-        "Течет батарея",
-        "Шум в батарее"
-    ],
     "Вентиляция": [
         "Нет тяги в вентиляции",
         "Шум вентиляции"
     ],
-    "Балкон/Лоджия": [
-        "Засор слива",
-        "Протечка на балконе"
-    ],
-    "Другое": [
+    "Прочее": [
         "Зазоры между стенами",
         "Грязь на стенах"
     ]
@@ -214,25 +219,56 @@ def merge_defect_texts(*texts: str) -> str:
     return "\n".join(merged_lines)
 
 
+def parse_defect_items_payload(raw_payload: str) -> List[dict]:
+    if not raw_payload:
+        return []
+
+    try:
+        data = json.loads(raw_payload)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(data, list):
+        return []
+
+    items = []
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        text = str(entry.get("text") or "").strip()
+        if not text:
+            continue
+        items.append({
+            "id": entry.get("id"),
+            "key": str(entry.get("key") or "").strip(),
+            "text": text,
+        })
+
+    return items
+
+
 def sync_defect_in_progress_status_from_items(conn, defect_id: int):
     defect = conn.execute("SELECT status FROM defects WHERE id = ?", (defect_id,)).fetchone()
     if not defect:
         return
 
-    has_active_item = conn.execute(
-        f"SELECT 1 FROM defect_items WHERE defect_id = ? AND status NOT IN ({build_not_in_clause(CLOSED_DEFECT_STATUSES)}) LIMIT 1",
-        (defect_id, *CLOSED_DEFECT_STATUSES)
-    ).fetchone()
-
-    has_in_progress_item = conn.execute(
-        "SELECT 1 FROM defect_items WHERE defect_id = ? AND status = 'in_progress' LIMIT 1",
+    items = conn.execute(
+        "SELECT status FROM defect_items WHERE defect_id = ? ORDER BY sort_order, id",
         (defect_id,)
-    ).fetchone()
+    ).fetchall()
 
+    item_statuses = [row["status"] for row in items]
     next_status = defect["status"]
-    if has_in_progress_item or (defect["status"] == "on_review" and has_active_item):
+
+    if not item_statuses:
+        next_status = "recorded"
+    elif any(status == "in_progress" for status in item_statuses):
         next_status = "in_progress"
-    elif defect["status"] == "in_progress":
+    elif all(status == "completed" for status in item_statuses):
+        next_status = "completed"
+    elif any(status == "on_review" for status in item_statuses):
+        next_status = "on_review"
+    else:
         next_status = "recorded"
 
     conn.execute(
@@ -245,6 +281,32 @@ def sync_all_defect_statuses_from_items(conn):
     defect_ids = conn.execute("SELECT id FROM defects").fetchall()
     for row in defect_ids:
         sync_defect_in_progress_status_from_items(conn, row["id"])
+
+
+def resolve_upload_extension(upload: UploadFile, allowed_extensions: set[str]) -> str:
+    ext = Path(upload.filename or "").suffix.lower()
+    if ext in allowed_extensions:
+        return ext
+
+    content_type_ext = UPLOAD_CONTENT_TYPE_EXTENSIONS.get((upload.content_type or "").lower())
+    if content_type_ext in allowed_extensions:
+        return content_type_ext
+
+    return ""
+
+
+def get_defect_location_label(category: Optional[str], window_number: Optional[int], variant_number: Optional[str]) -> str:
+    normalized_category = (category or "").strip()
+    if normalized_category == "Окна" and window_number:
+        return f"Окно {window_number}"
+    if normalized_category == "Двери":
+        normalized_variant = (variant_number or "").strip()
+        if normalized_variant == "Входная":
+            return "Входная дверь"
+        if normalized_variant == "Межкомнатная":
+            return "Межкомнатная дверь"
+        return "Дверь"
+    return normalized_category or "Не указано"
 
 
 def get_defect_status_rank(status: str) -> int:
@@ -680,6 +742,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS photos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             defect_id INTEGER NOT NULL,
+            item_id INTEGER,
             filename TEXT NOT NULL,
             original_name TEXT,
             photo_type TEXT DEFAULT 'before',
@@ -828,6 +891,12 @@ def init_db():
         conn.commit()
     except:
         pass  # Колонка уже существует
+
+    try:
+        conn.execute("ALTER TABLE photos ADD COLUMN item_id INTEGER")
+        conn.commit()
+    except:
+        pass
     
     # Создаем таблицу item_comments если её нет
     conn.execute("""
@@ -1127,6 +1196,7 @@ async def get_apartments(
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'recorded') as recorded_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'in_progress') as in_progress_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'on_review') as on_review_defects_count,
+               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'completed') as completed_defects_count,
                (SELECT MIN(deadline) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) as earliest_deadline,
                (SELECT MIN(created_at) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) as earliest_defect_created,
                CASE 
@@ -1237,6 +1307,157 @@ async def get_complex_defects(complex_id: int):
     return [dict(row) for row in rows]
 
 
+@app.post("/api/complexes/{complex_id}/item-comments")
+async def get_complex_item_comments(complex_id: int, apartment_ids_json: str = Form("[]"), category_filter: str = Form("")):
+    try:
+        apartment_ids = [int(value) for value in json.loads(apartment_ids_json or "[]")]
+    except (TypeError, ValueError, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="Некорректный список квартир")
+
+    apartment_ids = list(dict.fromkeys(apartment_ids))
+    if not apartment_ids:
+        return []
+
+    conn = get_db()
+    placeholders = ",".join("?" for _ in apartment_ids)
+    building_number_expr = get_sections_building_number_expr(conn, "s")
+    category_filter = (category_filter or "").strip()
+    category_clause = "AND d.category = ?" if category_filter else ""
+    query_params = [complex_id, *apartment_ids]
+    if category_filter:
+        query_params.append(category_filter)
+    query_params += [complex_id, *apartment_ids]
+    if category_filter:
+        query_params.append(category_filter)
+    query_params += [complex_id, *apartment_ids]
+    if category_filter:
+        query_params.append(category_filter)
+    rows = conn.execute(
+        f"""
+        SELECT *
+        FROM (
+            SELECT
+                a.id AS apartment_id,
+                a.number AS apartment_number,
+                a.floor AS apartment_floor,
+                s.section_number AS section_number,
+                {building_number_expr} AS building_number,
+                d.category AS defect_category,
+                d.window_number AS defect_window_number,
+                d.variant_number AS defect_variant_number,
+                d.created_at AS defect_created_at,
+                'item_comment' AS comment_source,
+                ic.id AS comment_id,
+                ic.author AS comment_author,
+                ic.text AS comment_text,
+                ic.created_at AS comment_created_at
+            FROM item_comments ic
+            JOIN defect_items di ON di.id = ic.item_id
+            JOIN defects d ON d.id = di.defect_id
+            JOIN apartments a ON a.id = d.apartment_id
+            LEFT JOIN sections s ON s.id = a.section_id
+            WHERE a.complex_id = ?
+              AND a.id IN ({placeholders})
+              {category_clause}
+
+            UNION ALL
+
+            SELECT
+                a.id AS apartment_id,
+                a.number AS apartment_number,
+                a.floor AS apartment_floor,
+                s.section_number AS section_number,
+                {building_number_expr} AS building_number,
+                d.category AS defect_category,
+                d.window_number AS defect_window_number,
+                d.variant_number AS defect_variant_number,
+                d.created_at AS defect_created_at,
+                'defect_comment' AS comment_source,
+                c.id AS comment_id,
+                c.author AS comment_author,
+                c.text AS comment_text,
+                c.created_at AS comment_created_at
+            FROM comments c
+            JOIN defects d ON d.id = c.defect_id
+            JOIN apartments a ON a.id = d.apartment_id
+            LEFT JOIN sections s ON s.id = a.section_id
+            WHERE a.complex_id = ?
+              AND a.id IN ({placeholders})
+              {category_clause}
+
+            UNION ALL
+
+            SELECT
+                a.id AS apartment_id,
+                a.number AS apartment_number,
+                a.floor AS apartment_floor,
+                s.section_number AS section_number,
+                {building_number_expr} AS building_number,
+                d.category AS defect_category,
+                d.window_number AS defect_window_number,
+                d.variant_number AS defect_variant_number,
+                d.created_at AS defect_created_at,
+                'defect_note' AS comment_source,
+                d.id AS comment_id,
+                '' AS comment_author,
+                d.comment_text AS comment_text,
+                COALESCE(d.updated_at, d.created_at) AS comment_created_at
+            FROM defects d
+            JOIN apartments a ON a.id = d.apartment_id
+            LEFT JOIN sections s ON s.id = a.section_id
+            WHERE a.complex_id = ?
+              AND a.id IN ({placeholders})
+              {category_clause}
+              AND TRIM(COALESCE(d.comment_text, '')) != ''
+        ) combined_comments
+        ORDER BY
+            building_number,
+            section_number,
+            apartment_floor,
+            apartment_number,
+            CASE WHEN defect_category = 'Окна' THEN 0 ELSE 1 END,
+            CASE WHEN defect_category = 'Окна' THEN COALESCE(defect_window_number, 9999) ELSE 0 END,
+            defect_created_at,
+            comment_created_at,
+            comment_id
+        """,
+        query_params,
+    ).fetchall()
+    conn.close()
+
+    grouped: dict[int, dict] = {}
+    for row in rows:
+        apartment_id = row["apartment_id"]
+        if apartment_id not in grouped:
+            grouped[apartment_id] = {
+                "apartment": {
+                    "id": apartment_id,
+                    "number": row["apartment_number"],
+                    "floor": row["apartment_floor"],
+                    "section_number": row["section_number"],
+                    "building_number": row["building_number"],
+                },
+                "comments": [],
+            }
+
+        grouped[apartment_id]["comments"].append({
+            "id": row["comment_id"],
+            "author": row["comment_author"],
+            "text": row["comment_text"],
+            "created_at": row["comment_created_at"],
+            "defect_created_at": row["defect_created_at"],
+            "category": row["defect_category"],
+            "window_number": row["defect_window_number"],
+            "location": get_defect_location_label(
+                row["defect_category"],
+                row["defect_window_number"],
+                row["defect_variant_number"],
+            ),
+        })
+
+    return list(grouped.values())
+
+
 @app.get("/api/apartments/{apartment_id}/defects")
 async def get_defects(apartment_id: int):
     conn = get_db()
@@ -1255,11 +1476,11 @@ async def get_defects(apartment_id: int):
     for row in rows:
         d = dict(row)
         ensure_defect_has_items(conn, row)
-        photos = conn.execute(
-            "SELECT id, filename, photo_type FROM photos WHERE defect_id = ?",
+        photos = [dict(p) for p in conn.execute(
+            "SELECT id, filename, photo_type, item_id FROM photos WHERE defect_id = ? ORDER BY id",
             (d["id"],)
-        ).fetchall()
-        d["photos"] = [dict(p) for p in photos]
+        ).fetchall()]
+        d["photos"] = [photo for photo in photos if not photo.get("item_id")]
         d["comments_count"] = conn.execute(
             "SELECT COUNT(*) FROM comments WHERE defect_id = ?",
             (d["id"],)
@@ -1274,6 +1495,7 @@ async def get_defects(apartment_id: int):
         for item in items:
             item_dict = dict(item)
             item_dict["status_label"] = STATUSES.get(item_dict["status"], item_dict["status"])
+            item_dict["photos"] = [photo for photo in photos if photo.get("item_id") == item_dict["id"]]
             
             # Получаем комментарии к пункту
             item_comments = conn.execute(
@@ -1295,6 +1517,7 @@ async def create_defect(
     apartment_id: int,
     category: str = Form(...),
     description: str = Form(...),
+    defect_items_json: str = Form(""),
     status: str = Form("recorded"),
     contractor_id: str = Form(None),
     contractor_name: str = Form(""),
@@ -1309,7 +1532,8 @@ async def create_defect(
     executor: str = Form(""),
     restoration: int = Form(0),
     photos: List[UploadFile] = File(default=[]),
-    photo_types: List[str] = Form(default=[])
+    photo_types: List[str] = Form(default=[]),
+    photo_item_keys: List[str] = Form(default=[])
 ):
     status = normalize_status_input(status)
     if category not in CATEGORIES:
@@ -1320,8 +1544,8 @@ async def create_defect(
 
     normalized_variant_number = variant_number.strip()
     if category == "Двери":
-        if normalized_variant_number not in {"Нар", "Вн", "Общ."}:
-            raise HTTPException(status_code=400, detail="Для двери нужно выбрать Нар, Вн или Общ.")
+        if normalized_variant_number not in {"Межкомнатная", "Входная"}:
+            raise HTTPException(status_code=400, detail="Для двери нужно выбрать Межкомнатная или Входная.")
     else:
         normalized_variant_number = ""
     
@@ -1337,6 +1561,15 @@ async def create_defect(
     if not apt:
         conn.close()
         raise HTTPException(status_code=404, detail="Квартира не найдена")
+
+    defect_items = parse_defect_items_payload(defect_items_json)
+    if not defect_items:
+        defect_items = [{"id": None, "key": "legacy-0", "text": line} for line in normalize_defect_text_lines(description)]
+    if not defect_items:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Нужно добавить хотя бы один пункт замечания")
+
+    normalized_description = "\n".join(item["text"] for item in defect_items)
 
     resolved_contractor_id = int(contractor_id) if contractor_id else None
     resolved_contractor_name = ""
@@ -1379,7 +1612,7 @@ async def create_defect(
     if existing_defect:
         defect_id = existing_defect["id"]
         existing_description = (existing_defect["description"] or "").strip()
-        appended_description = description.strip()
+        appended_description = normalized_description
         merged_description = "\n".join(part for part in [existing_description, appended_description] if part)
         next_defect_status = existing_defect["status"] if existing_defect["status"] in {"new", "recorded"} else "in_progress"
         conn.execute(
@@ -1405,28 +1638,28 @@ async def create_defect(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             apartment_id, category, window_number, restoration, executor.strip(), normalized_variant_number,
-            description, status, deadline
+            normalized_description, status, deadline
         ))
         defect_id = cursor.lastrowid
     
-    # Парсим пункты из описания (каждая строка = отдельный пункт)
-    lines = [line.strip() for line in description.split('\n') if line.strip()]
     item_status = 'recorded' if existing_defect and existing_defect["status"] in {"new", "recorded"} else ('in_progress' if existing_defect else status)
     start_order = conn.execute(
         "SELECT COALESCE(MAX(sort_order), -1) FROM defect_items WHERE defect_id = ?",
         (defect_id,)
     ).fetchone()[0] + 1
-    for idx, line in enumerate(lines):
-        conn.execute(
+    item_key_to_id = {}
+    for idx, item in enumerate(defect_items):
+        cursor = conn.execute(
             "INSERT INTO defect_items (defect_id, text, status, sort_order) VALUES (?, ?, ?, ?)",
-            (defect_id, line, item_status, start_order + idx)
+            (defect_id, item["text"], item_status, start_order + idx)
         )
+        item_key_to_id[item["key"]] = cursor.lastrowid
     
     # Сохраняем фото
     for idx, photo in enumerate(photos):
         if photo.filename:
-            ext = Path(photo.filename).suffix.lower()
-            if ext not in DEFECT_UPLOAD_EXTENSIONS:
+            ext = resolve_upload_extension(photo, DEFECT_UPLOAD_EXTENSIONS)
+            if not ext:
                 continue
             
             unique_name = f"{uuid.uuid4().hex}{ext}"
@@ -1437,9 +1670,11 @@ async def create_defect(
                 f.write(content)
             
             photo_type = photo_types[idx] if idx < len(photo_types) else 'before'
+            photo_item_key = photo_item_keys[idx] if idx < len(photo_item_keys) else ''
+            photo_item_id = item_key_to_id.get(photo_item_key)
             conn.execute(
-                "INSERT INTO photos (defect_id, filename, original_name, photo_type) VALUES (?, ?, ?, ?)",
-                (defect_id, unique_name, photo.filename, photo_type)
+                "INSERT INTO photos (defect_id, item_id, filename, original_name, photo_type) VALUES (?, ?, ?, ?, ?)",
+                (defect_id, photo_item_id, unique_name, photo.filename, photo_type)
             )
     
     conn.commit()
@@ -1505,20 +1740,7 @@ async def update_item_status(item_id: int, status: str = Form(...)):
         "UPDATE defect_items SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (status, item_id)
     )
-    if status == "in_progress" and defect and defect["status"] in {"new", "recorded"}:
-        conn.execute(
-            "UPDATE defects SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (item["defect_id"],)
-        )
-        conn.execute(
-            "UPDATE defect_items SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE defect_id = ?",
-            (item["defect_id"],)
-        )
-    if item["status"] in {"on_review", "completed"} and status == "in_progress" and defect and defect["status"] in {"on_review", "completed"}:
-        conn.execute(
-            "UPDATE defects SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (item["defect_id"],)
-        )
+    sync_defect_in_progress_status_from_items(conn, item["defect_id"])
     conn.commit()
     conn.close()
     
@@ -1556,8 +1778,15 @@ async def delete_item(item_id: int):
         conn.close()
         raise HTTPException(status_code=404, detail="Пункт не найден")
 
+    photos = conn.execute("SELECT filename FROM photos WHERE item_id = ?", (item_id,)).fetchall()
+    for photo in photos:
+        file_path = UPLOAD_DIR / photo["filename"]
+        if file_path.exists():
+            file_path.unlink()
+    conn.execute("DELETE FROM photos WHERE item_id = ?", (item_id,))
     conn.execute("DELETE FROM defect_items WHERE id = ?", (item_id,))
     sync_defect_description_from_items(conn, item["defect_id"])
+    sync_defect_in_progress_status_from_items(conn, item["defect_id"])
     conn.commit()
     conn.close()
     
@@ -1671,6 +1900,24 @@ async def update_defect_status(defect_id: int, status: str = Form(...)):
     return {"message": "Статус обновлен"}
 
 
+@app.put("/api/defects/{defect_id}/comment-text")
+async def update_defect_comment_text(defect_id: int, comment_text: str = Form("")):
+    conn = get_db()
+    defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    if not defect:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Замечание не найдено")
+
+    conn.execute(
+        "UPDATE defects SET comment_text = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        ((comment_text or "").strip(), defect_id),
+    )
+    conn.commit()
+    conn.close()
+
+    return {"message": "Комментарий замечания обновлен"}
+
+
 @app.put("/api/defects/{defect_id}/restoration")
 async def update_defect_restoration(defect_id: int, restoration: int = Form(...)):
     conn = get_db()
@@ -1718,11 +1965,18 @@ async def get_defect(defect_id: int):
         raise HTTPException(status_code=404, detail="Замечание не найдено")
     
     d = dict(row)
-    photos = conn.execute(
-        "SELECT id, filename, photo_type FROM photos WHERE defect_id = ?",
+    photos = [dict(p) for p in conn.execute(
+        "SELECT id, filename, photo_type, item_id FROM photos WHERE defect_id = ? ORDER BY id",
         (defect_id,)
-    ).fetchall()
-    d["photos"] = [dict(p) for p in photos]
+    ).fetchall()]
+    d["photos"] = [photo for photo in photos if not photo.get("item_id")]
+    items = [dict(item) for item in conn.execute(
+        "SELECT * FROM defect_items WHERE defect_id = ? ORDER BY sort_order, id",
+        (defect_id,)
+    ).fetchall()]
+    for item in items:
+        item["photos"] = [photo for photo in photos if photo.get("item_id") == item["id"]]
+    d["items"] = items
     
     conn.close()
     return d
@@ -1734,6 +1988,7 @@ async def update_defect_meta(
     contractor_id: str = Form(None),
     contractor_name: str = Form(""),
     description: str = Form(""),
+    defect_items_json: str = Form(""),
     window_number: Optional[str] = Form(None),
     variant_number: str = Form(""),
     project_name: str = Form(""),
@@ -1745,10 +2000,11 @@ async def update_defect_meta(
     executor: str = Form(""),
     restoration: int = Form(0),
     photos: List[UploadFile] = File(default=[]),
-    photo_types: List[str] = Form(default=[])
+    photo_types: List[str] = Form(default=[]),
+    photo_item_keys: List[str] = Form(default=[])
 ):
     conn = get_db()
-    defect = conn.execute("SELECT id FROM defects WHERE id = ?", (defect_id,)).fetchone()
+    defect = conn.execute("SELECT id, category, window_number FROM defects WHERE id = ?", (defect_id,)).fetchone()
     if not defect:
         conn.close()
         raise HTTPException(status_code=404, detail="Замечание не найдено")
@@ -1781,11 +2037,20 @@ async def update_defect_meta(
     if description is None:
         description = ""
 
+    defect_items = parse_defect_items_payload(defect_items_json)
+    if not defect_items:
+        defect_items = [{"id": None, "key": "legacy-0", "text": line} for line in normalize_defect_text_lines(description)]
+    if not defect_items:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Нужно добавить хотя бы один пункт замечания")
+
+    normalized_description = "\n".join(item["text"] for item in defect_items)
+
     current_category = defect["category"] if defect else ""
     if current_category == "Двери":
-        if normalized_variant_number not in {"Нар", "Вн", "Общ."}:
+        if normalized_variant_number not in {"Межкомнатная", "Входная"}:
             conn.close()
-            raise HTTPException(status_code=400, detail="Для двери нужно выбрать Нар, Вн или Общ.")
+            raise HTTPException(status_code=400, detail="Для двери нужно выбрать Межкомнатная или Входная.")
     else:
         normalized_variant_number = ""
 
@@ -1806,7 +2071,7 @@ async def update_defect_meta(
         (
             resolved_contractor_id,
             resolved_contractor_name,
-            description.strip(),
+            normalized_description,
             normalized_variant_number,
             project_name.strip(),
             materials_info.strip(),
@@ -1822,17 +2087,51 @@ async def update_defect_meta(
         )
     )
 
-    sync_defect_items_from_description(conn, defect_id, description.strip(), next_defect_status)
-    conn.execute(
-        "UPDATE defect_items SET status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE defect_id = ?",
-        (defect_id,)
-    )
+    existing_items = {
+        row["id"]: row
+        for row in conn.execute(
+            "SELECT id, status FROM defect_items WHERE defect_id = ? ORDER BY sort_order, id",
+            (defect_id,)
+        ).fetchall()
+    }
+    kept_item_ids = set()
+    item_key_to_id = {}
+
+    for index, item in enumerate(defect_items):
+        item_id = item.get("id")
+        if item_id in existing_items:
+            conn.execute(
+                "UPDATE defect_items SET text = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (item["text"], index, item_id)
+            )
+            kept_item_ids.add(item_id)
+            item_key_to_id[item["key"]] = item_id
+            continue
+
+        cursor = conn.execute(
+            "INSERT INTO defect_items (defect_id, text, status, sort_order) VALUES (?, ?, ?, ?)",
+            (defect_id, item["text"], 'recorded', index)
+        )
+        item_key_to_id[item["key"]] = cursor.lastrowid
+
+    removed_items = [item_id for item_id in existing_items if item_id not in kept_item_ids]
+    for item_id in removed_items:
+        removed_photos = conn.execute("SELECT filename FROM photos WHERE item_id = ?", (item_id,)).fetchall()
+        for photo in removed_photos:
+            file_path = UPLOAD_DIR / photo["filename"]
+            if file_path.exists():
+                file_path.unlink()
+        conn.execute("DELETE FROM photos WHERE item_id = ?", (item_id,))
+        conn.execute("DELETE FROM defect_items WHERE id = ?", (item_id,))
+
+    sync_defect_description_from_items(conn, defect_id)
+    sync_defect_in_progress_status_from_items(conn, defect_id)
     
     # Handle new photos
     for idx, photo in enumerate(photos):
         if photo.filename:
-            ext = Path(photo.filename).suffix.lower()
-            if ext not in DEFECT_UPLOAD_EXTENSIONS:
+            ext = resolve_upload_extension(photo, DEFECT_UPLOAD_EXTENSIONS)
+            if not ext:
                 continue
             
             unique_name = f"{uuid.uuid4().hex}{ext}"
@@ -1843,9 +2142,11 @@ async def update_defect_meta(
                 f.write(content)
             
             photo_type = photo_types[idx] if idx < len(photo_types) else 'before'
+            photo_item_key = photo_item_keys[idx] if idx < len(photo_item_keys) else ''
+            photo_item_id = item_key_to_id.get(photo_item_key)
             conn.execute(
-                "INSERT INTO photos (defect_id, filename, original_name, photo_type) VALUES (?, ?, ?, ?)",
-                (defect_id, unique_name, photo.filename, photo_type)
+                "INSERT INTO photos (defect_id, item_id, filename, original_name, photo_type) VALUES (?, ?, ?, ?, ?)",
+                (defect_id, photo_item_id, unique_name, photo.filename, photo_type)
             )
     
     conn.commit()
@@ -1864,7 +2165,14 @@ async def delete_defect(defect_id: int):
         file_path = UPLOAD_DIR / photo["filename"]
         if file_path.exists():
             file_path.unlink()
-    
+    item_ids = [row[0] for row in conn.execute("SELECT id FROM defect_items WHERE defect_id = ?", (defect_id,)).fetchall()]
+    if item_ids:
+        placeholders = ",".join("?" for _ in item_ids)
+        conn.execute(f"DELETE FROM item_comments WHERE item_id IN ({placeholders})", item_ids)
+        conn.execute(f"DELETE FROM defect_items WHERE id IN ({placeholders})", item_ids)
+
+    conn.execute("DELETE FROM comments WHERE defect_id = ?", (defect_id,))
+    conn.execute("DELETE FROM photos WHERE defect_id = ?", (defect_id,))
     conn.execute("DELETE FROM defects WHERE id = ?", (defect_id,))
     conn.commit()
     conn.close()
@@ -2152,6 +2460,72 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         if new_status in status_period_net:
             status_period_net[new_status] += 1
 
+    defect_apartment_rows = conn.execute(
+        """
+        SELECT
+            a.id AS apartment_id,
+            COALESCE(a.access_status, '') AS access_status,
+            MIN(date(d.created_at)) AS first_defect_date
+        FROM apartments a
+        JOIN defects d ON d.apartment_id = a.id
+        WHERE a.complex_id = ?
+        GROUP BY a.id, COALESCE(a.access_status, '')
+        ORDER BY first_defect_date, a.id
+        """,
+        (complex_id,),
+    ).fetchall()
+
+    defect_apartment_total = len(defect_apartment_rows)
+    accepted_statuses = {"owner_accepted", "tech_accepted"}
+    today_call_count = sum(1 for row in defect_apartment_rows if row["access_status"] == "call")
+    today_accepted_count = sum(1 for row in defect_apartment_rows if row["access_status"] in accepted_statuses)
+    today_no_access_count = sum(1 for row in defect_apartment_rows if row["access_status"] == "no_access")
+    today_remaining_with_defects = max(
+        defect_apartment_total - today_call_count - today_accepted_count - today_no_access_count,
+        0,
+    )
+
+    timeline = []
+    if defect_apartment_rows:
+        defect_start_by_date = {}
+        current_status_by_apartment = {}
+        for row in defect_apartment_rows:
+            defect_start_by_date.setdefault(row["first_defect_date"], []).append(row["apartment_id"])
+            current_status_by_apartment[row["apartment_id"]] = row["access_status"]
+
+        active_apartments = set()
+        cursor_date = datetime.strptime(first_defect_date, "%Y-%m-%d").date()
+
+        while cursor_date <= period["today"]:
+            day_key = cursor_date.isoformat()
+
+            for apartment_id in defect_start_by_date.get(day_key, []):
+                active_apartments.add(apartment_id)
+
+            day_with_defects = len(active_apartments)
+            day_call = sum(1 for apartment_id in active_apartments if current_status_by_apartment.get(apartment_id) == "call")
+            day_accepted = sum(1 for apartment_id in active_apartments if current_status_by_apartment.get(apartment_id) in accepted_statuses)
+            day_no_access = sum(1 for apartment_id in active_apartments if current_status_by_apartment.get(apartment_id) == "no_access")
+
+            timeline.append({
+                "date": day_key,
+                "call": day_call,
+                "accepted": day_accepted,
+                "no_access": day_no_access,
+                "with_defects": day_with_defects,
+                "remaining_with_defects": max(day_with_defects - day_call - day_accepted - day_no_access, 0),
+            })
+
+            cursor_date += timedelta(days=1)
+
+    today_metrics = {
+        "call": today_call_count,
+        "accepted": today_accepted_count,
+        "no_access": today_no_access_count,
+        "with_defects": defect_apartment_total,
+        "remaining_with_defects": today_remaining_with_defects,
+    }
+
     return {
         "complex_name": complex_row["name"],
         "property_type": complex_row["property_type"] or "квартиры",
@@ -2170,7 +2544,71 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         "period_mode": period["mode"],
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
+        "today_metrics": today_metrics,
+        "timeline": timeline,
     }
+
+
+def build_stats_chart_drawing(timeline, font_name='Helvetica'):
+    width = 500
+    height = 240
+    drawing = Drawing(width, height)
+    if not timeline:
+        drawing.add(String(width / 2, height / 2, 'Нет данных для графика', textAnchor='middle', fontName=font_name, fontSize=11, fillColor=colors.HexColor('#64748b')))
+        return drawing
+
+    series = [
+        ('remaining_with_defects', 'Остаток с замечаниями', colors.HexColor('#e60042')),
+        ('with_defects', 'С замечаниями', colors.HexColor('#111111')),
+        ('call', 'Вызов', colors.HexColor('#e969a8')),
+        ('accepted', 'Принято', colors.HexColor('#009d91')),
+        ('no_access', 'Нет доступа', colors.HexColor('#64748b')),
+    ]
+    pad_left = 38
+    pad_right = 16
+    pad_top = 18
+    pad_bottom = 34
+    inner_width = width - pad_left - pad_right
+    inner_height = height - pad_top - pad_bottom
+    max_value = max(1, max(int(point.get(key, 0) or 0) for point in timeline for key, _, _ in series))
+    steps = 4
+
+    def to_x(index):
+        return pad_left if len(timeline) == 1 else pad_left + (inner_width * index / (len(timeline) - 1))
+
+    def to_y(value):
+        return pad_top + inner_height - ((float(value or 0) / max_value) * inner_height)
+
+    for step in range(steps + 1):
+        y = pad_top + inner_height - (inner_height * step / steps)
+        label = str(round(max_value * step / steps))
+        drawing.add(Line(pad_left, y, width - pad_right, y, strokeColor=colors.HexColor('#e2e8f0'), strokeWidth=1))
+        drawing.add(String(pad_left - 8, y - 3, label, textAnchor='end', fontName=font_name, fontSize=9, fillColor=colors.HexColor('#64748b')))
+
+    for key, _, color in series:
+        points = []
+        for index, point in enumerate(timeline):
+            x = to_x(index)
+            y = to_y(point.get(key, 0))
+            points.extend([x, y])
+        drawing.add(PolyLine(points, strokeColor=color, strokeWidth=2.5, strokeLineCap=1, strokeLineJoin=1, fillColor=None))
+        drawing.add(Circle(points[-2], points[-1], 2.8, strokeColor=color, fillColor=color))
+
+    first_date = datetime.strptime(timeline[0]['date'], '%Y-%m-%d').strftime('%d.%m')
+    mid_date = datetime.strptime(timeline[len(timeline) // 2]['date'], '%Y-%m-%d').strftime('%d.%m')
+    last_date = datetime.strptime(timeline[-1]['date'], '%Y-%m-%d').strftime('%d.%m')
+    drawing.add(String(pad_left, 8, first_date, textAnchor='start', fontName=font_name, fontSize=9, fillColor=colors.HexColor('#64748b')))
+    drawing.add(String(width / 2, 8, mid_date, textAnchor='middle', fontName=font_name, fontSize=9, fillColor=colors.HexColor('#64748b')))
+    drawing.add(String(width - pad_right, 8, last_date, textAnchor='end', fontName=font_name, fontSize=9, fillColor=colors.HexColor('#64748b')))
+
+    legend_y = height - 6
+    legend_x = pad_left
+    for _, label, color in series:
+        drawing.add(Rect(legend_x, legend_y, 8, 8, strokeColor=color, fillColor=color))
+        drawing.add(String(legend_x + 12, legend_y + 1, label, fontName=font_name, fontSize=8.5, fillColor=colors.HexColor('#334155')))
+        legend_x += 92
+
+    return drawing
 
 
 @app.get("/api/complexes/{complex_id}/statistics")
@@ -2227,16 +2665,9 @@ async def export_complex_statistics_pdf(complex_id: int, stat_date: str = None, 
 
     story = []
 
-    period_label = stats["period_start"] if stats["period_start"] == stats["period_end"] else f'{stats["period_start"]} - {stats["period_end"]}'
+    period_label = f'{stats["first_defect_date"]} - {date.today().isoformat()}'
     property_label = 'Апартаментов' if stats.get('property_type') == 'апартаменты' else 'Квартир'
-    period_status_changes = stats.get("period_status_changes", [])
-
-    def get_period_status_count(status_names):
-        return sum(row["count"] for row in period_status_changes if row["access_status"] in status_names)
-
-    accepted_count = get_period_status_count({"owner_accepted", "tech_accepted"})
-    no_access_count = get_period_status_count({"no_access"})
-    call_count = get_period_status_count({"call"})
+    today_metrics = stats.get("today_metrics", {})
 
     story.append(Paragraph(stats["complex_name"], styles['StatsTitle']))
     story.append(Spacer(1, 0.15 * cm))
@@ -2245,8 +2676,7 @@ async def export_complex_statistics_pdf(complex_id: int, stat_date: str = None, 
 
     summary_data = [
         [property_label, str(stats["total_apartments"])],
-        ["Открытых замечаний", str(stats["period_open_defects"])],
-        ["С замечаниями за все время", str(stats["all_time_apartments_with_defects"])],
+        ["Сегодня", date.today().isoformat()],
     ]
     summary_table = Table(summary_data, colWidths=[10.5 * cm, 4.5 * cm])
     summary_table.setStyle(TableStyle([
@@ -2268,10 +2698,11 @@ async def export_complex_statistics_pdf(complex_id: int, stat_date: str = None, 
 
     rows = [["Статус", "Количество", "% от общего"]]
     status_rows = [
-        ("С замечаниями", stats["period_apartments_with_defects"]),
-        ("Приняты", accepted_count),
-        ("Нет доступа", no_access_count),
-        ("Вызов", call_count),
+        ("Вызов", today_metrics.get("call", 0)),
+        ("Принято", today_metrics.get("accepted", 0)),
+        ("Нет доступа", today_metrics.get("no_access", 0)),
+        ("Остаток с замечаниями", today_metrics.get("remaining_with_defects", 0)),
+        ("С замечаниями", today_metrics.get("with_defects", 0)),
     ]
     total_apartments = stats["total_apartments"] or 0
     for label, count in status_rows:
@@ -2293,6 +2724,10 @@ async def export_complex_statistics_pdf(complex_id: int, stat_date: str = None, 
         ('BACKGROUND', (0, 1), (-1, -1), colors.white),
     ]))
     story.append(status_table)
+    story.append(Spacer(1, 0.45 * cm))
+    story.append(Paragraph('График за все время', styles['StatsMeta']))
+    story.append(Spacer(1, 0.2 * cm))
+    story.append(build_stats_chart_drawing(stats.get('timeline', []), font_name=font_name))
 
     doc.build(story)
     buffer.seek(0)
@@ -2352,8 +2787,8 @@ async def add_comment(
     # Сохраняем фото комментария
     for photo in photos:
         if photo.filename:
-            ext = Path(photo.filename).suffix.lower()
-            if ext not in COMMENT_UPLOAD_EXTENSIONS:
+            ext = resolve_upload_extension(photo, COMMENT_UPLOAD_EXTENSIONS)
+            if not ext:
                 continue
             
             unique_name = f"{uuid.uuid4().hex}{ext}"
@@ -2530,7 +2965,7 @@ async def export_complex_pdf(complex_id: int, section_id: Optional[int] = None):
     stats_data = [
         ["Статус", "Значение"],
         ["Всего замечаний", str(total_defects)],
-        ["Зафиксировано", str(by_status.get('recorded', 0))],
+        ["Зафиксированно", str(by_status.get('recorded', 0))],
         ["В работе", str(by_status.get('in_progress', 0))],
         ["На проверке", str(by_status.get('on_review', 0))],
         ["Выполнено", str(by_status.get('completed', 0))],

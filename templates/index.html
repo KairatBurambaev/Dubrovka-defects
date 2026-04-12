@@ -106,6 +106,7 @@
                         </button>
                     </div>
                     <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Показать замечания</button>
+                    <button class="pill pill-stats" id="complexCommentsBtn" onclick="showFilteredDefectCommentsModal()" style="display:none;">Комментарии</button>
                     <button class="pill pill-stats" id="statsBtn" onclick="showStatsModal()" style="display:none;">Статистика</button>
                 </div>
             </header>
@@ -222,9 +223,8 @@
                                 <label>Часть двери</label>
                                 <select id="doorSide">
                                     <option value="">Выберите</option>
-                                    <option value="Нар">Наружная</option>
-                                    <option value="Вн">Внутренняя</option>
-                                    <option value="Общ.">Общ.</option>
+                                    <option value="Межкомнатная">Межкомнатная</option>
+                                    <option value="Входная">Входная</option>
                                 </select>
                             </div>
                             <div class="form-field" id="restorationGroup" style="display:none;">
@@ -236,27 +236,15 @@
                             </div>
                         </div>
                         <div class="form-field form-field-lg">
-                            <label>Замечание</label>
-                            <textarea id="defectDescription" rows="4" required placeholder="Опишите замечание понятной рабочей формулировкой"></textarea>
+                            <label>Замечания</label>
+                            <input type="hidden" id="defectDescription">
+                            <div id="defectItemsEditor" class="defect-items-editor"></div>
+                            <button type="button" class="btn btn-secondary btn-sm defect-item-add-btn" onclick="addDefectFormItem()">+ Добавить замечание</button>
                         </div>
                     </div>
-
-                        <div class="defect-form-section">
-                        <div class="defect-form-section-title">Фото</div>
-                        <div class="form-field">
-                            <div class="upload-zone" id="fileUploadArea">
-                                <input type="file" id="defectPhotosBefore" multiple accept="image/*" hidden>
-                                <input type="file" id="defectPhotosBeforeGallery" multiple accept="image/*" hidden>
-                                <input type="file" id="defectPhotosBeforeCamera" accept="image/*" capture="environment" hidden>
-                                Перетащите фото или нажмите для выбора
-                            </div>
-                            <div class="defect-photo-mobile-actions">
-                                <button type="button" class="btn btn-secondary" onclick="openDefectGallery()">Галерея</button>
-                                <button type="button" class="btn btn-primary" onclick="openDefectCamera()">Камера</button>
-                            </div>
-                            <div id="previewGridBefore" class="previews"></div>
-                        </div>
-                    </div>
+                    <input type="file" id="defectPhotosBefore" multiple accept="image/*" hidden>
+                    <input type="file" id="defectPhotosBeforeGallery" multiple accept="image/*" hidden>
+                    <input type="file" id="defectPhotosBeforeCamera" accept="image/*" capture="environment" hidden>
                     <div class="form-footer">
                         <button type="button" class="btn" onclick="closeDefectModal()">Отмена</button>
                         <button type="submit" class="btn btn-primary">Сохранить</button>
@@ -335,6 +323,18 @@
                 <h3>Замечания по отфильтрованным квартирам</h3>
             </div>
             <div class="modal-body" id="filteredDefectsBody"></div>
+            <div class="modal-footer filtered-defects-footer">
+            </div>
+        </div>
+    </div>
+
+    <div id="filteredDefectCommentsModal" class="modal" onclick="closeFilteredDefectCommentsModal(event)">
+        <div class="modal-content filtered-defects-modal filtered-comments-modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <button class="btn btn-primary" onclick="printFilteredDefectComments()">Печать</button>
+                <h3>Комментарии к замечаниям отфильтрованных квартир</h3>
+            </div>
+            <div class="modal-body" id="filteredDefectCommentsBody"></div>
             <div class="modal-footer filtered-defects-footer">
             </div>
         </div>

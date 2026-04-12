@@ -19,7 +19,7 @@
   --gray-lighter: #bdc1c6;
   --gray-lightest: #f1f3f4;
   --white: #ffffff;
-  --bg: #f8f9fa;
+  --bg: #ffffff;
   --card: var(--white);
   --text: #202124;
   --text-secondary: #5f6368;
@@ -201,10 +201,13 @@
     padding: 12px 8px 20px;
   }
 
-  body.page-apartment-detail .panel {
-    border-radius: 16px;
-    width: 100%;
-  }
+body.page-apartment-detail .panel {
+  border-radius: 16px;
+  width: 100%;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
 
   body.page-apartment-detail #defectsList {
     padding-top: 12px;
@@ -940,8 +943,17 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
 }
 
 .filtered-defects-modal {
-  width: min(980px, 94vw);
-  max-width: min(980px, 94vw);
+  width: min(1480px, 98vw);
+  max-width: min(1480px, 98vw);
+  max-height: min(84vh, 920px);
+  display: flex;
+  flex-direction: column;
+}
+
+.filtered-defects-modal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .filtered-defects-group + .filtered-defects-group {
@@ -1007,16 +1019,17 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
   align-items: center;
   padding: 2px 8px;
   border-radius: 999px;
+  background: transparent;
   color: inherit;
 }
 
 .filtered-defect-item-token.is-in-progress {
-  background: #fef3c7;
   color: #92400e;
 }
 
 .filtered-defect-item-token.is-on-review {
   background: #ecfeff;
+  border-radius: 8px;
   color: #0f766e;
 }
 
@@ -1029,10 +1042,48 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
   display: none;
 }
 
+.filtered-comments-modal {
+  width: min(1120px, 96vw);
+  max-width: min(1120px, 96vw);
+}
+
+.filtered-comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filtered-comment-card {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.filtered-comment-line {
+  color: var(--text);
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.filtered-comment-location-label {
+  font-weight: 700;
+}
+
+.filtered-comment-value {
+  font-weight: 400;
+}
+
+.filtered-comments-empty {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 @media (max-width: 768px) {
   .filtered-defects-modal {
     width: 100%;
     max-width: 100%;
+    max-height: min(90dvh, 90vh);
     border-radius: 18px 18px 0 0;
   }
 
@@ -1057,6 +1108,12 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
     display: grid;
     grid-template-columns: 1fr;
   }
+
+  .filtered-comments-modal {
+    width: 100%;
+    max-width: 100%;
+  }
+
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1068,7 +1125,7 @@ body {
   font-size: 14px;
   line-height: 1.6;
   color: var(--text);
-  background: var(--bg);
+  background: #ffffff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -1080,7 +1137,7 @@ body {
 .app {
   display: flex;
   min-height: 100vh;
-  background: var(--bg);
+  background: #ffffff;
 }
 
 .main {
@@ -1089,12 +1146,12 @@ body {
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
-  background: #f8fafc;
+  background: #ffffff;
 }
 
 .page-home .main {
   padding: 24px;
-  background: #f8fafc;
+  background: #ffffff;
 }
 
 .logo {
@@ -3261,6 +3318,7 @@ h1 {
 .status-item[data-status="in_progress"].active {
   border-color: #fbbc04;
   color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(251, 188, 4, 0.18);
 }
 
 .status-item[data-status="available"].active {
@@ -3606,6 +3664,36 @@ h1 {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
+.defect-item-edit-icon {
+  display: inline-block;
+  font-size: 11px;
+  opacity: 0.55;
+  margin-left: 4px;
+  cursor: pointer;
+}
+
+.defect-item-photo-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.defect-item-photo-icon svg {
+  display: block;
+}
+
+.defect-item-photo-count {
+  font-weight: 600;
+}
+
 .defect-item-number {
   font-weight: 600;
 }
@@ -3624,7 +3712,6 @@ h1 {
 }
 
 .defect-item-token.is-in-progress {
-  background: #fef3c7;
   color: #92400e;
 }
 
@@ -3635,6 +3722,7 @@ h1 {
 
 .defect-item-token.is-on-review {
   background: #ecfeff;
+  border-radius: 8px;
   color: #0f766e;
 }
 
@@ -5035,6 +5123,57 @@ body.page-create-complex .mobile-filter-buttons {
   background: var(--gray-lightest);
 }
 
+.defect-items-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.defect-form-item-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.defect-form-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.defect-form-item-index {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.defect-form-item-input {
+  flex: 1;
+}
+
+.defect-item-add-btn {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+.defect-item-previews {
+  margin-top: 0;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 10px;
+}
+
+.preview-item.is-existing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.18);
+  pointer-events: none;
+}
+
 .upload-zone:hover {
   border-color: var(--primary);
   background: var(--primary-subtle);
@@ -5304,9 +5443,9 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-popover {
-    width: min(920px, calc(100vw - 48px));
-    max-width: min(920px, calc(100vw - 48px));
-    max-height: min(82vh, 760px);
+    width: min(1840px, calc(100vw - 32px));
+    max-width: min(1840px, calc(100vw - 32px));
+    max-height: min(92vh, 1080px);
     border: 1px solid #d1d5db;
     border-radius: 14px;
     overflow: hidden;
@@ -5362,6 +5501,26 @@ body.page-create-complex .mobile-filter-buttons {
     padding: 0 16px;
 }
 
+.stats-ticket-head-actions .pill-stats {
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: none;
+    color: #5f6368;
+    box-shadow: none;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stats-ticket-head-actions .pill-stats:hover {
+    background: #f1f3f4;
+    box-shadow: none;
+    color: #5f6368;
+}
+
 .stats-ticket-total {
     padding: 22px 24px;
     border-left: 1px solid #e5e7eb;
@@ -5393,6 +5552,92 @@ body.page-create-complex .mobile-filter-buttons {
 .stats-ticket-layout {
     display: block;
     min-height: 0;
+}
+
+.stats-dashboard {
+    display: grid;
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+    gap: 18px;
+    padding: 18px;
+}
+
+.stats-panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px 0;
+}
+
+.stats-panel-head strong {
+    font-size: 18px;
+    color: #111111;
+}
+
+.stats-panel-head span {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.stats-today-panel,
+.stats-chart-panel {
+    margin: 0;
+}
+
+.stats-chart-wrap {
+    padding: 14px 18px 18px;
+}
+
+.stats-chart-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.stats-chart {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.stats-chart-grid-line {
+    stroke: #e2e8f0;
+    stroke-width: 1;
+}
+
+.stats-chart-axis-label {
+    fill: #64748b;
+    font-size: 11px;
+}
+
+.stats-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+}
+
+.stats-chart-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #334155;
+}
+
+.stats-chart-legend-icon {
+    width: 18px;
+    height: 10px;
+    display: block;
+    flex: 0 0 auto;
+}
+
+.stats-chart-empty {
+    min-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 13px;
 }
 
 .stats-ticket-summary {
@@ -5552,6 +5797,14 @@ body.page-create-complex .mobile-filter-buttons {
 
 .stats-ticket-row-no-access::before {
     background: #64748b;
+}
+
+.stats-ticket-row-remaining {
+    border-bottom-color: rgba(17, 17, 17, 0.18);
+}
+
+.stats-ticket-row-remaining::before {
+    background: #111111;
 }
 
 .stats-hero {
@@ -6151,7 +6404,8 @@ body.page-create-complex .mobile-filter-buttons {
     }
 
     .stats-ticket-head,
-    .stats-ticket-layout {
+    .stats-ticket-layout,
+    .stats-dashboard {
         grid-template-columns: 1fr;
     }
 
@@ -6173,6 +6427,16 @@ body.page-create-complex .mobile-filter-buttons {
 
     .stats-ticket-list {
         padding: 8px 16px 16px;
+    }
+
+    .stats-chart-wrap {
+        padding: 8px 12px 16px;
+    }
+
+    .stats-panel-head {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 16px 16px 0;
     }
 
     .stats-ticket-card {
@@ -6502,6 +6766,28 @@ body.page-create-complex .mobile-filter-buttons {
   min-width: 0;
 }
 
+.section-combined-title-main {
+  width: 100%;
+  text-align: center;
+  margin-bottom: -12px;
+}
+
+.section-body-container-sorted {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.section-body-container-sorted .section-combined-title {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.apt-sort-grid-sorted {
+  width: 100%;
+}
+
 .section-combined-floors {
   display: flex;
   flex-direction: column;
@@ -6560,6 +6846,54 @@ body.page-complex-detail .complex-detail-content {
 
 body.page-complex-detail .complex-detail-main {
   max-width: none;
+}
+
+body.page-complex-detail #tab-complex-detail,
+body.page-complex-detail .main,
+body.page-complex-detail .complex-detail-content,
+body.page-complex-detail .complex-detail-main,
+body.page-complex-detail #apartmentsContainer,
+body.page-complex-detail .sections-grid,
+body.page-complex-detail .section-group-grid {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  background: transparent !important;
+}
+
+body.page-complex-detail .sections-grid,
+body.page-complex-detail .section-group-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 0 !important;
+  padding: 0 !important;
+}
+
+body.page-complex-detail .section-card,
+body.page-complex-detail .section-group,
+body.page-complex-detail .section-card-mobile-flat,
+body.page-complex-detail .section-card-combined {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+body.page-complex-detail .section-header,
+body.page-complex-detail .section-body-container,
+body.page-complex-detail .section-group-header,
+body.page-complex-detail .section-body,
+body.page-complex-detail .section-body-combined,
+body.page-complex-detail .section-combined-block {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 @media (max-width: 760px) {
@@ -9740,6 +10074,7 @@ body {
   box-shadow: none !important;
   font-size: clamp(11px, 0.72vw, 12px);
   font-weight: 700;
+  overflow: visible !important;
 }
 
 .apt:hover {
@@ -9796,8 +10131,6 @@ body {
 }
 
 .apt-badge {
-  top: -3px;
-  right: -3px;
   min-width: 13px;
   height: 13px;
   padding: 0 3px;
@@ -9813,16 +10146,43 @@ body {
   line-height: 1;
   letter-spacing: 0;
   box-shadow: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.apt-badge-total {
+  top: -3px !important;
+  left: -3px !important;
+  right: auto !important;
+  bottom: auto !important;
+}
+
+.apt-badge-new {
+  top: -3px !important;
+  right: -3px !important;
+  left: auto !important;
+  bottom: auto !important;
+  background: #f5efe3;
+  color: #8a6a35;
 }
 
 .apt-badge-review {
   top: auto !important;
   right: auto !important;
-  left: -6px !important;
+  left: -3px !important;
   bottom: -3px !important;
   background: #7DE3D6 !important;
   color: #111111 !important;
   box-shadow: none !important;
+}
+
+.apt-badge-completed {
+  right: -3px !important;
+  bottom: -3px !important;
+  left: auto !important;
+  top: auto !important;
+  background: #dcfce7;
+  color: #166534;
 }
 
 @media (min-width: 1400px) {
@@ -9890,21 +10250,41 @@ body {
     height: clamp(26px, 7vw, 30px);
     border-radius: 6px;
     font-size: 10px;
+    overflow: visible !important;
   }
 
   .apt-badge {
-    top: -3px;
-    right: -3px;
     min-width: 14px;
     height: 14px;
     font-size: 7px;
   }
 
+  .apt-badge-total {
+    top: -3px !important;
+    left: -3px !important;
+    right: auto !important;
+    bottom: auto !important;
+  }
+
+  .apt-badge-new {
+    top: -3px !important;
+    right: -3px !important;
+    left: auto !important;
+    bottom: auto !important;
+  }
+
   .apt-badge-review {
     top: auto !important;
     right: auto !important;
-    left: -6px !important;
+    left: -3px !important;
     bottom: -3px !important;
+  }
+
+  .apt-badge-completed {
+    right: -3px !important;
+    bottom: -3px !important;
+    left: auto !important;
+    top: auto !important;
   }
 }
 
@@ -10002,6 +10382,41 @@ body {
 
 .section-card-sorted {
   max-width: none;
+}
+
+body.page-complex-detail .sections-grid.sections-grid-sorted {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 12px !important;
+}
+
+body.page-complex-detail .sections-grid.sections-grid-sorted .section-card-sorted {
+  flex: 0 1 auto !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+}
+
+body.page-complex-detail .section-body-container.section-body-container-sorted {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+}
+
+body.page-complex-detail .section-body-container.section-body-container-sorted .section-combined-title {
+  width: 100%;
+  text-align: center;
+}
+
+body.page-complex-detail .apt-sort-grid.apt-sort-grid-sorted {
+  width: fit-content !important;
+  max-width: 100% !important;
+  justify-content: center !important;
+  margin: 0 auto !important;
 }
 
 .apt-sort-grid {
@@ -10808,4 +11223,44 @@ body {
     right: 12px;
     bottom: 12px;
   }
+}
+
+/* Final transparency override for apartment tiles page */
+body.page-complex-detail .empty-state {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+body.page-complex-detail .empty-state .empty-icon {
+  display: none !important;
+}
+
+body.page-apartment-detail #defectsList .empty-state {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+body.page-complex-detail .section-card,
+body.page-complex-detail .section-group,
+body.page-complex-detail .section-card-mobile-flat,
+body.page-complex-detail .section-card-combined,
+body.page-complex-detail .section-header,
+body.page-complex-detail .section-body-container,
+body.page-complex-detail .section-body,
+body.page-complex-detail .section-group-header,
+body.page-complex-detail .section-body-combined,
+body.page-complex-detail .section-combined-block,
+body.page-complex-detail .section-stat,
+body.page-complex-detail .section-stat-neutral,
+body.page-complex-detail .section-stat-success,
+body.page-complex-detail .section-stat-warning,
+body.page-complex-detail .section-stat-danger,
+body.page-complex-detail .section-stat-slate {
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
