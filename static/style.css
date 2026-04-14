@@ -10882,7 +10882,7 @@ body.page-complex-detail .section-heading.section-heading-simple {
   height: 20px;
   background: #111111 !important;
   color: #ffffff !important;
-  border-radius: 50%;
+  border-radius: 6px;
   font-size: 10px;
   font-weight: 700;
   border: 2px solid #fff;
