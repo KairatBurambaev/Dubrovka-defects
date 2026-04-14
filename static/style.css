@@ -8037,6 +8037,26 @@ body.page-complex-detail .sections-grid.sections-grid-combined .section-card-com
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.22) !important;
 }
 
+.apt-badge-total,
+.apt-badge-black {
+  top: -6px;
+  left: -6px;
+  right: auto;
+  background: #111111;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(255,59,48,0.4);
+}
+
+.apt-badge-review {
+  top: auto;
+  bottom: -6px;
+  left: -6px;
+  right: auto;
+  background: #bfdbfe !important;
+  color: #1e3a8a !important;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.22) !important;
+}
+
 /* ========== VARIANT: MINIMAL ========== */
 /* Uncomment to use:
 .apt {
