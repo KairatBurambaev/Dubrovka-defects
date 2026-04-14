@@ -789,12 +789,14 @@ function getApartmentById(apartmentId) {
 
 function syncCurrentApartmentSummaryFromDefects() {
     if (!state.currentApartment || !Array.isArray(state.currentApartmentData?.defects)) return;
-
+ 
     const defects = state.currentApartmentData.defects;
     const recordedCount = defects.filter((defect) => ['new', 'recorded'].includes(defect.status || 'recorded')).length;
     const inProgressCount = defects.filter((defect) => defect.status === 'in_progress').length;
     const onReviewCount = defects.filter((defect) => defect.status === 'on_review').length;
-    const activeCount = recordedCount + inProgressCount;
+    const completedCount = defects.filter((defect) => defect.status === 'completed').length;
+    const restorationCount = defects.filter((defect) => (defect.restoration === 1 || defect.restoration === true) && defect.restoration_completed !== 1).length;
+    const activeCount = recordedCount + inProgressCount + completedCount + restorationCount;
 
     updateApartmentSummaryCache(state.currentApartment, {
         recorded_defects_count: recordedCount,
@@ -2708,7 +2710,7 @@ function getApartmentWorkflowClass(apartment) {
 function countsAsDefectApartment(apartment) {
     const hasActiveDefects = Number(apartment?.active_defects_count || 0) > 0;
     const hasRestoration = apartmentNeedsRestoration(apartment?.id);
-    return hasRestoration || (!isAcceptedApartment(apartment) && hasActiveDefects);
+    return hasRestoration || hasActiveDefects;
 }
 
 // Update stats panel with current filter/counts
@@ -2809,8 +2811,7 @@ function getApartmentSortCount(apartment, catFilter) {
 }
 
 function getApartmentSortMeta(apartment, catFilter) {
-    let newCount = Number(apartment.recorded_defects_count || 0);
-    let openCount = Math.max(0, Number(apartment.active_defects_count || 0) - newCount);
+    let openCount = Number(apartment.active_defects_count || 0);
     let reviewCount = Number(apartment.on_review_defects_count || 0);
 
     if (catFilter && state.currentDefects.length) {
@@ -2818,44 +2819,23 @@ function getApartmentSortMeta(apartment, catFilter) {
             (d) => d.apartment_id === apartment.id && d.category === catFilter
         );
 
-        newCount = categoryDefects.filter((d) => d.status === 'recorded').length;
-        openCount = categoryDefects.filter((d) => !isClosedDefectStatus(d.status) && d.status !== 'recorded').length;
+        openCount = categoryDefects.filter((d) => !isClosedDefectStatus(d.status)).length;
         reviewCount = categoryDefects.filter((d) => d.status === 'on_review').length;
     }
 
-    const totalOpenAndNew = openCount + newCount;
-
-    if (openCount === 0 && newCount === 0) {
-        return { rank: 0, count: reviewCount, openCount, newCount, reviewCount, totalOpenAndNew };
-    }
-
-    if (newCount > 0 && openCount === 0) {
-        return { rank: 1, count: newCount, openCount, newCount, reviewCount, totalOpenAndNew };
-    }
-
-    if (openCount > 0 && newCount > 0) {
-        return { rank: 3, count: totalOpenAndNew, openCount, newCount, reviewCount, totalOpenAndNew };
-    }
-
-    return { rank: 2, count: openCount, openCount, newCount, reviewCount, totalOpenAndNew };
+    return { openCount, reviewCount, totalAll: openCount + reviewCount };
 }
 
 function renderApartmentTile(apartment, propFull, catFilter) {
     const deadlineClass = getDeadlineClass(apartment);
     const cls = getApartmentClass(apartment.access_status, apartment.active_defects_count);
     const isAccepted = isAcceptedApartment(apartment);
-    const hasRestoration = apartmentNeedsRestoration(apartment?.id);
     const hasActiveDefects = Number(apartment?.active_defects_count || 0) > 0;
     
-    // Count includes restoration for badge
-    const baseCount = hasActiveDefects ? Number(apartment.active_defects_count || 0) : 0;
-    const restorationCount = hasRestoration ? 1 : 0;
-    const totalBadgeCount = baseCount + restorationCount;
-    
-    // Show black badge for accepted apartments with defects (including restoration)
-    const showBlackBadge = isAccepted && (hasActiveDefects || hasRestoration);
-    const badge = !isAccepted && totalBadgeCount > 0 ? `<span class="apt-badge apt-badge-total">${formatApartmentBadgeCount(totalBadgeCount)}</span>` : '';
-    const blackBadge = showBlackBadge ? `<span class="apt-badge apt-badge-black">${formatApartmentBadgeCount(totalBadgeCount)}</span>` : '';
+    // Show black badge for accepted apartments with defects
+    const showBlackBadge = isAccepted && hasActiveDefects;
+    const badge = !isAccepted && hasActiveDefects ? `<span class="apt-badge apt-badge-total">${formatApartmentBadgeCount(apartment.active_defects_count)}</span>` : '';
+    const blackBadge = showBlackBadge ? `<span class="apt-badge apt-badge-black">${formatApartmentBadgeCount(apartment.active_defects_count)}</span>` : '';
     const newCount = Number(apartment.recorded_defects_count || 0);
     const newBadge = newCount > 0 && !showBlackBadge ? `<span class="apt-badge apt-badge-new">${formatApartmentBadgeCount(newCount)}</span>` : '';
     const onReviewCount = Number(apartment.on_review_defects_count || 0);
@@ -3139,7 +3119,7 @@ function renderApartments(apartments) {
         visibleApartments
             .filter((apartment) => {
                 const meta = getApartmentSortMeta(apartment, catFilter);
-                return meta.totalOpenAndNew > 0 || meta.reviewCount > 0;
+                return meta.totalAll > 0;
             })
             .forEach((apartment) => {
             const sectionNumber = apartment.section_number || 0;
@@ -3172,9 +3152,8 @@ function renderApartments(apartments) {
                     const sectionApartments = sortedBySection[sectionNumber].sort((a, b) => {
                         const metaA = getApartmentSortMeta(a, catFilter);
                         const metaB = getApartmentSortMeta(b, catFilter);
-                        if (metaA.rank !== metaB.rank) return metaA.rank - metaB.rank;
-                        if (metaA.count !== metaB.count) return metaA.count - metaB.count;
-                        return Number(a.number) - Number(b.number);
+                        if (metaA.openCount !== metaB.openCount) return metaB.openCount - metaA.openCount;
+                        return metaB.reviewCount - metaA.reviewCount;
                     });
 
                     return `
@@ -4030,6 +4009,7 @@ async function toggleDefectRestoration(id, event) {
         if (defect) {
             defect.restoration = next;
         }
+        syncCurrentApartmentSummaryFromDefects();
         showToast(next ? 'Отмечена реставрация' : 'Реставрация снята', 'success');
     } catch (err) {
         showToast('Ошибка обновления', 'error');

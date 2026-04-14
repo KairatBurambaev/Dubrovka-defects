@@ -1259,7 +1259,8 @@ async def get_apartments(
     
     query = """
         SELECT a.*, s.section_number, {building_number_expr} AS building_number,
-               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) as active_defects_count,
+               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('rejected', 'on_review'))
+               + (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND restoration = 1 AND restoration_completed != 1) as active_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id) as total_defects,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'recorded') as recorded_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'in_progress') as in_progress_defects_count,
