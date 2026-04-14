@@ -20,11 +20,51 @@
   --neutral-br: #d1d5db;
 }
 
+@font-face {
+  font-family: 'InterLocal';
+  src: url('/static/fonts/Inter-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: 'InterLocal';
+  src: url('/static/fonts/Inter-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: 'InterLocal';
+  src: url('/static/fonts/Inter-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: 'InterLocal';
+  src: url('/static/fonts/InterDisplay-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: 'InterLocal';
+  src: url('/static/fonts/InterDisplay-ExtraBold.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: optional;
+}
+
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: 'Inter', sans-serif;
+  font-family: 'InterLocal', 'Inter', sans-serif;
   color: var(--text);
   background:
     radial-gradient(circle at top, rgba(59, 130, 246, 0.12), transparent 32%),

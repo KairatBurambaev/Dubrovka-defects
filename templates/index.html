@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Перспектива Инжиниринг гарантийный сервис</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css?v=9655">
-    <script src="/static/app.js?v=9488"></script>
+    <link rel="preload" href="/static/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/Inter-Medium.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/Inter-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/InterDisplay-Bold.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/InterDisplay-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/static/style.css?v=9680">
+    <script src="/static/app.js?v=9501"></script>
 </head>
 <body>
     <div class="app">
@@ -19,6 +21,15 @@
                     <div id="pageTitle" class="clickable-title title-stack">
                         <span class="title-line title-primary apartment-title-row">
                             <span id="jkName" onclick="onTitleClick()">Перспектива</span>
+                            <select id="mobileApartmentStatusSelect" class="select mobile-apartment-status-select" onchange="handleMobileApartmentStatusChange(this.value)">
+                                <option value="">Без статуса</option>
+                                <option value="owner_accepted">Принята</option>
+                                <option value="call">Вызов</option>
+                                <option value="in_progress">В работе</option>
+                                <option value="by_phone">Доступ по номеру</option>
+                                <option value="no_access">Нет доступа</option>
+                                <option value="complex">Сложная</option>
+                            </select>
                             <button id="headerPrintBtn" class="btn btn-sm apartment-header-print" onclick="printDefects()" style="display:none;">Печать</button>
                         </span>
                         <span class="title-line title-secondary" id="titleSecondary">− инжиниринг −</span>
@@ -105,8 +116,7 @@
                             <span>Сложная</span>
                         </button>
                     </div>
-                    <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Показать замечания</button>
-                    <button class="pill pill-stats" id="complexCommentsBtn" onclick="showFilteredDefectCommentsModal()" style="display:none;">Комментарии</button>
+                    <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Замечания и комментарии</button>
                     <button class="pill pill-stats" id="statsBtn" onclick="showStatsModal()" style="display:none;">Статистика</button>
                 </div>
             </header>
@@ -180,6 +190,13 @@
 
                 <div class="complex-detail-content">
                     <div class="complex-detail-main">
+                        <div id="mobileApartmentFinder" class="mobile-apartment-finder">
+                            <label for="mobileApartmentNumberInput">Введите номер квартиры для открытия</label>
+                            <div class="mobile-apartment-finder-row">
+                                <input type="number" id="mobileApartmentNumberInput" class="input" placeholder="Например, 46" inputmode="numeric">
+                                <button type="button" class="btn btn-primary" onclick="openApartmentByNumber()">Открыть</button>
+                            </div>
+                        </div>
                         <div id="apartmentsContainer" class="sections-grid"></div>
                     </div>
                 </div>
@@ -319,7 +336,10 @@
     <div id="filteredDefectsModal" class="modal" onclick="closeFilteredDefectsModal(event)">
         <div class="modal-content filtered-defects-modal" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <button class="btn btn-primary" onclick="printFilteredDefects()">Печать</button>
+                <div class="filtered-defects-header-actions">
+                    <button class="btn btn-secondary" onclick="showFilteredDefectCommentsModal()">Комментарии</button>
+                    <button class="btn btn-primary" onclick="printFilteredDefects()">Печать</button>
+                </div>
                 <h3>Замечания по отфильтрованным квартирам</h3>
             </div>
             <div class="modal-body" id="filteredDefectsBody"></div>
@@ -331,7 +351,10 @@
     <div id="filteredDefectCommentsModal" class="modal" onclick="closeFilteredDefectCommentsModal(event)">
         <div class="modal-content filtered-defects-modal filtered-comments-modal" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <button class="btn btn-primary" onclick="printFilteredDefectComments()">Печать</button>
+                <div class="filtered-defects-header-actions">
+                    <button class="btn btn-secondary" onclick="showFilteredDefectsModal()">Замечания</button>
+                    <button class="btn btn-primary" onclick="printFilteredDefectComments()">Печать</button>
+                </div>
                 <h3>Комментарии к замечаниям отфильтрованных квартир</h3>
             </div>
             <div class="modal-body" id="filteredDefectCommentsBody"></div>

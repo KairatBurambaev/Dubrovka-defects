@@ -2,11 +2,13 @@ import sqlite3
 import os
 import uuid
 import json
+import time
+import logging
 from pathlib import Path
 from datetime import datetime, timedelta, date
 from dateutil.relativedelta import relativedelta
 from typing import Optional, List
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -41,6 +43,39 @@ UPLOAD_CONTENT_TYPE_EXTENSIONS = {
 app = FastAPI(title="ЖК Дубровка - Перспектива Инжиниринг гарантийный сервис")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s"
+)
+logger = logging.getLogger("dubrovka")
+SLOW_REQUEST_THRESHOLD_SECONDS = 1.5
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    started_at = time.perf_counter()
+    method = request.method
+    path = request.url.path
+    query = request.url.query
+    target = f"{path}?{query}" if query else path
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
+        logger.exception("Unhandled error on %s %s in %sms", method, target, duration_ms)
+        raise
+
+    duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
+    status_code = response.status_code
+
+    if status_code >= 500:
+        logger.error("HTTP %s on %s %s in %sms", status_code, method, target, duration_ms)
+    elif duration_ms >= SLOW_REQUEST_THRESHOLD_SECONDS * 1000:
+        logger.warning("Slow request %s %s -> %s in %sms", method, target, status_code, duration_ms)
+
+    return response
 
 CATEGORIES = [
     "Общестроительные работы",
@@ -130,10 +165,18 @@ TEMPLATES = {
 }
 
 
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
+def configure_db(conn):
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
+
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH, timeout=5.0)
+    return configure_db(conn)
 
 
 def has_column(conn, table_name, column_name):
@@ -955,9 +998,34 @@ class DefectCreate(BaseModel):
     deadline: Optional[str] = None
 
 
+class ClientErrorLog(BaseModel):
+    message: str
+    source: Optional[str] = ""
+    lineno: Optional[int] = 0
+    colno: Optional[int] = 0
+    stack: Optional[str] = ""
+    href: Optional[str] = ""
+    user_agent: Optional[str] = ""
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return HTMLResponse((BASE_DIR / "templates" / "index.html").read_text(encoding="utf-8"))
+
+
+@app.post("/api/client-error")
+async def log_client_error(payload: ClientErrorLog):
+    logger.error(
+        "Client error: message=%s source=%s line=%s col=%s href=%s ua=%s stack=%s",
+        payload.message,
+        payload.source,
+        payload.lineno,
+        payload.colno,
+        payload.href,
+        payload.user_agent,
+        payload.stack,
+    )
+    return {"ok": True}
 
 
 @app.get("/style-variants", response_class=HTMLResponse)
