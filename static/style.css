@@ -3513,7 +3513,7 @@ h1 {
 .floor-label {
   width: 48px;
   min-height: 34px;
-  border-radius: 0;
+  border-radius: 8px;
   font-size: 11px;
   font-weight: 600;
   background: #64748b;
@@ -3524,12 +3524,12 @@ h1 {
   flex-direction: column;
   line-height: 1.2;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-radius 0.15s ease;
 }
 
 .floor-label:hover {
-  background: #475569;
-  transform: scale(1.05);
-  transition: background 0.15s ease, transform 0.15s ease;
+  background: #94a3b8;
+  border-radius: 10px;
 }
 
 .section-stats {
@@ -12865,6 +12865,11 @@ body.dark-theme .section-card-combined .section-combined-title-main,
 body.dark-theme .section-title,
 body.dark-theme .floor-label {
   color: var(--text-secondary) !important;
+}
+
+body.dark-theme .floor-label:hover {
+  background: #475569 !important;
+  border-radius: 10px;
 }
 
 body.dark-theme .theme-toggle-btn {
