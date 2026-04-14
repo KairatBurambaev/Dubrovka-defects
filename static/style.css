@@ -3487,23 +3487,14 @@ h1 {
   font-weight: 700;
   color: #334155;
   letter-spacing: -0.01em;
-  cursor: pointer;
-}
-
-.section-title:hover {
-  color: #0f172a;
+  cursor: default;
 }
 
 .section-header {
   padding: 14px 18px;
   background: #f9fafb;
   border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.section-header:hover {
-  background: #f1f5f9;
+  cursor: default;
 }
 
 .section-count {
@@ -3523,7 +3514,7 @@ h1 {
   justify-content: center;
   flex-direction: column;
   line-height: 1.2;
-  cursor: pointer;
+  cursor: default;
   transition: background-color 0.15s ease, border-radius 0.15s ease;
 }
 

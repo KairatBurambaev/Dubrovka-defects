@@ -742,6 +742,14 @@ function applyApartmentFilters(apartments) {
         filtered = filtered.filter(countsAsDefectApartment);
     }
 
+    if (state.reviewOnly) {
+        filtered = filtered.filter((apartment) => Number(apartment.on_review_defects_count || 0) > 0);
+    }
+
+    if (state.restorationOnly) {
+        filtered = filtered.filter((apartment) => apartmentNeedsRestoration(apartment.id));
+    }
+
     if (searchNumbers) {
         filtered = filtered.filter((apartment) => searchNumbers.has(Number(apartment.number)));
     }
@@ -2835,14 +2843,19 @@ function getApartmentSortMeta(apartment, catFilter) {
 function renderApartmentTile(apartment, propFull, catFilter) {
     const deadlineClass = getDeadlineClass(apartment);
     const cls = getApartmentClass(apartment.access_status, apartment.active_defects_count);
-    const badgeCount = getApartmentBadgeCount(apartment, catFilter);
     const isAccepted = isAcceptedApartment(apartment);
-    const hasOpenDefects = countsAsDefectApartment(apartment);
+    const hasRestoration = apartmentNeedsRestoration(apartment?.id);
+    const hasActiveDefects = Number(apartment?.active_defects_count || 0) > 0;
     
-    // Show black badge for accepted apartments with open defects
-    const showBlackBadge = isAccepted && hasOpenDefects;
-    const badge = badgeCount > 0 ? `<span class="apt-badge apt-badge-total">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
-    const blackBadge = showBlackBadge ? `<span class="apt-badge apt-badge-black">${formatApartmentBadgeCount(badgeCount)}</span>` : '';
+    // Count includes restoration for badge
+    const baseCount = hasActiveDefects ? Number(apartment.active_defects_count || 0) : 0;
+    const restorationCount = hasRestoration ? 1 : 0;
+    const totalBadgeCount = baseCount + restorationCount;
+    
+    // Show black badge for accepted apartments with defects (including restoration)
+    const showBlackBadge = isAccepted && (hasActiveDefects || hasRestoration);
+    const badge = !isAccepted && totalBadgeCount > 0 ? `<span class="apt-badge apt-badge-total">${formatApartmentBadgeCount(totalBadgeCount)}</span>` : '';
+    const blackBadge = showBlackBadge ? `<span class="apt-badge apt-badge-black">${formatApartmentBadgeCount(totalBadgeCount)}</span>` : '';
     const newCount = Number(apartment.recorded_defects_count || 0);
     const newBadge = newCount > 0 && !showBlackBadge ? `<span class="apt-badge apt-badge-new">${formatApartmentBadgeCount(newCount)}</span>` : '';
     const onReviewCount = Number(apartment.on_review_defects_count || 0);
