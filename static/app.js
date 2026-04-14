@@ -2698,7 +2698,9 @@ function getApartmentWorkflowClass(apartment) {
 }
 
 function countsAsDefectApartment(apartment) {
-    return !isAcceptedApartment(apartment) && Number(apartment?.active_defects_count || 0) > 0;
+    const hasActiveDefects = Number(apartment?.active_defects_count || 0) > 0;
+    const hasRestoration = apartmentNeedsRestoration(apartment?.id);
+    return hasRestoration || (!isAcceptedApartment(apartment) && hasActiveDefects);
 }
 
 // Update stats panel with current filter/counts
