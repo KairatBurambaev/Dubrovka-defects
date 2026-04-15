@@ -720,9 +720,11 @@ function applyApartmentFilters(apartments) {
         filtered = filtered.filter((apartment) => filteredIds.has(apartment.id));
     }
 
+    const filterConditions = [];
+    
     if (state.activeAccessFilters && state.activeAccessFilters.length > 0) {
-        filtered = filtered.filter((apartment) => {
-            const statusMatch = state.activeAccessFilters.some((filter) => {
+        filterConditions.push((apartment) => {
+            return state.activeAccessFilters.some((filter) => {
                 if (filter === 'owner_accepted') {
                     return isAcceptedApartment(apartment);
                 }
@@ -731,23 +733,25 @@ function applyApartmentFilters(apartments) {
                 }
                 return apartment.access_status === filter;
             });
-            
-            if (!statusMatch && state.defectsOnly) {
-                return countsAsDefectApartment(apartment);
-            }
-            
-            return statusMatch || (state.defectsOnly && countsAsDefectApartment(apartment));
         });
-    } else if (state.defectsOnly) {
-        filtered = filtered.filter(countsAsDefectApartment);
+    }
+
+    if (state.defectsOnly) {
+        filterConditions.push(countsAsDefectApartment);
     }
 
     if (state.reviewOnly) {
-        filtered = filtered.filter((apartment) => Number(apartment.on_review_defects_count || 0) > 0);
+        filterConditions.push((apartment) => Number(apartment.on_review_defects_count || 0) > 0);
     }
 
     if (state.restorationOnly) {
-        filtered = filtered.filter((apartment) => apartmentNeedsRestoration(apartment.id));
+        filterConditions.push((apartment) => apartmentNeedsRestoration(apartment.id));
+    }
+
+    if (filterConditions.length > 0) {
+        filtered = filtered.filter((apartment) => {
+            return filterConditions.every((condition) => condition(apartment));
+        });
     }
 
     if (searchNumbers) {
@@ -794,25 +798,32 @@ function syncCurrentApartmentSummaryFromDefects() {
     const recordedCount = defects.filter((defect) => ['new', 'recorded'].includes(defect.status || 'recorded')).length;
     const inProgressCount = defects.filter((defect) => defect.status === 'in_progress').length;
     const onReviewCount = defects.filter((defect) => defect.status === 'on_review').length;
-    const completedCount = defects.filter((defect) => defect.status === 'completed').length;
     const restorationCount = defects.filter((defect) => (defect.restoration === 1 || defect.restoration === true) && defect.restoration_completed !== 1).length;
-    const activeCount = recordedCount + inProgressCount + completedCount + restorationCount;
+    const activeCount = recordedCount + inProgressCount + restorationCount;
 
-    updateApartmentSummaryCache(state.currentApartment, {
+    const updates = {
         recorded_defects_count: recordedCount,
         in_progress_defects_count: inProgressCount,
         on_review_defects_count: onReviewCount,
         active_defects_count: activeCount
-    });
+    };
+
+    updateApartmentSummaryCache(state.currentApartment, updates);
 
     if (state.currentApartmentData) {
-        state.currentApartmentData.recorded_defects_count = recordedCount;
-        state.currentApartmentData.in_progress_defects_count = inProgressCount;
-        state.currentApartmentData.on_review_defects_count = onReviewCount;
-        state.currentApartmentData.active_defects_count = activeCount;
+        Object.assign(state.currentApartmentData, updates);
+    }
+
+    const apartment = getApartmentById(state.currentApartment);
+    if (apartment) {
+        Object.assign(apartment, updates);
     }
 
     state.gridNeedsRerender = true;
+    
+    if (state.currentApartment) {
+        refreshApartmentTile(state.currentApartment);
+    }
 }
 
 async function syncApartmentAfterDefectCollectionChange() {
@@ -2813,6 +2824,11 @@ function getApartmentSortCount(apartment, catFilter) {
 function getApartmentSortMeta(apartment, catFilter) {
     let openCount = Number(apartment.active_defects_count || 0);
     let reviewCount = Number(apartment.on_review_defects_count || 0);
+    const isAccepted = isAcceptedApartment(apartment);
+    const hasActiveDefects = openCount > 0;
+
+    const blackBadge = isAccepted && hasActiveDefects;
+    const greenBadge = !isAccepted && hasActiveDefects;
 
     if (catFilter && state.currentDefects.length) {
         const categoryDefects = state.currentDefects.filter(
@@ -2823,7 +2839,10 @@ function getApartmentSortMeta(apartment, catFilter) {
         reviewCount = categoryDefects.filter((d) => d.status === 'on_review').length;
     }
 
-    return { openCount, reviewCount, totalAll: openCount + reviewCount };
+    const finalBlackBadge = isAccepted && openCount > 0;
+    const finalGreenBadge = !isAccepted && openCount > 0;
+
+    return { openCount, reviewCount, greenBadge: finalGreenBadge, blackBadge: finalBlackBadge, totalAll: openCount + reviewCount };
 }
 
 function renderApartmentTile(apartment, propFull, catFilter) {
@@ -3121,6 +3140,16 @@ function renderApartments(apartments) {
                 const meta = getApartmentSortMeta(apartment, catFilter);
                 return meta.totalAll > 0;
             })
+            .sort((a, b) => {
+                const metaA = getApartmentSortMeta(a, catFilter);
+                const metaB = getApartmentSortMeta(b, catFilter);
+                const aTotal = metaA.openCount + metaA.reviewCount;
+                const bTotal = metaB.openCount + metaB.reviewCount;
+                if (aTotal === 0 && bTotal > 0) return 1;
+                if (bTotal === 0 && aTotal > 0) return -1;
+                if (metaA.reviewCount !== metaB.reviewCount) return metaA.reviewCount - metaB.reviewCount;
+                return metaA.openCount - metaB.openCount;
+            })
             .forEach((apartment) => {
             const sectionNumber = apartment.section_number || 0;
             if (!sortedBySection[sectionNumber]) {
@@ -3152,8 +3181,12 @@ function renderApartments(apartments) {
                     const sectionApartments = sortedBySection[sectionNumber].sort((a, b) => {
                         const metaA = getApartmentSortMeta(a, catFilter);
                         const metaB = getApartmentSortMeta(b, catFilter);
-                        if (metaA.openCount !== metaB.openCount) return metaB.openCount - metaA.openCount;
-                        return metaB.reviewCount - metaA.reviewCount;
+                        const aTotal = metaA.openCount + metaA.reviewCount;
+                        const bTotal = metaB.openCount + metaB.reviewCount;
+                        if (aTotal === 0 && bTotal > 0) return 1;
+                        if (bTotal === 0 && aTotal > 0) return -1;
+                        if (metaA.reviewCount !== metaB.reviewCount) return metaA.reviewCount - metaB.reviewCount;
+                        return metaA.openCount - metaB.openCount;
                     });
 
                     return `
@@ -3370,7 +3403,7 @@ async function showApartmentDetail(id) {
         const defectsRes = await fetch(`/api/apartments/${id}/defects`);
         if (!defectsRes.ok) throw new Error(`Defects fetch failed: ${defectsRes.status}`);
         const defects = await defectsRes.json();
-        const apts = await ensureCurrentComplexApartmentsLoaded();
+        const apts = await ensureCurrentComplexApartmentsLoaded(true);
         const apt = apts.find(a => a.id === id);
         
         if (!apt) {
@@ -3390,6 +3423,8 @@ async function showApartmentDetail(id) {
         }
         
         renderDefects(defects);
+        
+        syncCurrentApartmentSummaryFromDefects();
     } catch (err) {
         showToast('Ошибка загрузки', 'error');
         console.error(err);
@@ -4040,6 +4075,7 @@ async function toggleDefectRestorationCompleted(id, event) {
         badge.innerHTML = `Р${next ? '<span class="defect-restoration-check">&#10003;</span>' : ''}`;
         row.dataset.restorationCompleted = String(next);
         if (defect) defect.restoration_completed = next;
+        syncCurrentApartmentSummaryFromDefects();
         showToast(next ? 'Реставрация выполнена' : 'Отметка выполнения снята', 'success');
     } catch (err) {
         showToast('Ошибка обновления', 'error');
@@ -4132,8 +4168,11 @@ async function deleteDefect(id) {
     
     try {
         await fetch(`/api/defects/${id}`, { method: 'DELETE' });
+        const defects = state.currentApartmentData?.defects || [];
+        state.currentApartmentData.defects = defects.filter(d => d.id !== id);
+        syncCurrentApartmentSummaryFromDefects();
+        rerenderCurrentApartmentDefects();
         showToast('Удалено', 'success');
-        showApartmentDetail(state.currentApartment);
     } catch (err) {
         showToast('Ошибка удаления', 'error');
     }
@@ -4243,6 +4282,7 @@ async function saveDefectMeta(id, options = {}) {
         const row = document.querySelector(`.defect-row[data-defect-id="${id}"]`);
         if (row) markDefectRowClean(row);
         if (!silentSuccess) showToast('Сохранено', 'success');
+        syncCurrentApartmentSummaryFromDefects();
     } catch (err) {
         showToast(err.message || 'Ошибка сохранения', 'error');
     }
