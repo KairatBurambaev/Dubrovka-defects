@@ -5358,7 +5358,7 @@ async function printDefects() {
                             <div>${printDate}</div>
                         </div>
 
-                        <div class="field-line">Дольщик / Лицо по доверенности: ${renderPrintLine('', 'line-person')}<span class="hint">(Фамилия, Имя, Отчество)</span></div>
+                        <div class="field-line">Дольщик/уполномоченный представитель: ${renderPrintLine('', 'line-person')}<span class="hint">(Фамилия, Имя, Отчество)</span></div>
                         <div class="field-line">Подрядчик (Застройщик/уполномоченный представитель): ${renderPrintLine('', 'line-contractor')}<span class="hint">(наименование организации, должность, Фамилия, Имя, Отчество представителя)</span></div>
                         <div class="field-line">Квартира № ${renderPrintLine(apt.number, 'line-apt-number')}, расположенная по адресу: ${renderPrintLine(complexAddress, 'line-address')}</div>
 
@@ -5392,7 +5392,7 @@ async function printDefects() {
                         <div class="section">Подписи сторон:</div>
                         <div class="signature-grid">
                             <div class="signature-block">
-                                <div><strong>Дольщик / Лицо по доверенности</strong></div>
+                                <div><strong>Дольщик/уполномоченный представитель</strong></div>
                                 <div class="signature-line">_______________ /________________________/</div>
                                 <div class="hint">(подпись) (расшифровка)</div>
                             </div>
