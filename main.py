@@ -533,18 +533,11 @@ def merge_duplicate_window_and_door_defects(conn):
 
 
 def migrate_sections_to_sections_only(conn):
-    if not has_column(conn, "sections", "building_number"):
-        return
-
-    sections = conn.execute(
-        """
-        SELECT id, complex_id, apartment_from, apartment_to, floors
-        FROM sections
-        ORDER BY complex_id, building_number, section_number, id
-        """
-    ).fetchall()
+    # Migration disabled - sections table is already in correct format
+    return
 
     if not sections:
+        conn.execute("DROP TABLE IF EXISTS sections_old")
         conn.execute("ALTER TABLE sections RENAME TO sections_old")
         conn.execute(
             """
@@ -1259,7 +1252,7 @@ async def get_apartments(
     
     query = """
         SELECT a.*, s.section_number, {building_number_expr} AS building_number,
-               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('rejected', 'on_review'))
+               (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status NOT IN ('rejected', 'on_review', 'completed') AND restoration != 1)
                + (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND restoration = 1 AND restoration_completed != 1) as active_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id) as total_defects,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'recorded') as recorded_defects_count,
