@@ -88,12 +88,10 @@ CATEGORIES = [
 ]
 
 STATUSES = {
-    "new": "Зафиксированно",
     "recorded": "Зафиксированно",
     "in_progress": "В работе",
     "on_review": "На проверке",
-    "completed": "Выполнено",
-    "rejected": "Отклонено"
+    "completed": "Выполнено"
 }
 
 STATUS_MIGRATION = {
@@ -106,8 +104,8 @@ STATUS_MIGRATION = {
     "cancelled": "rejected"
 }
 
-CLOSED_DEFECT_STATUSES = ("completed", "rejected", "on_review")
-MERGE_BLOCKING_DEFECT_STATUSES = ("rejected",)
+CLOSED_DEFECT_STATUSES = ("completed", "on_review")
+MERGE_BLOCKING_DEFECT_STATUSES = tuple()
 ACTIVE_DEFECT_STATUSES = tuple(status for status in STATUSES if status not in CLOSED_DEFECT_STATUSES)
 
 TEMPLATES = {

@@ -48,24 +48,20 @@ const FILTER_INDEXES = {
 };
 const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
 const DEFECT_STATUS_LABELS = {
-    new: 'Зафиксированно',
     recorded: 'Зафиксированно',
     in_progress: 'В работе',
     on_review: 'На проверке',
-    completed: 'Выполнено',
-    rejected: 'Отклонено'
+    completed: 'Выполнено'
 };
-const DEFECT_STATUS_ORDER = ['new', 'recorded', 'in_progress', 'on_review', 'completed', 'rejected'];
-const AVAILABLE_DEFECT_STATUSES = ['on_review', 'completed'];
+const DEFECT_STATUS_ORDER = ['recorded', 'in_progress', 'on_review', 'completed'];
+const AVAILABLE_DEFECT_STATUSES = ['in_progress', 'on_review', 'completed'];
 const DEFECT_STATUS_CLASSES = {
-    new: 'badge-new',
     recorded: 'badge-recorded',
     in_progress: 'badge-progress',
     on_review: 'badge-on-review',
-    completed: 'badge-completed',
-    rejected: 'badge-rejected'
+    completed: 'badge-completed'
 };
-const CLOSED_DEFECT_STATUSES = ['completed', 'rejected', 'on_review'];
+const CLOSED_DEFECT_STATUSES = ['completed', 'on_review'];
 const COMMENT_AUTHOR_STORAGE_KEY = 'dubrovkaDefectsCommentAuthor';
 let currentFilterIndex = 0;
 let photoModalItems = [];
@@ -795,7 +791,7 @@ function syncCurrentApartmentSummaryFromDefects() {
     if (!state.currentApartment || !Array.isArray(state.currentApartmentData?.defects)) return;
  
     const defects = state.currentApartmentData.defects;
-    const recordedCount = defects.filter((defect) => ['new', 'recorded'].includes(defect.status || 'recorded')).length;
+    const recordedCount = defects.filter((defect) => defect.status === 'recorded').length;
     const inProgressCount = defects.filter((defect) => defect.status === 'in_progress').length;
     const onReviewCount = defects.filter((defect) => defect.status === 'on_review').length;
     const restorationCount = defects.filter((defect) => (defect.restoration === 1 || defect.restoration === true) && defect.restoration_completed !== 1).length;
@@ -2370,10 +2366,13 @@ function getCurrentCommentAuthor(forcePrompt = false) {
 }
 
 function getAvailableDefectStatuses(currentStatus) {
-    if (['new', 'recorded'].includes(currentStatus)) {
-        return ['in_progress', ...AVAILABLE_DEFECT_STATUSES];
+    if (currentStatus === 'recorded') {
+        return ['in_progress', 'on_review', 'completed'];
     }
-    return AVAILABLE_DEFECT_STATUSES;
+    if (currentStatus === 'in_progress') {
+        return ['on_review', 'completed'];
+    }
+    return [];
 }
 
 function renderDefectStatusOptions(currentStatus) {
@@ -4991,7 +4990,7 @@ async function handleAddDefect(e) {
     const category = document.getElementById('defectCategory')?.value;
     const defectItems = getDefectFormItemsPayload();
     const description = defectItems.map((item) => item.text).join('\n');
-    const status = 'new';
+    const status = 'recorded';
     const windowNumber = document.getElementById('windowNumber')?.value;
     const doorSide = document.getElementById('doorSide')?.value;
     const restoration = document.getElementById('defectRestoration')?.checked ? 1 : 0;
