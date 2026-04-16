@@ -257,10 +257,13 @@ body.page-apartment-detail .panel {
   background: transparent !important;
   box-shadow: none !important;
   border-color: transparent !important;
-  padding-top: 0;
 }
 
-body.page-apartment-detail .panel-header {
+  body.page-apartment-detail #defectsList {
+    padding-top: 12px;
+  }
+
+  body.page-apartment-detail .panel-header {
     padding: 14px 16px;
   }
 
@@ -301,127 +304,119 @@ body.page-apartment-detail .panel-header {
   }
 }
 
-/* === МОБИЛЬНАЯ ВЕРСИЯ === */
 @media (max-width: 768px) {
-  /* Тёмная тема */
-  body.dark-theme {
-    --bg-primary: #1a1a1a;
-    --bg-secondary: #2d2d2d;
-    --text-primary: #ffffff;
-    --text-secondary: #b0b0b0;
-    --border-color: #404040;
-  }
-
-  /* Страница ЖК - только поиск */
-  body.page-complex-detail {
-    overflow: hidden;
-  }
-  
-  body.page-complex-detail .complex-detail-content {
-    padding: 20px;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    padding-top: 40px;
-  }
-  
-  body.page-complex-detail .complex-detail-main {
-    width: 100%;
-    max-width: 400px;
-  }
-  
-  #mobileApartmentFinder {
-    display: flex !important;
-    flex-direction: column;
-    width: 100%;
-    padding: 24px;
-    background: var(--bg-secondary);
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  }
-  
-  #mobileApartmentFinder label {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--text-primary);
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  
-  #mobileApartmentFinder .mobile-apartment-finder-row {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  #mobileApartmentFinder input {
-    width: 100%;
-    padding: 16px;
-    font-size: 18px;
-    text-align: center;
-    border-radius: 12px;
-    background: #3d3d3d;
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-  }
-  
-  #mobileApartmentFinder .btn {
-    width: 100%;
-    padding: 16px;
-    font-size: 18px;
-    border-radius: 12px;
-  }
-  
-  /* Скрыть всё остальное на странице ЖК */
-  body.page-complex-detail .header,
-  #toolbarSearch,
-  #headerFilters,
-  #toolbarFilters,
-  #toolbarStatus,
-  .mobile-filter-indicator,
-  .mobile-filter-buttons,
-  .sticky,
-  .section-header,
-  #apartmentsContainer,
-  .sections-grid,
-  .section-card,
-  .section-body-container,
-  .floor-apts,
-  .floor-label {
-    display: none !important;
-  }
-
-  /* Детальная квартира - показать header */
-  body.page-apartment-detail .header {
-    display: grid !important;
-    grid-template-columns: 1fr;
-    gap: 8px;
-    padding: max(10px, env(safe-area-inset-top)) 12px 10px;
-  }
-  
-  body.page-apartment-detail .header-left,
-  body.page-apartment-detail .header-right {
-    width: 100%;
-  }
-  
-  body.page-apartment-detail .mobile-dropdown-filter {
-    display: none !important;
-  }
-  
-  body.page-apartment-detail .mobile-apartment-finder {
-    display: none !important;
-  }
-  
   .apartment-title-row {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
   }
-}
+
+  .apartment-header-print {
+    min-height: 32px !important;
+    height: 32px;
+    padding: 0 10px !important;
+    margin-left: 0;
+  }
+
+  body.page-complex-detail .header {
+    grid-template-columns: 1fr;
+    padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+  }
+
+  body.page-complex-detail .header-left {
+    width: 100%;
+    gap: 0;
+  }
+
+  body.page-complex-detail .header-center,
+  body.page-complex-detail .header-right,
+  body.page-complex-detail .mobile-dropdown-filter,
+  body.page-complex-detail .title-secondary,
+  body.page-complex-detail .header-sub {
+    display: none !important;
+  }
+
+  body.page-complex-detail .title-primary {
+    font-size: 20px;
+    line-height: 1.15;
+  }
+
+  body.page-complex-detail .complex-detail-content,
+  body.page-complex-detail .complex-detail-main,
+  body.page-complex-detail .sections-grid {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body.page-complex-detail .complex-detail-content {
+    padding: 0;
+  }
+
+  body.page-complex-detail .sections-grid {
+    padding: 0 0 12px;
+    gap: 8px;
+  }
+
+  body.page-complex-detail #apartmentsContainer {
+    display: block !important;
+  }
+
+  body.page-complex-detail .mobile-apartment-finder {
+    display: block;
+  }
+
+  body.page-complex-detail .section-card,
+  body.page-complex-detail .section-group,
+  body.page-complex-detail .section-card-mobile-flat {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 16px;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    box-shadow: none;
+    overflow: hidden;
+  }
+
+  body.page-complex-detail .section-header,
+  body.page-complex-detail .section-body-container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  body.page-complex-detail .section-header {
+    padding-top: 12px;
+    padding-bottom: 8px;
+  }
+
+  body.page-complex-detail .section-body-container {
+    padding-top: 0;
+    padding-bottom: 12px;
+  }
+
+  body.page-complex-detail .floor-row,
+  body.page-complex-detail .floor-label {
+    display: none !important;
+  }
+
+  body.page-complex-detail .section-mobile-apt-grid,
+  body.page-complex-detail .apt-sort-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  body.page-complex-detail .apt-wrap {
+    width: 100%;
+  }
+
+  body.page-complex-detail .apt,
+  body.page-complex-detail .apt.apt-owner_accepted,
+  body.page-complex-detail .apt.apt-call,
+  body.page-complex-detail .apt.apt-by_phone,
+  body.page-complex-detail .apt.apt-in_progress,
+  body.page-complex-detail .apt.apt-complex,
   body.page-complex-detail .apt.apt-available,
   body.page-complex-detail .apt.apt-no_access {
     width: 100%;
@@ -3812,7 +3807,7 @@ h1 {
 
 /* ========== DEFECTS LIST ========== */
 #defectsList {
-  padding: 0 10px 10px;
+  padding: 4px 10px 10px;
   display: flex;
   flex-direction: column;
   gap: 0;
