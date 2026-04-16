@@ -173,6 +173,12 @@ function initApp() {
     if (appInitialized) return;
     appInitialized = true;
 
+    // Apply dark theme for mobile
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+        document.body.classList.add('dark-theme');
+    }
+
     cacheElements();
     loadCategories();
     loadContractors();
@@ -1783,6 +1789,14 @@ async function showComplexDetail(id) {
         }
         
         setPageTitle(complex.name, complex.address || '');
+        
+        // Update mobile finder with complex name
+        if (elements.mobileApartmentFinder) {
+            const finderLabel = elements.mobileApartmentFinder.querySelector('label');
+            if (finderLabel) {
+                finderLabel.textContent = complex.name;
+            }
+        }
         
         // Hide инжиниринг on complex detail page
         const titleSecondary = document.getElementById('titleSecondary');
@@ -3904,11 +3918,16 @@ function renderDefects(defects) {
     const container = elements.defectsList;
     if (!container) return;
     
+    const addButtonHtml = `
+        <div style="text-align: center; margin-bottom: 16px;">
+            <button class="btn btn-primary" onclick="showAddDefectForm()">Новое замечание</button>
+        </div>
+    `;
+    
     if (!defects.length) {
-        container.innerHTML = `
+        container.innerHTML = addButtonHtml + `
             <div class="empty-state">
                 <h3>Нет замечаний</h3>
-                <button class="status-item status-item-action" onclick="showAddDefectForm()">Добавить замечание</button>
             </div>
         `;
         return;
@@ -3926,6 +3945,7 @@ function renderDefects(defects) {
 
     container.innerHTML = `
         <div class="defects-by-category">
+            ${addButtonHtml}
             ${categories.map((category, idx) => {
                 const categoryDefects = grouped[category] || [];
                 const contractorNames = [...new Set(
