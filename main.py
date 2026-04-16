@@ -101,7 +101,7 @@ STATUS_MIGRATION = {
     "ready": "completed",
     "ready_for_acceptance": "on_review",
     "accepted": "completed",
-    "cancelled": "rejected"
+    "cancelled": "on_review"
 }
 
 CLOSED_DEFECT_STATUSES = ("completed", "on_review")

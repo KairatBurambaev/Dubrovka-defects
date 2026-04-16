@@ -3132,24 +3132,11 @@ function renderApartments(apartments) {
     }
 
     if (state.sortByDefects) {
+        // Sort mode - group by section
+        
         const sortedBySection = {};
-
-        visibleApartments
-            .filter((apartment) => {
-                const meta = getApartmentSortMeta(apartment, catFilter);
-                return meta.totalAll > 0;
-            })
-            .sort((a, b) => {
-                const metaA = getApartmentSortMeta(a, catFilter);
-                const metaB = getApartmentSortMeta(b, catFilter);
-                const aTotal = metaA.openCount + metaA.reviewCount;
-                const bTotal = metaB.openCount + metaB.reviewCount;
-                if (aTotal === 0 && bTotal > 0) return 1;
-                if (bTotal === 0 && aTotal > 0) return -1;
-                if (metaA.reviewCount !== metaB.reviewCount) return metaA.reviewCount - metaB.reviewCount;
-                return metaA.openCount - metaB.openCount;
-            })
-            .forEach((apartment) => {
+        
+        visibleApartments.forEach((apartment) => {
             const sectionNumber = apartment.section_number || 0;
             if (!sortedBySection[sectionNumber]) {
                 sortedBySection[sectionNumber] = [];
@@ -3166,34 +3153,38 @@ function renderApartments(apartments) {
             container.innerHTML = `
                 <div class="empty-state">
                     <h3>${emptyState.title}</h3>
-                    <p>Для выбранных фильтров нет квартир с открытыми замечаниями.</p>
+                    <p>Нет квартир.</p>
                 </div>
             `;
             updateStatsPanel(apartments);
             return;
         }
 
-        const sortedGridClass = sortedSectionNumbers.length <= 4 ? 'sections-grid sections-grid-sorted sections-grid-centered' : 'sections-grid sections-grid-sorted';
         container.innerHTML = `
-            <div class="${sortedGridClass}">
+            <div class="sections-grid sections-grid-sorted sections-grid-centered">
                 ${sortedSectionNumbers.map((sectionNumber) => {
-                    const sectionApartments = sortedBySection[sectionNumber].sort((a, b) => {
-                        const metaA = getApartmentSortMeta(a, catFilter);
-                        const metaB = getApartmentSortMeta(b, catFilter);
-                        const aTotal = metaA.openCount + metaA.reviewCount;
-                        const bTotal = metaB.openCount + metaB.reviewCount;
-                        if (aTotal === 0 && bTotal > 0) return 1;
-                        if (bTotal === 0 && aTotal > 0) return -1;
-                        if (metaA.reviewCount !== metaB.reviewCount) return metaA.reviewCount - metaB.reviewCount;
-                        return metaA.openCount - metaB.openCount;
+                    const apts = sortedBySection[sectionNumber];
+                    
+                    // Определяем тип бейджа как в renderApartmentTile
+                    const withBadges = apts.map(a => {
+                        const isAccepted = ACCEPTED_ACCESS_STATUSES.includes(a.access_status);
+                        const hasActiveDefects = Number(a.active_defects_count || 0) > 0;
+                        let badgeType = 0; // нет бейджа
+                        if (isAccepted && hasActiveDefects) badgeType = 2; // чёрный
+                        else if (hasActiveDefects) badgeType = 1; // зелёный
+                        return { apartment: a, badgeType };
                     });
+                    
+                    // Сортируем: 0 (нет) -> 1 (зелёный) -> 2 (чёрный)
+                    withBadges.sort((a, b) => a.badgeType - b.badgeType);
+                    const sortedApts = withBadges.map(x => x.apartment);
 
                     return `
                         <section class="section-card section-card-sorted">
                             <div class="section-body-container section-body-container-sorted">
                                 <div class="section-combined-title">Секция ${sectionNumber}</div>
                                 <div class="apt-sort-grid apt-sort-grid-sorted">
-                                    ${sectionApartments.map(apartment => renderApartmentTile(apartment, propFull, catFilter)).join('')}
+                                    ${sortedApts.map(apartment => renderApartmentTile(apartment, propFull, catFilter)).join('')}
                                 </div>
                             </div>
                         </section>
