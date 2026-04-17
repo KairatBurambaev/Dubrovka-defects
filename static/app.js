@@ -15,6 +15,7 @@ const state = {
     currentStatusDefectId: null,
     categories: [],
     contractors: [],
+    executors: [],
     currentItemId: null,
     accessFilter: '',
     activeAccessFilters: [],
@@ -27,6 +28,7 @@ const state = {
     allApartments: [],
     apartmentsCacheComplexId: null,
     filteredApartments: [],
+    executorAssignmentSelectedApartmentIds: [],
     pendingAccessStatus: null,
     gridNeedsRerender: false,
     parsedSearchCache: { input: '', numbers: null }
@@ -47,6 +49,16 @@ const FILTER_INDEXES = {
     'no_access': 8
 };
 const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
+const APARTMENT_STATUS_SORT_ORDER = {
+    available: 0,
+    owner_accepted: 1,
+    tech_accepted: 1,
+    call: 2,
+    by_phone: 3,
+    in_progress: 4,
+    no_access: 5,
+    complex: 6
+};
 const DEFECT_STATUS_LABELS = {
     recorded: 'Зафиксированно',
     in_progress: 'В работе',
@@ -84,6 +96,7 @@ let contractorsRequestPromise = null;
 let appInitialized = false;
 let loadComplexesPromise = null;
 let delayedComplexPrintBtnTimer = null;
+let executorsRequestPromise = null;
 
 function shouldShowComplexPrintButton() {
     return state.currentTab === 'complex-detail' && !!state.currentComplex && !state.currentApartment;
@@ -96,6 +109,9 @@ function hideDelayedComplexPrintButton() {
     }
     if (elements.complexPrintBtn) {
         elements.complexPrintBtn.style.display = 'none';
+    }
+    if (elements.assignmentBtn) {
+        elements.assignmentBtn.style.display = 'none';
     }
 }
 
@@ -118,6 +134,9 @@ function showDelayedComplexPrintButton() {
     delayedComplexPrintBtnTimer = setTimeout(() => {
         if (shouldShowComplexPrintButton() && elements.complexPrintBtn) {
             elements.complexPrintBtn.style.display = 'inline-flex';
+        }
+        if (shouldShowComplexPrintButton() && elements.assignmentBtn) {
+            elements.assignmentBtn.style.display = 'inline-flex';
         }
         delayedComplexPrintBtnTimer = null;
     }, 120);
@@ -176,6 +195,7 @@ function initApp() {
     cacheElements();
     loadCategories();
     loadContractors();
+    loadExecutors();
     loadComplexes();
     setupForms();
     setupEventListeners();
@@ -234,6 +254,8 @@ function cacheElements() {
     elements.statDefects = document.getElementById('statDefects');
     elements.defectFilterPanel = document.getElementById('defectFilterPanel');
     elements.statsBtn = document.getElementById('statsBtn');
+    elements.assignmentBtn = document.getElementById('assignmentBtn');
+    elements.executorRegistryModal = document.getElementById('executorRegistryModal');
     elements.complexPrintBtn = document.getElementById('complexPrintBtn');
     elements.complexCommentsBtn = document.getElementById('complexCommentsBtn');
     elements.tabPanels = document.querySelectorAll('.tab-panel');
@@ -246,6 +268,18 @@ function setupForms() {
     
     const defectForm = document.getElementById('addDefectForm');
     if (defectForm) defectForm.addEventListener('submit', handleAddDefect);
+
+    const executorAssignmentForm = document.getElementById('executorAssignmentForm');
+    if (executorAssignmentForm) executorAssignmentForm.addEventListener('submit', submitExecutorAssignment);
+
+    const executorRegistryForm = document.getElementById('executorRegistryForm');
+    if (executorRegistryForm) executorRegistryForm.addEventListener('submit', submitExecutorRegistryForm);
+
+    const executorEntityType = document.getElementById('executorEntityType');
+    if (executorEntityType) executorEntityType.addEventListener('change', syncExecutorLegalEntityVisibility);
+
+    const executorAssignmentResponsibleType = document.getElementById('executorAssignmentResponsibleType');
+    if (executorAssignmentResponsibleType) executorAssignmentResponsibleType.addEventListener('change', syncResponsibleAssignmentTypeVisibility);
     
     const fileInputBefore = document.getElementById('defectPhotosBefore');
     if (fileInputBefore) fileInputBefore.addEventListener('change', (e) => renderSelectedFiles(e.target, 'before'));
@@ -329,6 +363,9 @@ function setupEventListeners() {
             if (row) {
                 markDefectRowDirty(row);
                 scheduleDefectAutosave(row);
+            }
+            if (e.target.matches('select[id^="defectExecutor_"]')) {
+                updateDefectExecutorSelectAppearance(e.target);
             }
             if (e.target.matches('.status-select')) {
                 const badge = row?.querySelector('.defect-status-badge');
@@ -1041,6 +1078,319 @@ async function loadContractors(selectedId = '') {
         if (select) select.innerHTML = renderContractorOptions(selectedId);
     } finally {
         contractorsRequestPromise = null;
+    }
+}
+
+async function loadExecutors(selectedValue = '') {
+    if (executorsRequestPromise) {
+        await executorsRequestPromise;
+        refreshExecutorSelects(selectedValue);
+        return;
+    }
+
+    executorsRequestPromise = (async () => {
+        try {
+            const res = await fetch('/api/executors');
+            const data = await res.json();
+            state.executors = data.executors || [];
+        } catch (err) {
+            console.error('Error loading executors:', err);
+        }
+    })();
+
+    try {
+        await executorsRequestPromise;
+        refreshExecutorSelects(selectedValue);
+    } finally {
+        executorsRequestPromise = null;
+    }
+}
+
+function renderExecutorOptions(selectedValue = '') {
+    const normalizedValue = String(selectedValue || '').trim();
+    const knownValues = new Set(state.executors.map((executor) => String(executor.display_name || '').trim()).filter(Boolean));
+    const options = ['<option value="">Не назначен</option>'];
+
+    if (normalizedValue && !knownValues.has(normalizedValue)) {
+        options.push(`<option value="${escapeHtml(normalizedValue)}" selected>${escapeHtml(normalizedValue)}</option>`);
+    }
+
+    state.executors.forEach((executor) => {
+        const displayName = String(executor.display_name || '').trim();
+        if (!displayName) return;
+        options.push(`<option value="${escapeHtml(displayName)}" ${displayName === normalizedValue ? 'selected' : ''}>${escapeHtml(displayName)}</option>`);
+    });
+
+    return options.join('');
+}
+
+function refreshExecutorSelects(selectedValue = '') {
+    const createSelect = document.getElementById('defectExecutorSelect');
+    if (createSelect) {
+        const currentValue = selectedValue || createSelect.value || '';
+        createSelect.innerHTML = renderExecutorOptions(currentValue);
+        createSelect.value = currentValue;
+        updateDefectExecutorSelectAppearance(createSelect);
+    }
+
+    document.querySelectorAll('select[id^="defectExecutor_"]').forEach((select) => {
+        const currentValue = select.value || '';
+        const defectId = Number(String(select.id || '').replace('defectExecutor_', ''));
+        const defect = state.currentApartmentData?.defects?.find((item) => item.id === defectId);
+        select.innerHTML = renderDefectExecutorOptions({ ...(defect || {}), executor: currentValue || defect?.executor || '' });
+        select.value = currentValue;
+        updateDefectExecutorSelectAppearance(select);
+    });
+}
+
+function updateDefectExecutorSelectAppearance(select) {
+    if (!select) return;
+    select.classList.toggle('is-placeholder', !String(select.value || '').trim());
+}
+
+function renderExecutorRegistryList() {
+    const container = document.getElementById('executorRegistryList');
+    if (!container) return;
+
+    if (!state.executors.length) {
+        container.innerHTML = '<div class="executor-registry-empty">Исполнителей пока нет</div>';
+        return;
+    }
+
+    container.innerHTML = state.executors.map((executor) => `
+        <div class="executor-registry-item">
+            <div class="executor-registry-item-head">
+                <div>
+                    <div class="executor-registry-title">${escapeHtml(executor.display_name || executor.full_name || '')}</div>
+                    <div class="executor-registry-meta">${executor.entity_type === 'legal' ? 'Юридическое лицо' : 'Физическое лицо'}</div>
+                </div>
+                <div class="executor-registry-item-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="editExecutor(${executor.id})">Изменить</button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteExecutor(${executor.id})">Удалить</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function resetExecutorRegistryForm() {
+    const form = document.getElementById('executorRegistryForm');
+    const submitBtn = document.getElementById('executorRegistrySubmitBtn');
+    const cancelBtn = document.getElementById('executorRegistryCancelEditBtn');
+    const editingIdField = document.getElementById('executorEditingId');
+
+    if (form) form.reset();
+    if (editingIdField) editingIdField.value = '';
+    if (submitBtn) submitBtn.textContent = 'Добавить';
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    syncExecutorLegalEntityVisibility();
+}
+
+function syncResponsibleAssignmentTypeVisibility() {
+    const typeField = document.getElementById('executorAssignmentResponsibleType');
+    const nameLabel = document.getElementById('executorAssignmentNameLabel');
+    const nameInput = document.getElementById('executorAssignmentExecutor');
+    const isLegal = (typeField?.value || 'legal') === 'legal';
+
+    if (nameLabel) nameLabel.textContent = isLegal ? 'Компания' : 'ФИО';
+    if (nameInput) {
+        nameInput.placeholder = isLegal ? 'Название компании' : 'ФИО';
+    }
+}
+
+async function setExecutorRegistryMode(mode = 'executors') {
+    const normalizedMode = mode === 'responsible' ? 'responsible' : 'executors';
+    if (normalizedMode === 'responsible') {
+        const isReady = await prepareResponsibleAssignmentForm();
+        if (!isReady) return;
+    }
+
+    const executorsPanel = document.getElementById('executorRegistryExecutorsPanel');
+    const responsiblePanel = document.getElementById('executorRegistryResponsiblePanel');
+    const executorsBtn = document.getElementById('executorRegistryModeExecutors');
+    const responsibleBtn = document.getElementById('executorRegistryModeResponsible');
+    const executorsSubmitBtn = document.getElementById('executorRegistrySubmitBtn');
+    const responsibleSubmitBtn = document.getElementById('executorAssignmentSubmitBtn');
+
+    if (executorsPanel) executorsPanel.style.display = normalizedMode === 'executors' ? 'block' : 'none';
+    if (responsiblePanel) responsiblePanel.style.display = normalizedMode === 'responsible' ? 'block' : 'none';
+    if (executorsBtn) executorsBtn.classList.toggle('is-active', normalizedMode === 'executors');
+    if (responsibleBtn) responsibleBtn.classList.toggle('is-active', normalizedMode === 'responsible');
+    if (executorsSubmitBtn) executorsSubmitBtn.style.display = normalizedMode === 'executors' ? 'inline-flex' : 'none';
+    if (responsibleSubmitBtn) responsibleSubmitBtn.style.display = normalizedMode === 'responsible' ? 'inline-flex' : 'none';
+}
+
+async function prepareResponsibleAssignmentForm() {
+    if (!state.currentComplex) return false;
+
+    const apartments = getExecutorAssignmentApartments();
+    if (!apartments.length) {
+        showToast('Нет квартир для выбора', 'warning');
+        return false;
+    }
+
+    if (!state.categories.length) {
+        await loadCategories();
+    }
+
+    const categorySelect = document.getElementById('executorAssignmentCategory');
+    const executorInput = document.getElementById('executorAssignmentExecutor');
+    const summary = document.getElementById('executorAssignmentSummary');
+    const responsibleType = document.getElementById('executorAssignmentResponsibleType');
+    if (!categorySelect || !executorInput || !summary || !responsibleType) return false;
+
+    state.executorAssignmentSelectedApartmentIds = apartments.map((apartment) => apartment.id);
+    renderExecutorAssignmentApartmentList();
+
+    const categoryFilter = document.getElementById('defectCategoryFilter')?.value || '';
+    categorySelect.innerHTML = '<option value="">Выберите</option>' + state.categories.map((category) => (
+        `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`
+    )).join('');
+    categorySelect.value = categoryFilter;
+
+    const complexName = state.currentComplexData?.name || 'ЖК';
+    summary.textContent = `${complexName}: текущая выборка из ${apartments.length} ${state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир'}`;
+    responsibleType.value = 'legal';
+    executorInput.value = '';
+    syncResponsibleAssignmentTypeVisibility();
+    return true;
+}
+
+function editExecutor(executorId) {
+    const executor = state.executors.find((item) => Number(item.id) === Number(executorId));
+    if (!executor) return;
+
+    const editingIdField = document.getElementById('executorEditingId');
+    const submitBtn = document.getElementById('executorRegistrySubmitBtn');
+    const cancelBtn = document.getElementById('executorRegistryCancelEditBtn');
+    const fullNameField = document.getElementById('executorFullName');
+    const typeField = document.getElementById('executorEntityType');
+    const legalNameField = document.getElementById('executorLegalEntityName');
+
+    if (editingIdField) editingIdField.value = String(executor.id);
+    if (submitBtn) submitBtn.textContent = 'Сохранить';
+    if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+    if (fullNameField) fullNameField.value = executor.full_name || '';
+    if (typeField) typeField.value = executor.entity_type || 'individual';
+    syncExecutorLegalEntityVisibility();
+    if (legalNameField) legalNameField.value = executor.legal_entity_name || '';
+    if (fullNameField) fullNameField.focus();
+}
+
+async function deleteExecutor(executorId) {
+    const executor = state.executors.find((item) => Number(item.id) === Number(executorId));
+    if (!executor) return;
+    if (!confirm(`Удалить исполнителя "${executor.display_name || executor.full_name}"?`)) return;
+
+    try {
+        const res = await fetch(`/api/executors/${executorId}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const payload = await res.json().catch(() => ({}));
+            throw new Error(payload?.detail || 'Ошибка удаления исполнителя');
+        }
+        await loadExecutors();
+        renderExecutorRegistryList();
+        showToast('Исполнитель удален', 'success');
+    } catch (err) {
+        showToast(err.message || 'Ошибка удаления исполнителя', 'error');
+    }
+}
+
+function renderDefectExecutorOptions(defect) {
+    const selectedValue = String(defect?.executor || '').trim();
+    const options = ['<option value="">Исполнитель</option>'];
+    const seen = new Set(['']);
+
+    const responsibleName = String(defect?.responsible_name || '').trim();
+    if (responsibleName) {
+        seen.add(responsibleName);
+        options.push(`<option value="${escapeHtml(responsibleName)}" ${responsibleName === selectedValue ? 'selected' : ''}>Ответственный: ${escapeHtml(responsibleName)}</option>`);
+    }
+
+    state.executors.forEach((executor) => {
+        const displayName = String(executor.display_name || '').trim();
+        if (!displayName || seen.has(displayName)) return;
+        seen.add(displayName);
+        options.push(`<option value="${escapeHtml(displayName)}" ${displayName === selectedValue ? 'selected' : ''}>${escapeHtml(displayName)}</option>`);
+    });
+
+    if (selectedValue && !seen.has(selectedValue)) {
+        options.push(`<option value="${escapeHtml(selectedValue)}" selected>${escapeHtml(selectedValue)}</option>`);
+    }
+
+    return options.join('');
+}
+
+function syncExecutorLegalEntityVisibility() {
+    const typeField = document.getElementById('executorEntityType');
+    const legalGroup = document.getElementById('executorLegalEntityGroup');
+    const legalInput = document.getElementById('executorLegalEntityName');
+    const isLegal = typeField?.value === 'legal';
+
+    if (legalGroup) legalGroup.style.display = isLegal ? 'block' : 'none';
+    if (legalInput) {
+        legalInput.required = isLegal;
+        if (!isLegal) legalInput.value = '';
+    }
+}
+
+async function showExecutorRegistryModal() {
+    await loadExecutors();
+    renderExecutorRegistryList();
+    const modal = document.getElementById('executorRegistryModal');
+    const fullNameInput = document.getElementById('executorFullName');
+    resetExecutorRegistryForm();
+    await setExecutorRegistryMode('executors');
+    if (modal) modal.classList.add('active');
+    if (fullNameInput) fullNameInput.focus();
+}
+
+function closeExecutorRegistryModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('executorRegistryModal');
+    if (modal) modal.classList.remove('active');
+}
+
+async function submitExecutorRegistryForm(event) {
+    event.preventDefault();
+
+    const editingId = document.getElementById('executorEditingId')?.value?.trim() || '';
+    const fullName = document.getElementById('executorFullName')?.value?.trim() || '';
+    const entityType = document.getElementById('executorEntityType')?.value || 'individual';
+    const legalEntityName = document.getElementById('executorLegalEntityName')?.value?.trim() || '';
+
+    if (!fullName) {
+        showToast('Укажите ФИО исполнителя', 'warning');
+        return;
+    }
+    if (entityType === 'legal' && !legalEntityName) {
+        showToast('Укажите название юридического лица', 'warning');
+        return;
+    }
+
+    const body = new URLSearchParams();
+    body.set('full_name', fullName);
+    body.set('entity_type', entityType);
+    body.set('legal_entity_name', legalEntityName);
+
+    try {
+        const res = await fetch(editingId ? `/api/executors/${editingId}` : '/api/executors', {
+            method: editingId ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+        });
+        if (!res.ok) {
+            const payload = await res.json().catch(() => ({}));
+            throw new Error(payload?.detail || 'Ошибка сохранения исполнителя');
+        }
+
+        const executor = await res.json();
+        await loadExecutors(executor.display_name || executor.full_name || '');
+        renderExecutorRegistryList();
+        resetExecutorRegistryForm();
+        showToast(editingId ? 'Исполнитель обновлен' : 'Исполнитель добавлен', 'success');
+    } catch (err) {
+        showToast(err.message || 'Ошибка сохранения исполнителя', 'error');
     }
 }
 
@@ -2844,6 +3194,124 @@ function getApartmentSortMeta(apartment, catFilter) {
     return { openCount, reviewCount, greenBadge: finalGreenBadge, blackBadge: finalBlackBadge, totalAll: openCount + reviewCount };
 }
 
+function getApartmentStatusSortOrder(apartment) {
+    return APARTMENT_STATUS_SORT_ORDER[apartment?.access_status] ?? 99;
+}
+
+function getExecutorAssignmentApartments() {
+    return [...(state.filteredApartments || [])].sort((a, b) => Number(a.number) - Number(b.number));
+}
+
+function renderExecutorAssignmentApartmentList() {
+    const container = document.getElementById('executorAssignmentApartments');
+    if (!container) return;
+
+    const apartments = getExecutorAssignmentApartments();
+    const selectedIds = new Set(state.executorAssignmentSelectedApartmentIds || []);
+    const itemLabel = state.currentPropertyType === 'апартаменты' ? 'ап.' : 'кв.';
+
+    container.innerHTML = apartments.map((apartment) => {
+        const checked = selectedIds.has(apartment.id) ? 'checked' : '';
+        const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
+        const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
+        const meta = [section, floor].filter(Boolean).join(' • ');
+
+        return `
+            <label class="executor-assignment-apartment-option">
+                <input type="checkbox" class="executor-assignment-apartment-checkbox" value="${apartment.id}" ${checked} onchange="handleExecutorAssignmentSelectionChange()">
+                <span class="executor-assignment-apartment-main">${itemLabel} ${escapeHtml(String(apartment.number || ''))}</span>
+                ${meta ? `<span class="executor-assignment-apartment-meta">${escapeHtml(meta)}</span>` : ''}
+            </label>
+        `;
+    }).join('');
+
+    updateExecutorAssignmentSelectionCount();
+}
+
+function handleExecutorAssignmentSelectionChange() {
+    const checkboxes = document.querySelectorAll('.executor-assignment-apartment-checkbox');
+    state.executorAssignmentSelectedApartmentIds = Array.from(checkboxes)
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => Number(checkbox.value));
+    updateExecutorAssignmentSelectionCount();
+}
+
+function updateExecutorAssignmentSelectionCount() {
+    const counter = document.getElementById('executorAssignmentCount');
+    if (!counter) return;
+    const total = getExecutorAssignmentApartments().length;
+    const selected = (state.executorAssignmentSelectedApartmentIds || []).length;
+    counter.textContent = `Выбрано: ${selected} из ${total}`;
+}
+
+function setExecutorAssignmentApartmentSelection(selectAll) {
+    const apartments = getExecutorAssignmentApartments();
+    state.executorAssignmentSelectedApartmentIds = selectAll ? apartments.map((apartment) => apartment.id) : [];
+    renderExecutorAssignmentApartmentList();
+}
+
+async function showExecutorAssignmentModal() {
+    await loadExecutors();
+    renderExecutorRegistryList();
+    const modal = document.getElementById('executorRegistryModal');
+    const executorInput = document.getElementById('executorAssignmentExecutor');
+    resetExecutorRegistryForm();
+    await setExecutorRegistryMode('responsible');
+    if (document.getElementById('executorRegistryResponsiblePanel')?.style.display === 'none') return;
+    if (modal) modal.classList.add('active');
+    if (executorInput) executorInput.focus();
+}
+
+function closeExecutorAssignmentModal(event) {
+    closeExecutorRegistryModal(event);
+}
+
+async function submitExecutorAssignment(event) {
+    event.preventDefault();
+    if (!state.currentComplex) return;
+
+    const apartmentIds = [...(state.executorAssignmentSelectedApartmentIds || [])];
+    const category = document.getElementById('executorAssignmentCategory')?.value?.trim() || '';
+    const executor = document.getElementById('executorAssignmentExecutor')?.value?.trim() || '';
+
+    if (!apartmentIds.length) {
+        showToast('Выберите хотя бы одну квартиру', 'warning');
+        return;
+    }
+    if (!category) {
+        showToast('Выберите категорию', 'warning');
+        return;
+    }
+    if (!executor) {
+        showToast('Укажите ФИО исполнителя', 'warning');
+        return;
+    }
+
+    const body = new URLSearchParams();
+    body.set('apartment_ids_json', JSON.stringify(apartmentIds));
+    body.set('category', category);
+    body.set('executor_name', executor);
+
+    try {
+        const res = await fetch(`/api/complexes/${state.currentComplex}/executor-assignments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+        });
+
+        if (!res.ok) {
+            const message = await res.text();
+            throw new Error(message || `assignment request failed: ${res.status}`);
+        }
+
+        closeExecutorAssignmentModal();
+        showToast('Ответственный сохранен', 'success');
+    } catch (err) {
+        console.error('Executor assignment save failed:', err);
+        showToast('Ошибка сохранения ответственного', 'error');
+    }
+}
+
 function renderApartmentTile(apartment, propFull, catFilter) {
     const deadlineClass = getDeadlineClass(apartment);
     const cls = getApartmentClass(apartment.access_status, apartment.active_defects_count);
@@ -3165,19 +3633,26 @@ function renderApartments(apartments) {
                 ${sortedSectionNumbers.map((sectionNumber) => {
                     const apts = sortedBySection[sectionNumber];
                     
-                    // Определяем тип бейджа как в renderApartmentTile
-                    const withBadges = apts.map(a => {
-                        const isAccepted = ACCEPTED_ACCESS_STATUSES.includes(a.access_status);
-                        const hasActiveDefects = Number(a.active_defects_count || 0) > 0;
-                        let badgeType = 0; // нет бейджа
-                        if (isAccepted && hasActiveDefects) badgeType = 2; // чёрный
-                        else if (hasActiveDefects) badgeType = 1; // зелёный
-                        return { apartment: a, badgeType };
+                    const sortedApts = [...apts].sort((a, b) => {
+                        const aMeta = getApartmentSortMeta(a, catFilter);
+                        const bMeta = getApartmentSortMeta(b, catFilter);
+                        const aPriority = aMeta.blackBadge ? 0 : aMeta.greenBadge ? 1 : aMeta.reviewCount > 0 ? 2 : 3;
+                        const bPriority = bMeta.blackBadge ? 0 : bMeta.greenBadge ? 1 : bMeta.reviewCount > 0 ? 2 : 3;
+
+                        if (aPriority !== bPriority) return bPriority - aPriority;
+
+                        const aStatusOrder = getApartmentStatusSortOrder(a);
+                        const bStatusOrder = getApartmentStatusSortOrder(b);
+                        if (aStatusOrder !== bStatusOrder) return aStatusOrder - bStatusOrder;
+
+                        const aSortCount = getApartmentSortCount(a, catFilter);
+                        const bSortCount = getApartmentSortCount(b, catFilter);
+                        if (aSortCount !== bSortCount) return aSortCount - bSortCount;
+
+                        if (aMeta.totalAll !== bMeta.totalAll) return aMeta.totalAll - bMeta.totalAll;
+
+                        return Number(b.number) - Number(a.number);
                     });
-                    
-                    // Сортируем: 0 (нет) -> 1 (зелёный) -> 2 (чёрный)
-                    withBadges.sort((a, b) => a.badgeType - b.badgeType);
-                    const sortedApts = withBadges.map(x => x.apartment);
 
                     return `
                         <section class="section-card section-card-sorted">
@@ -3869,14 +4344,16 @@ function renderDefectCard(d, index) {
     const statusBadgeClass = getDefectStatusBadgeClass(d.status);
     const windowChipText = getWindowChipText(windowNumber) || 'Без окна';
     const commentsCount = Number(d.comments_count || 0);
-    const executorValue = escapeHtml(d.executor || '');
+    const executorValue = String(d.executor || '').trim();
 
     return `
         <div class="defect-row defect-row-card" data-defect-id="${d.id}" style="animation: slideIn 0.25s ease ${index * 0.03}s both;">
             <div class="defect-card-header">
                 <div class="defect-card-header-meta">
                     <span class="defect-date">${fixedAt || 'Без даты'}</span>
-                    <input type="text" id="defectExecutor_${d.id}" class="input defect-executor-input" placeholder="Подрядчик / Монтажник" value="${executorValue}" style="width: 180px;">
+                    <select id="defectExecutor_${d.id}" class="select defect-executor-input" style="width: 220px;">
+                        ${renderDefectExecutorOptions(d)}
+                    </select>
                 </div>
                 <button type="button" class="defect-status-badge ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</button>
                 <span class="defect-card-header-spacer" aria-hidden="true"></span>
@@ -3976,9 +4453,6 @@ function renderDefectCompactRow(d, index) {
     const isRestoration = d.restoration === 1;
     const isRestorationCompleted = d.restoration_completed === 1;
 
-    const contractorName = d.contractor_name || '—';
-    const executorName = d.executor || '';
-
     return `
         <div class="defect-row defect-compact-row" data-defect-id="${d.id}" data-restoration="${isRestoration ? 1 : 0}" data-restoration-completed="${isRestorationCompleted ? 1 : 0}">
             <div class="defect-compact-main">
@@ -3989,10 +4463,12 @@ function renderDefectCompactRow(d, index) {
                     <span class="defect-compact-date" onmouseenter="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', true)" onmouseleave="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', false)">${fixedAt || '—'}</span>
                     ${extraDateBadges}
                     <input type="text" id="defectCommentText_${d.id}" class="input defect-compact-comment-input" placeholder="Комментарий к замечанию" value="${escapeHtml(d.comment_text || '')}" onblur="saveDefectCommentText(${d.id}, { silentSuccess: true, sourceElement: this })">
-                    ${executorName ? `<span class="defect-compact-executor"><span class="defect-compact-executor-icon">${getExecutorIcon()}</span>${escapeHtml(executorName)}</span>` : ''}
                 </div>
                 <span class="defect-compact-desc">${summaryHtml}</span>
                 <div class="defect-compact-actions">
+                    <select id="defectExecutor_${d.id}" class="select defect-compact-executor-select">
+                        ${renderDefectExecutorOptions(d)}
+                    </select>
                     <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</span>
                 </div>
             </div>
@@ -4529,6 +5005,7 @@ function showAddDefectForm(prefillCategory = '') {
     const modal = document.getElementById('defectModal');
     const form = document.getElementById('addDefectForm');
     if (form) form.reset();
+    refreshExecutorSelects('');
     resetSelectedDefectPhotos();
     addDefectFormItem();
     

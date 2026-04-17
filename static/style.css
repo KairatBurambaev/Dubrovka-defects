@@ -1039,6 +1039,179 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
   overflow: auto;
 }
 
+.executor-assignment-modal {
+  width: min(760px, calc(100vw - 24px));
+  max-width: min(760px, calc(100vw - 24px));
+  max-height: min(84vh, 900px);
+  display: flex;
+  flex-direction: column;
+}
+
+.executor-assignment-body {
+  overflow: auto;
+}
+
+.executor-assignment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.executor-assignment-summary {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.executor-assignment-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  flex-wrap: wrap;
+}
+
+.executor-assignment-count {
+  margin-left: auto;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.executor-assignment-apartments {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  max-height: 300px;
+  overflow: auto;
+  padding: 4px;
+}
+
+.executor-assignment-apartment-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.executor-assignment-apartment-option input {
+  margin: 0;
+}
+
+.executor-assignment-apartment-main {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.executor-assignment-apartment-meta {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.executor-assignment-grid {
+  align-items: end;
+}
+
+.executor-registry-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+}
+
+.executor-registry-mode-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 13px;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 4px 10px;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.executor-registry-mode-link:hover {
+  background: #f1f3f4;
+  box-shadow: none;
+  color: #5f6368;
+}
+
+.executor-registry-mode-link.is-active {
+  color: #111827;
+  font-weight: 600;
+}
+
+.executor-registry-modal {
+  width: min(420px, calc(100vw - 24px));
+  max-width: min(420px, calc(100vw - 24px));
+  max-height: min(78vh, 760px);
+  display: flex;
+  flex-direction: column;
+}
+
+.executor-registry-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding-top: 18px;
+}
+
+.executor-registry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.executor-registry-form-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.executor-registry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.executor-registry-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.executor-registry-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.executor-registry-item-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.executor-registry-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.executor-registry-meta,
+.executor-registry-empty {
+  font-size: 12px;
+  color: #6b7280;
+}
+
 .filtered-defects-header-actions {
   display: inline-flex;
   align-items: center;
@@ -2480,6 +2653,7 @@ h1 {
 .btn-primary:hover {
   background: var(--primary-dark);
   box-shadow: 0 2px 4px rgb(66 133 244 / 0.3);
+  color: var(--text);
 }
 
 .btn-primary:active {
@@ -2500,6 +2674,7 @@ h1 {
 .btn-secondary:hover {
   background: #f1f3f4;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  color: var(--text);
 }
 
 .btn:hover {
@@ -2527,6 +2702,7 @@ h1 {
 .btn-primary:hover {
   background: var(--primary-dark);
   border-color: var(--primary-dark);
+  color: var(--text);
 }
 
 .btn-primary:active {
@@ -2624,11 +2800,11 @@ h1 {
 
 .btn-primary:hover {
   background: #94a3b8;
-  color: #ffffff;
+  color: var(--text);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   transform: translateY(-1px);
   border-color: #94a3b8;
-  color: #ffffff;
+  color: var(--text);
 }
 
 .btn-primary:active {
@@ -2642,9 +2818,9 @@ h1 {
 
 .btn-secondary:hover {
   background: #94a3b8;
-  color: #ffffff;
+  color: var(--text);
   border-color: #94a3b8;
-  color: #ffffff;
+  color: var(--text);
 }
 
 .btn-ghost {
@@ -4181,21 +4357,11 @@ h1 {
   min-width: 100px;
 }
 
-.defect-compact-executor {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #475569;
-  order: 4;
-  min-width: 0;
-}
-
 .defect-compact-actions {
   display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: flex-start;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
   gap: 6px;
   width: auto;
   margin-left: 0;
@@ -4203,27 +4369,25 @@ h1 {
   align-self: start;
 }
 
-.defect-compact-executor-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
-  flex: 0 0 auto;
+.defect-compact-executor-select {
+  width: 180px;
+  min-width: 180px;
+  max-width: 180px;
+  height: 32px;
+  font-size: 12px;
+  color: #6b7280;
 }
 
-.defect-compact-executor-icon svg {
-  width: 12px;
-  height: 12px;
+.defect-compact-executor-select.is-placeholder {
+  color: #9ca3af;
 }
 
 .defect-compact-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 110px;
+  min-width: 110px;
   min-height: 32px;
   font-size: 11px;
   font-weight: 600;

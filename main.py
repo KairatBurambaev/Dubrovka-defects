@@ -709,6 +709,56 @@ def ensure_contractor(conn, contractor_name: Optional[str]):
     return cursor.lastrowid, cleaned_name
 
 
+def get_executor_display_name(full_name: Optional[str], entity_type: Optional[str], legal_entity_name: Optional[str]):
+    cleaned_full_name = (full_name or "").strip()
+    cleaned_legal_entity_name = (legal_entity_name or "").strip()
+    if entity_type == "legal" and cleaned_legal_entity_name:
+        return f"{cleaned_full_name} ({cleaned_legal_entity_name})"
+    return cleaned_full_name
+
+
+def ensure_executor(conn, full_name: Optional[str], entity_type: Optional[str], legal_entity_name: Optional[str] = ""):
+    cleaned_full_name = (full_name or "").strip()
+    cleaned_entity_type = "legal" if entity_type == "legal" else "individual"
+    cleaned_legal_entity_name = (legal_entity_name or "").strip() if cleaned_entity_type == "legal" else ""
+
+    if not cleaned_full_name:
+        raise HTTPException(status_code=400, detail="Укажите ФИО исполнителя")
+    if cleaned_entity_type == "legal" and not cleaned_legal_entity_name:
+        raise HTTPException(status_code=400, detail="Укажите название юридического лица")
+
+    existing = conn.execute(
+        """
+        SELECT id, full_name, entity_type, legal_entity_name
+        FROM executors
+        WHERE lower(full_name) = lower(?)
+          AND entity_type = ?
+          AND lower(COALESCE(legal_entity_name, '')) = lower(?)
+        """,
+        (cleaned_full_name, cleaned_entity_type, cleaned_legal_entity_name),
+    ).fetchone()
+    if existing:
+        return {
+            "id": existing["id"],
+            "full_name": existing["full_name"],
+            "entity_type": existing["entity_type"],
+            "legal_entity_name": existing["legal_entity_name"] or "",
+            "display_name": get_executor_display_name(existing["full_name"], existing["entity_type"], existing["legal_entity_name"]),
+        }
+
+    cursor = conn.execute(
+        "INSERT INTO executors (full_name, entity_type, legal_entity_name) VALUES (?, ?, ?)",
+        (cleaned_full_name, cleaned_entity_type, cleaned_legal_entity_name),
+    )
+    return {
+        "id": cursor.lastrowid,
+        "full_name": cleaned_full_name,
+        "entity_type": cleaned_entity_type,
+        "legal_entity_name": cleaned_legal_entity_name,
+        "display_name": get_executor_display_name(cleaned_full_name, cleaned_entity_type, cleaned_legal_entity_name),
+    }
+
+
 def init_db():
     conn = get_db()
     conn.executescript("""
@@ -828,6 +878,34 @@ def init_db():
             name TEXT NOT NULL UNIQUE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS executors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            full_name TEXT NOT NULL,
+            entity_type TEXT NOT NULL DEFAULT 'individual',
+            legal_entity_name TEXT DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS executor_assignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            complex_id INTEGER NOT NULL,
+            apartment_id INTEGER NOT NULL,
+            category TEXT NOT NULL,
+            executor_name TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (complex_id) REFERENCES complexes(id) ON DELETE CASCADE,
+            FOREIGN KEY (apartment_id) REFERENCES apartments(id) ON DELETE CASCADE
+        );
+    """)
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_executor_assignments_unique
+        ON executor_assignments(complex_id, apartment_id, category)
+    """)
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_executors_unique
+        ON executors(lower(full_name), entity_type, lower(COALESCE(legal_entity_name, '')))
     """)
     
     # Миграция: добавляем колонку property_type если её нет
@@ -1518,12 +1596,109 @@ async def get_complex_item_comments(complex_id: int, apartment_ids_json: str = F
     return list(grouped.values())
 
 
+@app.post("/api/complexes/{complex_id}/executor-assignments")
+async def save_executor_assignments(
+    complex_id: int,
+    apartment_ids_json: str = Form("[]"),
+    category: str = Form(""),
+    executor_name: str = Form(""),
+):
+    try:
+        apartment_ids_raw = json.loads(apartment_ids_json or "[]")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Некорректный список квартир") from exc
+
+    if not isinstance(apartment_ids_raw, list):
+        raise HTTPException(status_code=400, detail="Некорректный список квартир")
+
+    apartment_ids = []
+    for value in apartment_ids_raw:
+        try:
+            apartment_id = int(value)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="Некорректный список квартир") from exc
+        if apartment_id not in apartment_ids:
+            apartment_ids.append(apartment_id)
+
+    category = category.strip()
+    executor_name = executor_name.strip()
+
+    if not apartment_ids:
+        raise HTTPException(status_code=400, detail="Выберите хотя бы одну квартиру")
+    if not category:
+        raise HTTPException(status_code=400, detail="Выберите категорию")
+    if not executor_name:
+        raise HTTPException(status_code=400, detail="Укажите исполнителя")
+
+    conn = get_db()
+    complex_row = conn.execute("SELECT id FROM complexes WHERE id = ?", (complex_id,)).fetchone()
+    if not complex_row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="ЖК не найден")
+
+    placeholders = ",".join("?" for _ in apartment_ids)
+    rows = conn.execute(
+        f"SELECT id FROM apartments WHERE complex_id = ? AND id IN ({placeholders})",
+        [complex_id, *apartment_ids],
+    ).fetchall()
+    valid_apartment_ids = [int(row["id"]) for row in rows]
+
+    if len(valid_apartment_ids) != len(apartment_ids):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Часть квартир не найдена в выбранном ЖК")
+
+    for apartment_id in valid_apartment_ids:
+        conn.execute(
+            """
+            INSERT INTO executor_assignments (complex_id, apartment_id, category, executor_name)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(complex_id, apartment_id, category)
+            DO UPDATE SET executor_name = excluded.executor_name, updated_at = CURRENT_TIMESTAMP
+            """,
+            (complex_id, apartment_id, category, executor_name),
+        )
+
+    conn.commit()
+    conn.close()
+    return {
+        "ok": True,
+        "updated": len(valid_apartment_ids),
+        "category": category,
+        "executor_name": executor_name,
+    }
+
+
+@app.get("/api/complexes/{complex_id}/executor-assignments")
+async def get_executor_assignments(complex_id: int):
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT ea.id, ea.complex_id, ea.apartment_id, ea.category, ea.executor_name, ea.created_at, ea.updated_at,
+               a.number AS apartment_number
+        FROM executor_assignments ea
+        JOIN apartments a ON a.id = ea.apartment_id
+        WHERE ea.complex_id = ?
+        ORDER BY a.number, lower(ea.category), lower(ea.executor_name)
+        """,
+        (complex_id,),
+    ).fetchall()
+    conn.close()
+    return {"assignments": [dict(row) for row in rows]}
+
+
 @app.get("/api/apartments/{apartment_id}/defects")
 async def get_defects(apartment_id: int):
     conn = get_db()
     rows = conn.execute(
         f"""
-        SELECT d.*, COALESCE(c.name, d.contractor_name, '') as contractor_name, c.id as contractor_id
+        SELECT d.*, COALESCE(c.name, d.contractor_name, '') as contractor_name, c.id as contractor_id,
+               (
+                   SELECT ea.executor_name
+                   FROM executor_assignments ea
+                   WHERE ea.apartment_id = d.apartment_id AND ea.category = d.category
+                   ORDER BY ea.updated_at DESC, ea.id DESC
+                   LIMIT 1
+               ) AS responsible_name
         FROM defects d
         LEFT JOIN contractors c ON d.contractor_id = c.id
         WHERE d.apartment_id = ?
@@ -2319,6 +2494,100 @@ async def create_contractor(name: str = Form(...)):
     conn.commit()
     conn.close()
     return {"id": contractor_id, "name": contractor_name}
+
+
+@app.get("/api/executors")
+async def get_executors():
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, full_name, entity_type, legal_entity_name, created_at FROM executors ORDER BY lower(full_name), lower(COALESCE(legal_entity_name, '')), id"
+    ).fetchall()
+    conn.close()
+    executors = []
+    for row in rows:
+        item = dict(row)
+        item["display_name"] = get_executor_display_name(item["full_name"], item["entity_type"], item["legal_entity_name"])
+        executors.append(item)
+    return {"executors": executors}
+
+
+@app.post("/api/executors")
+async def create_executor(
+    full_name: str = Form(...),
+    entity_type: str = Form("individual"),
+    legal_entity_name: str = Form(""),
+):
+    conn = get_db()
+    executor = ensure_executor(conn, full_name, entity_type, legal_entity_name)
+    conn.commit()
+    conn.close()
+    return executor
+
+
+@app.put("/api/executors/{executor_id}")
+async def update_executor(
+    executor_id: int,
+    full_name: str = Form(...),
+    entity_type: str = Form("individual"),
+    legal_entity_name: str = Form(""),
+):
+    conn = get_db()
+    existing = conn.execute("SELECT id FROM executors WHERE id = ?", (executor_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Исполнитель не найден")
+
+    cleaned_full_name = (full_name or "").strip()
+    cleaned_entity_type = "legal" if entity_type == "legal" else "individual"
+    cleaned_legal_entity_name = (legal_entity_name or "").strip() if cleaned_entity_type == "legal" else ""
+
+    if not cleaned_full_name:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Укажите ФИО исполнителя")
+    if cleaned_entity_type == "legal" and not cleaned_legal_entity_name:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Укажите название юридического лица")
+
+    duplicate = conn.execute(
+        """
+        SELECT id FROM executors
+        WHERE id != ?
+          AND lower(full_name) = lower(?)
+          AND entity_type = ?
+          AND lower(COALESCE(legal_entity_name, '')) = lower(?)
+        """,
+        (executor_id, cleaned_full_name, cleaned_entity_type, cleaned_legal_entity_name),
+    ).fetchone()
+    if duplicate:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Такой исполнитель уже существует")
+
+    conn.execute(
+        "UPDATE executors SET full_name = ?, entity_type = ?, legal_entity_name = ? WHERE id = ?",
+        (cleaned_full_name, cleaned_entity_type, cleaned_legal_entity_name, executor_id),
+    )
+    conn.commit()
+    conn.close()
+    return {
+        "id": executor_id,
+        "full_name": cleaned_full_name,
+        "entity_type": cleaned_entity_type,
+        "legal_entity_name": cleaned_legal_entity_name,
+        "display_name": get_executor_display_name(cleaned_full_name, cleaned_entity_type, cleaned_legal_entity_name),
+    }
+
+
+@app.delete("/api/executors/{executor_id}")
+async def delete_executor(executor_id: int):
+    conn = get_db()
+    existing = conn.execute("SELECT id FROM executors WHERE id = ?", (executor_id,)).fetchone()
+    if not existing:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Исполнитель не найден")
+    conn.execute("DELETE FROM executors WHERE id = ?", (executor_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
 
 @app.get("/api/templates/{category}")
