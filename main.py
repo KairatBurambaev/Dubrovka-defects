@@ -17,9 +17,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.graphics.shapes import Drawing, PolyLine, String, Line, Circle, Rect
+from PIL import Image, ImageDraw, ImageFont
+import textwrap
 import io
 
 
@@ -608,6 +608,53 @@ def migrate_sections_to_sections_only(conn):
     conn.commit()
 
 
+def repair_apartments_section_foreign_key(conn):
+    foreign_keys = conn.execute("PRAGMA foreign_key_list(apartments)").fetchall()
+    section_fk_targets = [row[2] for row in foreign_keys if row[3] == "section_id"]
+    if section_fk_targets == ["sections"]:
+        return
+
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute("DROP TABLE IF EXISTS apartments_rebuild")
+        conn.execute(
+            """
+            CREATE TABLE apartments_rebuild (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                complex_id INTEGER NOT NULL,
+                section_id INTEGER NOT NULL,
+                number INTEGER NOT NULL,
+                floor INTEGER NOT NULL,
+                status TEXT DEFAULT 'available',
+                access_status TEXT DEFAULT 'available',
+                access_phone TEXT,
+                access_comment TEXT,
+                FOREIGN KEY (complex_id) REFERENCES complexes(id) ON DELETE CASCADE,
+                FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO apartments_rebuild (id, complex_id, section_id, number, floor, status, access_status, access_phone, access_comment)
+            SELECT id, complex_id, section_id, number, floor, status, access_status, access_phone, access_comment
+            FROM apartments
+            """
+        )
+        conn.execute("DROP TABLE apartments")
+        conn.execute("ALTER TABLE apartments_rebuild RENAME TO apartments")
+
+        sections_old_exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sections_old'"
+        ).fetchone()
+        if sections_old_exists:
+            conn.execute("DROP TABLE sections_old")
+
+        conn.commit()
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
 def normalize_sections_payload(sections_data):
     if not isinstance(sections_data, list) or not sections_data:
         raise HTTPException(status_code=400, detail="Добавьте хотя бы одну секцию")
@@ -928,6 +975,7 @@ def init_db():
         pass
     
     migrate_sections_to_sections_only(conn)
+    repair_apartments_section_foreign_key(conn)
     
     # Миграция: добавляем building_number если её нет
     try:
@@ -1335,6 +1383,31 @@ async def get_apartments(
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'in_progress') as in_progress_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'on_review') as on_review_defects_count,
                (SELECT COUNT(*) FROM defects WHERE apartment_id = a.id AND status = 'completed') as completed_defects_count,
+               (SELECT MAX(h.created_at) FROM apartment_status_history h WHERE h.apartment_id = a.id AND h.new_status = 'call') as last_call_at,
+               (SELECT date(MAX(h.created_at)) FROM apartment_status_history h WHERE h.apartment_id = a.id AND h.new_status = 'call') as last_call_date,
+               (
+                   SELECT COUNT(*)
+                   FROM defects d
+                   WHERE d.apartment_id = a.id
+                     AND datetime(COALESCE(d.updated_at, d.created_at)) > datetime(COALESCE((
+                         SELECT MAX(h.created_at)
+                         FROM apartment_status_history h
+                         WHERE h.apartment_id = a.id
+                           AND h.new_status = 'call'
+                     ), '1970-01-01 00:00:00'))
+               ) as changes_after_last_call_count,
+               (
+                   SELECT MAX(date(COALESCE(d.updated_at, d.created_at)))
+                   FROM defects d
+                   WHERE d.apartment_id = a.id
+                     AND d.status IN ('completed', 'on_review')
+                     AND datetime(COALESCE(d.updated_at, d.created_at)) > datetime(COALESCE((
+                         SELECT MAX(h.created_at)
+                         FROM apartment_status_history h
+                         WHERE h.apartment_id = a.id
+                           AND h.new_status = 'call'
+                     ), '1970-01-01 00:00:00'))
+               ) as resolved_after_last_call_date,
                (SELECT MIN(deadline) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) as earliest_deadline,
                (SELECT MIN(created_at) FROM defects WHERE apartment_id = a.id AND status NOT IN ('completed', 'rejected', 'on_review')) as earliest_defect_created,
                CASE 
@@ -2633,7 +2706,7 @@ def parse_stats_period(stat_date: Optional[str] = None, start_date: Optional[str
     }
 
 
-def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None):
+def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, section_ids: list = None, access_filters: Optional[List[str]] = None):
     period = parse_stats_period(stat_date, start_date, end_date)
     period_start = period["start"]
     period_end = period["end"]
@@ -2642,98 +2715,123 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
     if not complex_row:
         raise HTTPException(status_code=404, detail="ЖК не найден")
 
+    section_filter = ""
+    section_filter_no_alias = ""
+    params = [complex_id]
+    building_number_expr = get_sections_building_number_expr(conn, "s")
+    active_defects_expr = """
+        (
+            (SELECT COUNT(*)
+             FROM defects d
+             WHERE d.apartment_id = a.id
+               AND d.status NOT IN ('rejected', 'on_review', 'completed')
+               AND COALESCE(d.restoration, 0) != 1)
+            +
+            (SELECT COUNT(*)
+             FROM defects d
+             WHERE d.apartment_id = a.id
+               AND COALESCE(d.restoration, 0) = 1
+               AND COALESCE(d.restoration_completed, 0) != 1)
+        )
+    """
+    if section_ids:
+        placeholders = ','.join('?' * len(section_ids))
+        section_filter = f" AND a.section_id IN ({placeholders})"
+        section_filter_no_alias = f" AND section_id IN ({placeholders})"
+        params.extend(section_ids)
+
     first_defect = conn.execute(
-        """
+        f"""
         SELECT MIN(date(d.created_at)) as first_date
         FROM defects d
         JOIN apartments a ON d.apartment_id = a.id
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
         """,
-        (complex_id,),
+        params,
     ).fetchone()
 
     first_defect_date = first_defect[0] if first_defect and first_defect[0] else str(period["today"])
 
     total = conn.execute(
-        "SELECT COUNT(*) FROM apartments WHERE complex_id = ?",
-        (complex_id,),
+        f"SELECT COUNT(*) FROM apartments WHERE complex_id = ?{section_filter_no_alias}",
+        params,
     ).fetchone()[0]
 
     with_defects = conn.execute(
-        """
+        f"""
         SELECT COUNT(DISTINCT a.id)
         FROM apartments a
         JOIN defects d ON a.id = d.apartment_id
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
           AND a.access_status NOT IN ('owner_accepted', 'tech_accepted')
           AND d.status NOT IN ('completed', 'rejected', 'on_review')
         """,
-        (complex_id,),
+        params,
     ).fetchone()[0]
 
     all_time_defects = conn.execute(
-        """
+        f"""
         SELECT COUNT(*)
         FROM defects d
         JOIN apartments a ON d.apartment_id = a.id
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
         """,
-        (complex_id,),
+        params,
     ).fetchone()[0]
 
     all_time_apartments_with_defects = conn.execute(
-        """
+        f"""
         SELECT COUNT(DISTINCT a.id)
         FROM apartments a
         JOIN defects d ON a.id = d.apartment_id
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
         """,
-        (complex_id,),
+        params,
     ).fetchone()[0]
 
     period_defects = conn.execute(
-        """
+        f"""
         SELECT COUNT(*)
         FROM defects d
         JOIN apartments a ON d.apartment_id = a.id
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
           AND date(d.created_at) BETWEEN ? AND ?
         """,
-        (complex_id, period_start.isoformat(), period_end.isoformat()),
+        params + [period_start.isoformat(), period_end.isoformat()],
     ).fetchone()[0]
 
     period_open_defects = conn.execute(
-        """
+        f"""
         SELECT COUNT(*)
         FROM defects d
         JOIN apartments a ON d.apartment_id = a.id
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
           AND d.status NOT IN ('completed', 'rejected', 'on_review')
           AND date(d.created_at) BETWEEN ? AND ?
         """,
-        (complex_id, period_start.isoformat(), period_end.isoformat()),
+        params + [period_start.isoformat(), period_end.isoformat()],
     ).fetchone()[0]
 
     period_apartments_with_defects = conn.execute(
-        """
+        f"""
         SELECT COUNT(DISTINCT a.id)
         FROM apartments a
         JOIN defects d ON a.id = d.apartment_id
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
           AND d.status NOT IN ('completed', 'rejected', 'on_review')
           AND date(d.created_at) BETWEEN ? AND ?
         """,
-        (complex_id, period_start.isoformat(), period_end.isoformat()),
+        params + [period_start.isoformat(), period_end.isoformat()],
     ).fetchone()[0]
 
     access_status_stats = conn.execute(
-        """
+        f"""
         SELECT a.access_status, COUNT(*) as count
         FROM apartments a
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
         GROUP BY a.access_status
         """,
-        (complex_id,),
+        params,
     ).fetchall()
 
     by_access_status = []
@@ -2747,15 +2845,15 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         })
 
     status_change_stats = conn.execute(
-        """
+        f"""
         SELECT h.new_status, COUNT(*) as count
         FROM apartment_status_history h
         JOIN apartments a ON h.apartment_id = a.id
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
           AND date(h.created_at) BETWEEN ? AND ?
         GROUP BY h.new_status
         """,
-        (complex_id, period_start.isoformat(), period_end.isoformat()),
+        params + [period_start.isoformat(), period_end.isoformat()],
     ).fetchall()
 
     period_status_changes = []
@@ -2771,14 +2869,14 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
     tracked_statuses = ["owner_accepted", "tech_accepted", "no_access", "call"]
     status_period_net = {status: 0 for status in tracked_statuses}
     movement_rows = conn.execute(
-        """
+        f"""
         SELECT old_status, new_status
         FROM apartment_status_history h
         JOIN apartments a ON h.apartment_id = a.id
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
           AND date(h.created_at) BETWEEN ? AND ?
         """,
-        (complex_id, period_start.isoformat(), period_end.isoformat()),
+        params + [period_start.isoformat(), period_end.isoformat()],
     ).fetchall()
 
     for row in movement_rows:
@@ -2790,18 +2888,18 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
             status_period_net[new_status] += 1
 
     defect_apartment_rows = conn.execute(
-        """
+        f"""
         SELECT
             a.id AS apartment_id,
             COALESCE(a.access_status, '') AS access_status,
             MIN(date(d.created_at)) AS first_defect_date
         FROM apartments a
         JOIN defects d ON d.apartment_id = a.id
-        WHERE a.complex_id = ?
+        WHERE a.complex_id = ?{section_filter}
         GROUP BY a.id, COALESCE(a.access_status, '')
         ORDER BY first_defect_date, a.id
         """,
-        (complex_id,),
+        params,
     ).fetchall()
 
     defect_apartment_total = len(defect_apartment_rows)
@@ -2855,6 +2953,369 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         "remaining_with_defects": today_remaining_with_defects,
     }
 
+    call_details = None
+    accepted_details = None
+    no_access_details = None
+    normalized_access_filters = [value.strip() for value in (access_filters or []) if value and value.strip()]
+    if len(normalized_access_filters) == 1 and normalized_access_filters[0] == "call":
+        accepted_access_statuses = {"owner_accepted", "tech_accepted"}
+        call_open_defects_expr = """
+            (
+                SELECT COUNT(*)
+                FROM defects d
+                WHERE d.apartment_id = a.id
+                  AND d.status NOT IN ('rejected', 'on_review', 'completed')
+            )
+        """
+
+        def serialize_call_apartment(row):
+            return {
+                "id": row["apartment_id"],
+                "number": row["apartment_number"],
+                "floor": row["apartment_floor"],
+                "section_number": row["section_number"],
+                "building_number": row["building_number"],
+                "access_status": row["access_status"],
+                "last_call_at": row["last_call_at"],
+                "last_call_date": row["last_call_date"],
+                "open_defects_count": int(row["open_defects_count"] or 0),
+                "changes_after_last_call_count": int(row["changes_after_last_call_count"] or 0),
+                "resolved_after_last_call_date": row["resolved_after_last_call_date"] if "resolved_after_last_call_date" in row.keys() else None,
+            }
+
+        current_call_rows = conn.execute(
+            f"""
+            SELECT *
+            FROM (
+                SELECT
+                    a.id AS apartment_id,
+                    a.number AS apartment_number,
+                    a.floor AS apartment_floor,
+                    a.access_status AS access_status,
+                    s.section_number AS section_number,
+                    {building_number_expr} AS building_number,
+                    (
+                        SELECT MAX(h.created_at)
+                        FROM apartment_status_history h
+                        WHERE h.apartment_id = a.id
+                          AND h.new_status = 'call'
+                    ) AS last_call_at,
+                    (
+                        SELECT h.old_status
+                        FROM apartment_status_history h
+                        WHERE h.apartment_id = a.id
+                          AND h.new_status = 'call'
+                        ORDER BY datetime(h.created_at) DESC, h.id DESC
+                        LIMIT 1
+                    ) AS last_call_old_status,
+                    date((
+                        SELECT MAX(h.created_at)
+                        FROM apartment_status_history h
+                        WHERE h.apartment_id = a.id
+                          AND h.new_status = 'call'
+                    )) AS last_call_date,
+                    {call_open_defects_expr} AS open_defects_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM defects d
+                        WHERE d.apartment_id = a.id
+                          AND datetime(COALESCE(d.updated_at, d.created_at)) > datetime(COALESCE((
+                              SELECT MAX(h.created_at)
+                              FROM apartment_status_history h
+                              WHERE h.apartment_id = a.id
+                                AND h.new_status = 'call'
+                          ), '1970-01-01 00:00:00'))
+                    ) AS changes_after_last_call_count
+                    ,(
+                        SELECT MAX(date(COALESCE(d.updated_at, d.created_at)))
+                        FROM defects d
+                        WHERE d.apartment_id = a.id
+                          AND d.status IN ('completed', 'on_review')
+                          AND datetime(COALESCE(d.updated_at, d.created_at)) > datetime(COALESCE((
+                              SELECT MAX(h.created_at)
+                              FROM apartment_status_history h
+                              WHERE h.apartment_id = a.id
+                                AND h.new_status = 'call'
+                          ), '1970-01-01 00:00:00'))
+                    ) AS resolved_after_last_call_date
+                FROM apartments a
+                LEFT JOIN sections s ON s.id = a.section_id
+                WHERE a.complex_id = ?{section_filter}
+                  AND a.access_status = 'call'
+            ) queued_calls
+            ORDER BY last_call_date DESC, building_number, section_number, apartment_number
+            """,
+            params,
+        ).fetchall()
+
+        waiting_rows = []
+        repeat_calls = []
+        waiting_by_day = []
+        grouped_waiting = {}
+        for row in current_call_rows:
+            last_call_date = row["last_call_date"] or "Без даты"
+            has_call_history = bool(row["last_call_at"])
+            has_open_defects = int(row["open_defects_count"] or 0) > 0
+            had_changes_after_call = has_call_history and int(row["changes_after_last_call_count"] or 0) > 0
+            resolved_after_last_call_date = row["resolved_after_last_call_date"] if has_call_history else None
+            is_repeat_call = (
+                not has_open_defects
+                and had_changes_after_call
+                and resolved_after_last_call_date
+                and resolved_after_last_call_date != row["last_call_date"]
+            )
+
+            if is_repeat_call:
+                repeat_calls.append(serialize_call_apartment(row))
+                continue
+
+            if has_open_defects:
+                continue
+
+            waiting_rows.append(row)
+            if last_call_date not in grouped_waiting:
+                grouped_waiting[last_call_date] = []
+            grouped_waiting[last_call_date].append(serialize_call_apartment(row))
+
+        ordered_waiting_dates = sorted(
+            grouped_waiting.keys(),
+            key=lambda value: (value == "Без даты", value if value == "Без даты" else -date.fromisoformat(value).toordinal())
+        )
+        for day_key in ordered_waiting_dates:
+            waiting_by_day.append({
+                "date": day_key,
+                "count": len(grouped_waiting[day_key]),
+                "apartments": grouped_waiting[day_key],
+            })
+
+        reference_date = period_end.isoformat()
+        not_accepted_rows = conn.execute(
+            f"""
+            SELECT *
+            FROM (
+                SELECT
+                    a.id AS apartment_id,
+                    a.number AS apartment_number,
+                    a.floor AS apartment_floor,
+                    a.access_status AS access_status,
+                    s.section_number AS section_number,
+                    {building_number_expr} AS building_number,
+                    (
+                        SELECT MAX(h.created_at)
+                        FROM apartment_status_history h
+                        WHERE h.apartment_id = a.id
+                          AND h.new_status = 'call'
+                    ) AS last_call_at,
+                    date((
+                        SELECT MAX(h.created_at)
+                        FROM apartment_status_history h
+                        WHERE h.apartment_id = a.id
+                          AND h.new_status = 'call'
+                    )) AS last_call_date,
+                    {call_open_defects_expr} AS open_defects_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM defects d
+                        WHERE d.apartment_id = a.id
+                          AND datetime(COALESCE(d.updated_at, d.created_at)) > datetime(COALESCE((
+                              SELECT MAX(h.created_at)
+                              FROM apartment_status_history h
+                              WHERE h.apartment_id = a.id
+                                AND h.new_status = 'call'
+                          ), '1970-01-01 00:00:00'))
+                    ) AS changes_after_last_call_count
+                FROM apartments a
+                LEFT JOIN sections s ON s.id = a.section_id
+                WHERE a.complex_id = ?{section_filter}
+            ) called_apartments
+            WHERE last_call_at IS NOT NULL
+              AND open_defects_count > 0
+            ORDER BY datetime(last_call_at) DESC, building_number, section_number, apartment_number
+            """,
+            params,
+        ).fetchall()
+
+        call_details = {
+            "reference_date": reference_date,
+            "repeat_calls_count": len(repeat_calls),
+            "repeat_calls": repeat_calls,
+            "current_call_count": len(waiting_rows),
+            "current_call_apartments": [serialize_call_apartment(row) for row in waiting_rows],
+            "waiting_by_day": waiting_by_day,
+            "not_accepted_count": len(not_accepted_rows),
+            "not_accepted_apartments": [serialize_call_apartment(row) for row in not_accepted_rows],
+        }
+    elif len(normalized_access_filters) == 1 and normalized_access_filters[0] == "no_access":
+        apartment_rows = conn.execute(
+            f"""
+            SELECT
+                a.id AS apartment_id,
+                a.number AS apartment_number,
+                a.floor AS apartment_floor,
+                a.access_status AS access_status,
+                s.section_number AS section_number,
+                {building_number_expr} AS building_number
+            FROM apartments a
+            LEFT JOIN sections s ON s.id = a.section_id
+            WHERE a.complex_id = ?{section_filter}
+            ORDER BY building_number, section_number, apartment_number
+            """,
+            params,
+        ).fetchall()
+
+        apartment_map = {row["apartment_id"]: dict(row) for row in apartment_rows}
+        no_access_history = conn.execute(
+            f"""
+            SELECT h.apartment_id, h.old_status, h.new_status, h.created_at
+            FROM apartment_status_history h
+            JOIN apartments a ON a.id = h.apartment_id
+            WHERE a.complex_id = ?{section_filter}
+            ORDER BY h.apartment_id, datetime(h.created_at), h.id
+            """,
+            params,
+        ).fetchall()
+
+        current_period_by_apartment = {}
+        periods_by_apartment = {}
+
+        def append_no_access_period(apartment_id, from_date, to_date, is_current):
+            if apartment_id not in periods_by_apartment:
+                periods_by_apartment[apartment_id] = []
+            periods_by_apartment[apartment_id].append({
+                "from_date": from_date,
+                "to_date": to_date,
+                "is_current": is_current,
+            })
+
+        for row in no_access_history:
+            apartment_id = row["apartment_id"]
+            if row["new_status"] == "no_access":
+                current_period_by_apartment[apartment_id] = row["created_at"]
+            elif row["old_status"] == "no_access" and apartment_id in current_period_by_apartment:
+                append_no_access_period(
+                    apartment_id,
+                    current_period_by_apartment[apartment_id],
+                    row["created_at"],
+                    False,
+                )
+                current_period_by_apartment.pop(apartment_id, None)
+
+        for apartment_id, apartment in apartment_map.items():
+            no_access_started_at = current_period_by_apartment.get(apartment_id)
+            if apartment.get("access_status") == "no_access":
+                append_no_access_period(apartment_id, no_access_started_at, None, True)
+            elif no_access_started_at:
+                append_no_access_period(apartment_id, no_access_started_at, None, False)
+
+        no_access_records = []
+        current_no_access_count = 0
+        for apartment_id, periods in periods_by_apartment.items():
+            apartment = apartment_map.get(apartment_id)
+            if not apartment:
+                continue
+            sorted_periods = sorted(
+                periods,
+                key=lambda period: (
+                    not bool(period.get("is_current")),
+                    period.get("from_date") or "",
+                    period.get("to_date") or "9999-12-31 23:59:59",
+                ),
+                reverse=False,
+            )
+            if any(period.get("is_current") for period in sorted_periods):
+                current_no_access_count += 1
+            no_access_records.append({
+                **apartment,
+                "periods": sorted_periods,
+            })
+
+        no_access_records.sort(key=lambda row: (row.get("section_number") or 0, row.get("apartment_number") or 0))
+
+        no_access_details = {
+            "reference_date": period_end.isoformat(),
+            "current_no_access_count": current_no_access_count,
+            "records_count": len(no_access_records),
+            "records": no_access_records,
+        }
+    elif len(normalized_access_filters) == 1 and normalized_access_filters[0] == "owner_accepted":
+        def serialize_accepted_apartment(row):
+            return {
+                "id": row["apartment_id"],
+                "number": row["apartment_number"],
+                "floor": row["apartment_floor"],
+                "section_number": row["section_number"],
+                "building_number": row["building_number"],
+                "access_status": row["access_status"],
+                "last_accepted_at": row["last_accepted_at"],
+                "last_accepted_date": row["last_accepted_date"],
+                "open_defects_count": int(row["open_defects_count"] or 0),
+            }
+
+        accepted_rows = conn.execute(
+            f"""
+            SELECT
+                a.id AS apartment_id,
+                a.number AS apartment_number,
+                a.floor AS apartment_floor,
+                a.access_status AS access_status,
+                s.section_number AS section_number,
+                {building_number_expr} AS building_number,
+                (
+                    SELECT MAX(h.created_at)
+                    FROM apartment_status_history h
+                    WHERE h.apartment_id = a.id
+                      AND h.new_status IN ('owner_accepted', 'tech_accepted')
+                ) AS last_accepted_at,
+                date((
+                    SELECT MAX(h.created_at)
+                    FROM apartment_status_history h
+                    WHERE h.apartment_id = a.id
+                      AND h.new_status IN ('owner_accepted', 'tech_accepted')
+                )) AS last_accepted_date,
+                {active_defects_expr} AS open_defects_count
+            FROM apartments a
+            LEFT JOIN sections s ON s.id = a.section_id
+            WHERE a.complex_id = ?{section_filter}
+              AND a.access_status IN ('owner_accepted', 'tech_accepted')
+            ORDER BY last_accepted_date DESC, building_number, section_number, apartment_number
+            """,
+            params,
+        ).fetchall()
+
+        reference_date = period_end.isoformat()
+        accepted_today = []
+        accepted_earlier_groups = {}
+        for row in accepted_rows:
+            apartment = serialize_accepted_apartment(row)
+            accepted_date = row["last_accepted_date"] or "Без даты"
+            if accepted_date == reference_date:
+                accepted_today.append(apartment)
+                continue
+            if accepted_date not in accepted_earlier_groups:
+                accepted_earlier_groups[accepted_date] = []
+            accepted_earlier_groups[accepted_date].append(apartment)
+
+        ordered_accepted_dates = sorted(
+            accepted_earlier_groups.keys(),
+            key=lambda value: (value == "Без даты", value if value == "Без даты" else -date.fromisoformat(value).toordinal())
+        )
+        accepted_earlier_by_day = [
+            {
+                "date": day_key,
+                "count": len(accepted_earlier_groups[day_key]),
+                "apartments": accepted_earlier_groups[day_key],
+            }
+            for day_key in ordered_accepted_dates
+        ]
+
+        accepted_details = {
+            "reference_date": reference_date,
+            "accepted_today_count": len(accepted_today),
+            "accepted_today": accepted_today,
+            "accepted_earlier_count": sum(group["count"] for group in accepted_earlier_by_day),
+            "accepted_earlier_by_day": accepted_earlier_by_day,
+        }
+
     return {
         "complex_name": complex_row["name"],
         "property_type": complex_row["property_type"] or "квартиры",
@@ -2875,6 +3336,10 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         "period_end": period_end.isoformat(),
         "today_metrics": today_metrics,
         "timeline": timeline,
+        "focus_mode": "call" if call_details else ("accepted" if accepted_details else ("no_access" if no_access_details else "")),
+        "call_details": call_details,
+        "accepted_details": accepted_details,
+        "no_access_details": no_access_details,
     }
 
 
@@ -2887,8 +3352,8 @@ def build_stats_chart_drawing(timeline, font_name='Helvetica'):
         return drawing
 
     series = [
-        ('remaining_with_defects', 'Остаток с замечаниями', colors.HexColor('#e60042')),
-        ('with_defects', 'С замечаниями', colors.HexColor('#111111')),
+        ('remaining_with_defects', 'Остаток', colors.HexColor('#e60042')),
+        ('with_defects', 'Замечания', colors.HexColor('#111111')),
         ('call', 'Вызов', colors.HexColor('#e969a8')),
         ('accepted', 'Принято', colors.HexColor('#009d91')),
         ('no_access', 'Нет доступа', colors.HexColor('#64748b')),
@@ -2896,7 +3361,7 @@ def build_stats_chart_drawing(timeline, font_name='Helvetica'):
     pad_left = 38
     pad_right = 16
     pad_top = 18
-    pad_bottom = 34
+    pad_bottom = 46
     inner_width = width - pad_left - pad_right
     inner_height = height - pad_top - pad_bottom
     max_value = max(1, max(int(point.get(key, 0) or 0) for point in timeline for key, _, _ in series))
@@ -2930,139 +3395,496 @@ def build_stats_chart_drawing(timeline, font_name='Helvetica'):
     drawing.add(String(width / 2, 8, mid_date, textAnchor='middle', fontName=font_name, fontSize=9, fillColor=colors.HexColor('#64748b')))
     drawing.add(String(width - pad_right, 8, last_date, textAnchor='end', fontName=font_name, fontSize=9, fillColor=colors.HexColor('#64748b')))
 
-    legend_y = height - 6
+    legend_y = height - 20
     legend_x = pad_left
+    legend_step = 84
+    legend_line_height = 12
     for _, label, color in series:
+        if legend_x + legend_step > width - pad_right:
+            legend_x = pad_left
+            legend_y -= legend_line_height
         drawing.add(Rect(legend_x, legend_y, 8, 8, strokeColor=color, fillColor=color))
-        drawing.add(String(legend_x + 12, legend_y + 1, label, fontName=font_name, fontSize=8.5, fillColor=colors.HexColor('#334155')))
-        legend_x += 92
+        drawing.add(String(legend_x + 12, legend_y + 1, label, fontName=font_name, fontSize=8.2, fillColor=colors.HexColor('#334155')))
+        legend_x += legend_step
 
     return drawing
 
 
+def load_pil_font(size: int, bold: bool = False):
+    candidates = [
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf' if bold else '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf' if bold else '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+
+def draw_wrapped_text(draw, text, xy, font, fill, max_width, line_spacing=6):
+    words = str(text or '').split()
+    if not words:
+        bbox = draw.textbbox(xy, '', font=font)
+        return xy[1] + (bbox[3] - bbox[1])
+
+    lines = []
+    current = words[0]
+    for word in words[1:]:
+        candidate = f'{current} {word}'
+        if draw.textbbox((0, 0), candidate, font=font)[2] <= max_width:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+
+    x, y = xy
+    for line in lines:
+        draw.text((x, y), line, font=font, fill=fill)
+        bbox = draw.textbbox((x, y), line, font=font)
+        y += (bbox[3] - bbox[1]) + line_spacing
+    return y
+
+
+def wrap_text_lines(draw, text, font, max_width):
+    words = str(text or '').split()
+    if not words:
+        return ['']
+
+    lines = []
+    current = words[0]
+    for word in words[1:]:
+        candidate = f'{current} {word}'
+        if draw.textbbox((0, 0), candidate, font=font)[2] <= max_width:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+    return lines
+
+
+def get_line_height(draw, font):
+    bbox = draw.textbbox((0, 0), 'Ag', font=font)
+    return bbox[3] - bbox[1]
+
+
+def create_stats_report_jpg(stats):
+    width = 1600
+    height = 960
+    image = Image.new('RGB', (width, height), 'white')
+    draw = ImageDraw.Draw(image)
+
+    title_font = load_pil_font(42, bold=True)
+    meta_font = load_pil_font(22)
+    body_font = load_pil_font(24)
+    small_font = load_pil_font(18)
+    bold_font = load_pil_font(24, bold=True)
+
+    left = 60
+    top = 48
+    draw.text((left, top), stats['complex_name'], font=title_font, fill='#111111')
+    top += 58
+    period_label = f"Период: {stats['first_defect_date']} - {date.today().isoformat()}"
+    draw.text((left, top), period_label, font=meta_font, fill='#4b5563')
+
+    chart_box = (left, 130, 980, 520)
+    draw.rounded_rectangle(chart_box, radius=20, outline='#d1d5db', width=2, fill='#ffffff')
+    draw.text((left + 24, 148), 'График за все время', font=bold_font, fill='#111111')
+
+    series = [
+        ('remaining_with_defects', 'Остаток', '#e60042'),
+        ('with_defects', 'Замечания', '#111111'),
+        ('call', 'Вызов', '#e969a8'),
+        ('accepted', 'Принято', '#009d91'),
+        ('no_access', 'Нет доступа', '#64748b'),
+    ]
+    timeline = stats.get('timeline') or []
+    chart_left, chart_top, chart_right, chart_bottom = left + 28, 200, 940, 460
+    if timeline:
+        max_value = max(1, max(int(point.get(key, 0) or 0) for point in timeline for key, _, _ in series))
+        inner_w = chart_right - chart_left
+        inner_h = chart_bottom - chart_top
+        for step in range(5):
+            y = chart_bottom - (inner_h * step / 4)
+            value = round(max_value * step / 4)
+            draw.line((chart_left, y, chart_right, y), fill='#e2e8f0', width=1)
+            label = str(value)
+            bbox = draw.textbbox((0, 0), label, font=small_font)
+            draw.text((chart_left - bbox[2] - 10, y - 10), label, font=small_font, fill='#64748b')
+
+        def to_x(index):
+            return chart_left if len(timeline) == 1 else chart_left + (inner_w * index / (len(timeline) - 1))
+
+        def to_y(value):
+            return chart_bottom - ((float(value or 0) / max_value) * inner_h)
+
+        for key, _, color in series:
+            points = [(to_x(index), to_y(point.get(key, 0))) for index, point in enumerate(timeline)]
+            if len(points) > 1:
+                draw.line(points, fill=color, width=4, joint='curve')
+            last_x, last_y = points[-1]
+            draw.ellipse((last_x - 4, last_y - 4, last_x + 4, last_y + 4), fill=color, outline=color)
+
+        labels = [timeline[0]['date'], timeline[len(timeline) // 2]['date'], timeline[-1]['date']]
+        positions = [chart_left, chart_left + inner_w / 2, chart_right]
+        for idx, label in enumerate(labels):
+            text_value = datetime.strptime(label, '%Y-%m-%d').strftime('%d.%m')
+            bbox = draw.textbbox((0, 0), text_value, font=small_font)
+            x = positions[idx] - (bbox[2] / 2)
+            if idx == 0:
+                x = positions[idx]
+            elif idx == 2:
+                x = positions[idx] - bbox[2]
+            draw.text((x, chart_bottom + 10), text_value, font=small_font, fill='#64748b')
+    else:
+        draw.text((chart_left, chart_top + 80), 'Нет данных для графика', font=body_font, fill='#64748b')
+
+    legend_x = 1010
+    legend_y = 180
+    draw.text((legend_x, legend_y - 34), 'Легенда', font=bold_font, fill='#111111')
+    for idx, (_, label, color) in enumerate(series):
+        item_y = legend_y + idx * 54
+        draw.rounded_rectangle((legend_x, item_y, legend_x + 18, item_y + 18), radius=9, fill=color, outline=color)
+        draw.text((legend_x + 30, item_y - 2), label, font=body_font, fill='#334155')
+
+    table_top = 560
+    draw.text((left, table_top), 'Статусы', font=bold_font, fill='#111111')
+    table_top += 34
+    columns = [('Статус', 680), ('Количество', 260), ('% от общего', 300)]
+    x = left
+    for header, col_width in columns:
+        draw.rectangle((x, table_top, x + col_width, table_top + 48), fill='#111111')
+        draw.text((x + 16, table_top + 12), header, font=small_font, fill='white')
+        x += col_width
+
+    rows = [
+        ('Вызов', stats['today_metrics'].get('call', 0)),
+        ('Принято', stats['today_metrics'].get('accepted', 0)),
+        ('Нет доступа', stats['today_metrics'].get('no_access', 0)),
+        ('Остаток с замечаниями', stats['today_metrics'].get('remaining_with_defects', 0)),
+        ('С замечаниями', stats['today_metrics'].get('with_defects', 0)),
+    ]
+    total = stats.get('total_apartments') or 0
+    row_y = table_top + 48
+    for index, (label, value) in enumerate(rows):
+        bg = '#f8fafc' if index % 2 == 0 else '#ffffff'
+        draw.rectangle((left, row_y, left + 1240, row_y + 50), fill=bg, outline='#d1d5db', width=1)
+        percent = f"{round((value / total) * 100, 1) if total else 0}%"
+        draw.text((left + 16, row_y + 12), label, font=body_font, fill='#111111')
+        draw.text((left + 720, row_y + 12), str(value), font=body_font, fill='#111111')
+        draw.text((left + 980, row_y + 12), percent, font=body_font, fill='#111111')
+        row_y += 50
+
+    output = io.BytesIO()
+    image.save(output, format='JPEG', quality=92)
+    output.seek(0)
+    return output
+
+
+def create_executor_report_jpg(report):
+    title_font = load_pil_font(34, bold=True)
+    meta_font = load_pil_font(18)
+    body_font = load_pil_font(18)
+    bold_font = load_pil_font(18, bold=True)
+    small_font = load_pil_font(16)
+
+    width = 900
+    margin = 40
+    col_widths = [220, 540, 140]
+    line_h = get_line_height(ImageDraw.Draw(Image.new('RGB', (10, 10), 'white')), small_font)
+    row_padding_y = 8
+    row_gap = 0
+
+    probe = ImageDraw.Draw(Image.new('RGB', (width, 200), 'white'))
+    estimated_height = 180
+    property_label = 'Апартамент' if report.get('property_type') == 'апартаменты' else 'Квартира'
+    for apartment_entry in report['apartments']:
+        estimated_height += 40
+        for category_entry in apartment_entry['categories']:
+            for defect in category_entry['defects']:
+                loc = defect['location']
+                cat_loc = f"{category_entry['category']}" + (f" • {loc}" if loc else "")
+                cat_loc_lines = wrap_text_lines(probe, cat_loc, small_font, col_widths[0] - 12)
+                items_lines = []
+                for item in (defect['items'] or ['Без текста']):
+                    items_lines.extend(wrap_text_lines(probe, item, small_font, col_widths[1] - 12))
+                status_lines = wrap_text_lines(probe, defect['status_label'], small_font, col_widths[2] - 12)
+                max_lines = max(len(cat_loc_lines), len(items_lines), len(status_lines))
+                estimated_height += max(36, max_lines * line_h + row_padding_y * 2) + row_gap
+        estimated_height += 10
+
+    height = max(600, estimated_height + 30)
+    image = Image.new('RGB', (width, height), 'white')
+    draw = ImageDraw.Draw(image)
+
+    x = margin
+    y = 30
+    draw.text((x, y), report['complex_name'], font=title_font, fill='black')
+    y += 42
+    draw.text((x, y), f"Исполнитель: {report['executor_name']}", font=meta_font, fill='black')
+    y += 24
+    draw.text((x, y), f"Сформировано: {report['generated_at']}", font=meta_font, fill='black')
+    y += 30
+
+    if not report['apartments']:
+        draw.text((x, y), 'Нет замечаний в статусах "В работе" и "На На проверке".', font=body_font, fill='black')
+    else:
+        headers = ['Категория', 'Замечание', 'Статус']
+        for apartment_entry in report['apartments']:
+            apartment = apartment_entry['apartment']
+            apartment_meta = [f"{property_label} {apartment['number']}"]
+            if apartment.get('section_number'):
+                apartment_meta.append(f"Секция {apartment['section_number']}")
+            if apartment.get('floor') is not None:
+                apartment_meta.append(f"Этаж {apartment['floor']}")
+            apartment_text = ' '.join(apartment_meta)
+
+            draw.text((x, y), apartment_text, font=bold_font, fill='black')
+            y += 28
+
+            current_x = x
+            for idx, header in enumerate(headers):
+                draw.rectangle((current_x, y, current_x + col_widths[idx], y + 30), outline='black')
+                draw.text((current_x + 6, y + 6), header, font=bold_font, fill='black')
+                current_x += col_widths[idx]
+            y += 30
+
+            for category_entry in apartment_entry['categories']:
+                for defect in category_entry['defects']:
+                    loc = defect['location']
+                    cat_loc = f"{category_entry['category']}" + (f" • {loc}" if loc else "")
+                    cat_loc_lines = wrap_text_lines(draw, cat_loc, small_font, col_widths[0] - 12)
+                    items_lines = []
+                    for idx, item in enumerate(defect['items'] or ['Без текста'], start=1):
+                        prefix = f"{idx}. " if defect['items'] else ''
+                        items_lines.extend(wrap_text_lines(draw, f"{prefix}{item}", small_font, col_widths[1] - 12))
+                    status_lines = wrap_text_lines(draw, defect['status_label'], small_font, col_widths[2] - 12)
+                    max_lines = max(len(cat_loc_lines), len(items_lines), len(status_lines))
+                    row_height = max(36, max_lines * line_h + row_padding_y * 2)
+
+                    current_x = x
+                    for col_width in col_widths:
+                        draw.rectangle((current_x, y, current_x + col_width, y + row_height), outline='black')
+                        current_x += col_width
+
+                    columns = [cat_loc_lines, items_lines, status_lines]
+                    current_x = x
+                    for idx, lines in enumerate(columns):
+                        text_y = y + row_padding_y
+                        for line in lines:
+                            draw.text((current_x + 6, text_y), line, font=small_font, fill='black')
+                            text_y += line_h
+                        current_x += col_widths[idx]
+
+                    y += row_height + row_gap
+            y += 10
+
+    output = io.BytesIO()
+    image.save(output, format='JPEG', quality=92)
+    output.seek(0)
+    return output
+
+
+def sanitize_ascii_filename(value: str, fallback: str) -> str:
+    cleaned = ''.join(ch if ch.isascii() and (ch.isalnum() or ch in ('-', '_')) else '_' for ch in (value or ''))
+    cleaned = cleaned.strip('_')
+    return cleaned or fallback
+
+
+def build_executor_responsible_report(conn, complex_id: int, executor_name: str):
+    cleaned_executor_name = (executor_name or '').strip()
+    if not cleaned_executor_name:
+        raise HTTPException(status_code=400, detail='Не указан исполнитель')
+
+    alias_names = {cleaned_executor_name}
+    if '(' in cleaned_executor_name and cleaned_executor_name.endswith(')'):
+        name_part, _, suffix = cleaned_executor_name.partition('(')
+        alias_names.add(name_part.strip())
+        alias_names.add(suffix[:-1].strip())
+
+    executor_row = conn.execute(
+        """
+        SELECT full_name, entity_type, legal_entity_name
+        FROM executors
+        WHERE full_name = ?
+           OR COALESCE(legal_entity_name, '') = ?
+           OR (CASE WHEN entity_type = 'legal' AND TRIM(COALESCE(legal_entity_name, '')) != ''
+                    THEN full_name || ' (' || legal_entity_name || ')'
+                    ELSE full_name END) = ?
+        LIMIT 1
+        """,
+        (cleaned_executor_name, cleaned_executor_name, cleaned_executor_name),
+    ).fetchone()
+    if executor_row:
+        alias_names.add((executor_row['full_name'] or '').strip())
+        if (executor_row['legal_entity_name'] or '').strip():
+            alias_names.add((executor_row['legal_entity_name'] or '').strip())
+        alias_names.add(get_executor_display_name(executor_row['full_name'], executor_row['entity_type'], executor_row['legal_entity_name']))
+
+    complex_row = conn.execute(
+        'SELECT id, name, property_type FROM complexes WHERE id = ?',
+        (complex_id,),
+    ).fetchone()
+    if not complex_row:
+        raise HTTPException(status_code=404, detail='ЖК не найден')
+
+    alias_names = [name for name in alias_names if name]
+    alias_placeholders = ','.join('?' for _ in alias_names)
+
+    rows = conn.execute(
+        f"""
+        SELECT
+            d.apartment_id,
+            d.category,
+            COALESCE(ea.executor_name, d.executor, '') AS executor_name,
+            a.number AS apartment_number,
+            a.floor AS apartment_floor,
+            s.section_number AS section_number,
+            d.id AS defect_id,
+            d.status AS defect_status,
+            d.created_at AS defect_created_at,
+            d.window_number AS defect_window_number,
+            d.variant_number AS defect_variant_number,
+            GROUP_CONCAT(di.text, '\n') AS item_texts
+        FROM defects d
+        JOIN apartments a ON a.id = d.apartment_id
+        LEFT JOIN sections s ON s.id = a.section_id
+        LEFT JOIN executor_assignments ea
+            ON ea.apartment_id = d.apartment_id
+           AND ea.category = d.category
+           AND ea.complex_id = a.complex_id
+        LEFT JOIN defect_items di ON di.defect_id = d.id
+        WHERE a.complex_id = ?
+          AND d.status IN ('in_progress', 'on_review')
+          AND (
+              COALESCE(d.executor, '') IN ({alias_placeholders})
+              OR COALESCE(ea.executor_name, '') IN ({alias_placeholders})
+          )
+        GROUP BY
+            d.apartment_id,
+            d.category,
+            executor_name,
+            a.number,
+            a.floor,
+            s.section_number,
+            d.id,
+            d.status,
+            d.created_at,
+            d.window_number,
+            d.variant_number
+        ORDER BY
+            s.section_number,
+            a.floor,
+            a.number,
+            CASE d.category WHEN 'Окна' THEN 0 ELSE 1 END,
+            d.category,
+            d.created_at,
+            d.id
+        """,
+        (complex_id, *alias_names, *alias_names),
+    ).fetchall()
+
+    apartments = []
+    grouped = {}
+    for row in rows:
+        apartment_id = row['apartment_id']
+        if apartment_id not in grouped:
+            grouped[apartment_id] = {
+                'apartment': {
+                    'id': apartment_id,
+                    'number': row['apartment_number'],
+                    'floor': row['apartment_floor'],
+                    'section_number': row['section_number'],
+                },
+                'categories': [],
+            }
+            apartments.append(grouped[apartment_id])
+
+        category_entry = next((item for item in grouped[apartment_id]['categories'] if item['category'] == row['category']), None)
+        if not category_entry:
+            category_entry = {'category': row['category'], 'defects': []}
+            grouped[apartment_id]['categories'].append(category_entry)
+
+        if row['defect_id']:
+            category_entry['defects'].append({
+                'id': row['defect_id'],
+                'status': row['defect_status'],
+                'status_label': STATUSES.get(row['defect_status'], row['defect_status']),
+                'location': get_defect_location_label(row['category'], row['defect_window_number'], row['defect_variant_number']),
+                'items': [item.strip() for item in (row['item_texts'] or '').split('\n') if item and item.strip()],
+            })
+
+    apartments = [entry for entry in apartments if any(category['defects'] for category in entry['categories'])]
+    return {
+        'complex_id': complex_row['id'],
+        'complex_name': complex_row['name'],
+        'property_type': complex_row['property_type'] or 'квартиры',
+        'executor_name': cleaned_executor_name,
+        'generated_at': datetime.now().strftime('%d.%m.%Y %H:%M'),
+        'apartments': apartments,
+    }
+
+
 @app.get("/api/complexes/{complex_id}/statistics")
-async def get_complex_statistics(complex_id: int, stat_date: str = None, start_date: str = None, end_date: str = None):
+async def get_complex_statistics(complex_id: int, stat_date: str = None, start_date: str = None, end_date: str = None, sections: str = None, access_filters: str = None):
     conn = get_db()
     try:
-        return build_complex_statistics(conn, complex_id, stat_date, start_date, end_date)
+        section_ids = []
+        parsed_access_filters = []
+        if sections:
+            try:
+                section_ids = [int(s.strip()) for s in sections.split(',') if s.strip()]
+            except ValueError:
+                pass
+        if access_filters:
+            parsed_access_filters = [value.strip() for value in access_filters.split(',') if value.strip()]
+        return build_complex_statistics(conn, complex_id, stat_date, start_date, end_date, section_ids, parsed_access_filters)
     finally:
         conn.close()
 
 
-@app.get("/api/complexes/{complex_id}/statistics/pdf")
-async def export_complex_statistics_pdf(complex_id: int, stat_date: str = None, start_date: str = None, end_date: str = None):
+@app.get("/api/complexes/{complex_id}/statistics/jpg")
+async def export_complex_statistics_jpg(complex_id: int, stat_date: str = None, start_date: str = None, end_date: str = None, sections: str = None):
     conn = get_db()
     try:
-        stats = build_complex_statistics(conn, complex_id, stat_date, start_date, end_date)
+        section_ids = []
+        if sections:
+            try:
+                section_ids = [int(s.strip()) for s in sections.split(',') if s.strip()]
+            except ValueError:
+                pass
+        stats = build_complex_statistics(conn, complex_id, stat_date, start_date, end_date, section_ids)
     finally:
         conn.close()
 
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm, topMargin=1.5 * cm, bottomMargin=1.5 * cm)
-
-    try:
-        pdfmetrics.registerFont(TTFont('DejaVuSans', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
-        pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
-        font_name = 'DejaVuSans'
-        font_bold = 'DejaVuSans-Bold'
-    except Exception:
-        font_name = 'Helvetica'
-        font_bold = 'Helvetica-Bold'
-
-    styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        name='StatsBody',
-        fontName=font_name,
-        fontSize=10,
-        leading=14,
-        textColor=colors.HexColor('#111111'),
-    ))
-    styles.add(ParagraphStyle(
-        name='StatsTitle',
-        fontName=font_bold,
-        fontSize=20,
-        leading=24,
-        textColor=colors.HexColor('#111111'),
-    ))
-    styles.add(ParagraphStyle(
-        name='StatsMeta',
-        fontName=font_name,
-        fontSize=11,
-        leading=14,
-        textColor=colors.HexColor('#4b5563'),
-    ))
-
-    story = []
-
-    period_label = f'{stats["first_defect_date"]} - {date.today().isoformat()}'
-    property_label = 'Апартаментов' if stats.get('property_type') == 'апартаменты' else 'Квартир'
-    today_metrics = stats.get("today_metrics", {})
-
-    story.append(Paragraph(stats["complex_name"], styles['StatsTitle']))
-    story.append(Spacer(1, 0.15 * cm))
-    story.append(Paragraph(f'Период: {period_label}', styles['StatsMeta']))
-    story.append(Spacer(1, 0.45 * cm))
-
-    summary_data = [
-        [property_label, str(stats["total_apartments"])],
-        ["Сегодня", date.today().isoformat()],
-    ]
-    summary_table = Table(summary_data, colWidths=[10.5 * cm, 4.5 * cm])
-    summary_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), font_name),
-        ('FONTNAME', (1, 0), (1, -1), font_bold),
-        ('FONTSIZE', (0, 0), (0, -1), 11),
-        ('FONTSIZE', (1, 0), (1, -1), 18),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#111111')),
-        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-    ]))
-    story.append(summary_table)
-    story.append(Spacer(1, 0.45 * cm))
-
-    rows = [["Статус", "Количество", "% от общего"]]
-    status_rows = [
-        ("Вызов", today_metrics.get("call", 0)),
-        ("Принято", today_metrics.get("accepted", 0)),
-        ("Нет доступа", today_metrics.get("no_access", 0)),
-        ("Остаток с замечаниями", today_metrics.get("remaining_with_defects", 0)),
-        ("С замечаниями", today_metrics.get("with_defects", 0)),
-    ]
-    total_apartments = stats["total_apartments"] or 0
-    for label, count in status_rows:
-        percent = round((count / total_apartments) * 100, 1) if total_apartments else 0
-        rows.append([label, str(count), f'{percent}%'])
-
-    status_table = Table(rows, colWidths=[8.5 * cm, 3 * cm, 3 * cm])
-    status_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), font_name),
-        ('FONTNAME', (0, 0), (-1, 0), font_bold),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#111111')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('LINEBELOW', (0, 1), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
-        ('TOPPADDING', (0, 0), (-1, -1), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-    ]))
-    story.append(status_table)
-    story.append(Spacer(1, 0.45 * cm))
-    story.append(Paragraph('График за все время', styles['StatsMeta']))
-    story.append(Spacer(1, 0.2 * cm))
-    story.append(build_stats_chart_drawing(stats.get('timeline', []), font_name=font_name))
-
-    doc.build(story)
-    buffer.seek(0)
-    filename = f'statistics_{complex_id}.pdf'
+    output = create_stats_report_jpg(stats)
+    filename = f'statistics_{complex_id}.jpg'
     headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    return StreamingResponse(buffer, media_type='application/pdf', headers=headers)
+    return StreamingResponse(output, media_type='image/jpeg', headers=headers)
+
+
+@app.get('/api/complexes/{complex_id}/executor-report')
+async def get_executor_report(complex_id: int, executor_name: str):
+    conn = get_db()
+    try:
+        return build_executor_responsible_report(conn, complex_id, executor_name)
+    finally:
+        conn.close()
+
+
+@app.get('/api/complexes/{complex_id}/executor-report/jpg')
+async def export_executor_report_jpg(complex_id: int, executor_name: str):
+    conn = get_db()
+    try:
+        report = build_executor_responsible_report(conn, complex_id, executor_name)
+    finally:
+        conn.close()
+
+    output = create_executor_report_jpg(report)
+    safe_name = sanitize_ascii_filename(report['executor_name'], 'executor')
+    headers = {"Content-Disposition": f'attachment; filename="executor_report_{complex_id}_{safe_name}.jpg"'}
+    return StreamingResponse(output, media_type='image/jpeg', headers=headers)
 
 
 # === COMMENTS ENDPOINTS ===
@@ -3190,164 +4012,6 @@ async def delete_comment(comment_id: int):
     conn.close()
     
     return {"message": "Комментарий удален"}
-
-
-# === PDF EXPORT ENDPOINT ===
-
-@app.get("/api/complexes/{complex_id}/export/pdf")
-async def export_complex_pdf(complex_id: int, section_id: Optional[int] = None):
-    conn = get_db()
-    
-    # Информация о ЖК
-    complex_row = conn.execute("SELECT * FROM complexes WHERE id = ?", (complex_id,)).fetchone()
-    if not complex_row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="ЖК не найден")
-    
-    complex_name = complex_row["name"]
-    
-    # Формируем запрос для получения замечаний
-    query = """
-        SELECT 
-            d.*,
-            a.number as apt_number,
-            a.floor,
-            s.section_number
-        FROM defects d
-        JOIN apartments a ON d.apartment_id = a.id
-        JOIN sections s ON a.section_id = s.id
-        WHERE a.complex_id = ?
-    """
-    params = [complex_id]
-    
-    if section_id:
-        query += " AND a.section_id = ?"
-        params.append(section_id)
-    
-    query += " ORDER BY s.section_number, a.floor, a.number, d.created_at DESC"
-    
-    defects = conn.execute(query, params).fetchall()
-    
-    # Статистика
-    total_defects = len(defects)
-    by_status = {}
-    for d in defects:
-        status = d["status"]
-        by_status[status] = by_status.get(status, 0) + 1
-    
-    conn.close()
-    
-    # Создаем PDF
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=2*cm,
-        leftMargin=2*cm,
-        topMargin=2*cm,
-        bottomMargin=2*cm
-    )
-    
-    # Регистрируем шрифт с поддержкой кириллицы
-    try:
-        pdfmetrics.registerFont(TTFont('DejaVuSans', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
-        font_name = 'DejaVuSans'
-    except:
-        font_name = 'Helvetica'
-    
-    styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        name='Russian',
-        fontName=font_name,
-        fontSize=10,
-        leading=14
-    ))
-    styles.add(ParagraphStyle(
-        name='RussianTitle',
-        fontName=font_name,
-        fontSize=18,
-        leading=24,
-        alignment=1,
-        spaceAfter=20
-    ))
-    styles.add(ParagraphStyle(
-        name='RussianHeading',
-        fontName=font_name,
-        fontSize=14,
-        leading=18,
-        spaceAfter=10
-    ))
-    
-    story = []
-    
-    # Заголовок
-    story.append(Paragraph(f"Отчет по приемке квартир", styles['RussianTitle']))
-    story.append(Paragraph(f"ЖК: {complex_name}", styles['RussianHeading']))
-    story.append(Spacer(1, 20))
-    
-    # Дата формирования
-    story.append(Paragraph(f"Дата формирования: {datetime.now().strftime('%d.%m.%Y %H:%M')}", styles['Russian']))
-    story.append(Spacer(1, 10))
-    
-    # Статистика
-    story.append(Paragraph("Сводная статистика:", styles['RussianHeading']))
-    stats_data = [
-        ["Статус", "Значение"],
-        ["Всего замечаний", str(total_defects)],
-        ["Зафиксированно", str(by_status.get('recorded', 0))],
-        ["В работе", str(by_status.get('in_progress', 0))],
-        ["На проверке", str(by_status.get('on_review', 0))],
-        ["Выполнено", str(by_status.get('completed', 0))],
-        ["Отклонено", str(by_status.get('rejected', 0))]
-    ]
-    
-    stats_table = Table(stats_data, colWidths=[8*cm, 4*cm])
-    stats_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), font_name),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667eea')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f3f4f6')])
-    ]))
-    story.append(stats_table)
-    story.append(Spacer(1, 30))
-    
-    # Список замечаний
-    if defects:
-        story.append(Paragraph("Список замечаний:", styles['RussianHeading']))
-        story.append(Spacer(1, 10))
-        
-        for i, d in enumerate(defects, 1):
-            status_label = STATUSES.get(d["status"], d["status"])
-            window_info = f" (Окно №{d['window_number']})" if d['window_number'] else ""
-            
-            defect_text = f"""
-            <b>{i}. Квартира {d['apt_number']}</b> (Секция {d['section_number']}, {d['floor']} этаж)<br/>
-            <b>Категория:</b> {d['category']}{window_info}<br/>
-            <b>Статус:</b> {status_label}<br/>
-            <b>Описание:</b> {d['description']}<br/>
-            <b>Срок:</b> {d['deadline'] if d['deadline'] else 'Не указан'} | 
-            <b>Создано:</b> {datetime.fromisoformat(d['created_at']).strftime('%d.%m.%Y')}
-            """
-            story.append(Paragraph(defect_text, styles['Russian']))
-            story.append(Spacer(1, 15))
-    else:
-        story.append(Paragraph("Замечаний не найдено.", styles['Russian']))
-    
-    doc.build(story)
-    buffer.seek(0)
-    
-    section_suffix = f"_section{section_id}" if section_id else ""
-    filename = f"defects_report_{complex_id}{section_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    
-    return StreamingResponse(
-        buffer,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
-
 
 if __name__ == "__main__":
     import uvicorn

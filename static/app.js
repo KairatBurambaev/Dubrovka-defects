@@ -774,7 +774,11 @@ function applyApartmentFilters(apartments) {
     }
 
     if (state.reviewOnly) {
-        filterConditions.push((apartment) => Number(apartment.on_review_defects_count || 0) > 0);
+        filterConditions.push((apartment) => {
+            if (Number(apartment.on_review_defects_count || 0) <= 0) return false;
+            if (state.defectsOnly) return true;
+            return !countsAsDefectApartment(apartment);
+        });
     }
 
     if (state.restorationOnly) {
@@ -1165,6 +1169,8 @@ function renderExecutorRegistryList() {
                     <div class="executor-registry-meta">${executor.entity_type === 'legal' ? 'Юридическое лицо' : 'Физическое лицо'}</div>
                 </div>
                 <div class="executor-registry-item-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="printExecutorResponsibleReport(${executor.id})">Печать</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="exportExecutorResponsibleJpg(${executor.id})">JPG</button>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="editExecutor(${executor.id})">Изменить</button>
                     <button type="button" class="btn btn-danger btn-sm" onclick="deleteExecutor(${executor.id})">Удалить</button>
                 </div>
@@ -1294,6 +1300,115 @@ async function deleteExecutor(executorId) {
     } catch (err) {
         showToast(err.message || 'Ошибка удаления исполнителя', 'error');
     }
+}
+
+function getExecutorById(executorId) {
+    return state.executors.find((item) => Number(item.id) === Number(executorId)) || null;
+}
+
+async function fetchExecutorResponsibleReport(executorId) {
+    if (!state.currentComplex) throw new Error('ЖК не выбран');
+    const executor = getExecutorById(executorId);
+    if (!executor) throw new Error('Исполнитель не найден');
+
+    const params = new URLSearchParams();
+    params.set('executor_name', executor.display_name || executor.full_name || '');
+    const res = await fetch(`/api/complexes/${state.currentComplex}/executor-report?${params.toString()}`, { cache: 'no-store' });
+    if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.detail || 'Ошибка загрузки отчета');
+    }
+    return res.json();
+}
+
+async function printExecutorResponsibleReport(executorId) {
+    try {
+        const report = await fetchExecutorResponsibleReport(executorId);
+        const win = window.open('', '_blank');
+        if (!win) return;
+
+        const propertyLabel = report.property_type === 'апартаменты' ? 'Апартамент' : 'Квартира';
+        const contentHtml = (report.apartments || []).length
+            ? report.apartments.map((entry) => {
+                const apartment = entry.apartment || {};
+                const meta = [
+                    `${propertyLabel} ${apartment.number || '—'}`,
+                    apartment.section_number ? `Секция ${apartment.section_number}` : '',
+                    apartment.floor !== null && apartment.floor !== undefined ? `Этаж ${apartment.floor}` : ''
+                ].filter(Boolean).join(' ');
+
+                const rows = entry.categories.flatMap((categoryEntry) => categoryEntry.defects.map((defect) => `
+                    <tr>
+                        <td>${escapeHtml(categoryEntry.category || '')}</td>
+                        <td>${escapeHtml(defect.location || 'Без локации')}</td>
+                        <td>${(defect.items || []).length ? defect.items.map((item) => `<div>${escapeHtml(item)}</div>`).join('') : 'Без текста'}</td>
+                        <td>${escapeHtml(defect.status_label || defect.status || '')}</td>
+                    </tr>
+                `)).join('');
+
+                return `
+                    <section class="executor-report-group">
+                        <h2>${escapeHtml(meta)}</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width:20%">Категория</th>
+                                    <th style="width:20%">Локация</th>
+                                    <th style="width:45%">Замечание</th>
+                                    <th style="width:15%">Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </section>
+                `;
+            }).join('')
+            : '<div class="executor-report-empty">Нет замечаний в статусах "В работе" и "На проверке".</div>';
+
+        win.document.write(`
+            <!DOCTYPE html>
+            <html lang="ru">
+            <head>
+                <meta charset="UTF-8">
+                <title>${escapeHtml(report.executor_name || 'Отчет')}</title>
+                <style>
+                    * { box-sizing: border-box; }
+                    @page { margin: 10mm; size: A4 portrait; }
+                    body { margin: 0; color: #111; font-family: Arial, sans-serif; }
+                    .sheet { max-width: 190mm; margin: 0 auto; }
+                    h1 { margin: 0 0 4px; font-size: 22px; }
+                    .meta { margin-bottom: 14px; font-size: 12px; color: #4b5563; }
+                    .executor-report-group { margin-bottom: 16px; page-break-inside: avoid; }
+                    .executor-report-group h2 { margin: 0 0 8px; font-size: 14px; }
+                    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                    th, td { border: 1px solid #d1d5db; padding: 8px 9px; text-align: left; vertical-align: top; word-break: break-word; font-size: 12px; }
+                    th { background: #f3f4f6; font-size: 11px; text-transform: uppercase; }
+                    .executor-report-empty { font-size: 13px; color: #4b5563; }
+                </style>
+            </head>
+            <body>
+                <div class="sheet">
+                    <h1>${escapeHtml(report.complex_name || '')}</h1>
+                    <div class="meta">Ответственный: ${escapeHtml(report.executor_name || '')}<br>Сформировано: ${escapeHtml(report.generated_at || '')}</div>
+                    ${contentHtml}
+                </div>
+            </body>
+            </html>
+        `);
+        win.document.close();
+        setTimeout(() => win.print(), 120);
+    } catch (err) {
+        showToast(err.message || 'Ошибка печати отчета', 'error');
+    }
+}
+
+function exportExecutorResponsibleJpg(executorId) {
+    if (!state.currentComplex) return;
+    const executor = getExecutorById(executorId);
+    if (!executor) return;
+    const params = new URLSearchParams();
+    params.set('executor_name', executor.display_name || executor.full_name || '');
+    window.open(`/api/complexes/${state.currentComplex}/executor-report/jpg?${params.toString()}`, '_blank');
 }
 
 function renderDefectExecutorOptions(defect) {
@@ -2364,6 +2479,11 @@ function handleFilterChange() {
     }
     
     loadApartments();
+    
+    const statsModal = document.getElementById('statsModal');
+    if (statsModal?.classList.contains('active')) {
+        loadStats(document.getElementById('statsBody'), statsModal);
+    }
 }
 
 function toggleSectionFilter(sectionId) {
@@ -3175,6 +3295,11 @@ function getApartmentSortMeta(apartment, catFilter) {
     let reviewCount = Number(apartment.on_review_defects_count || 0);
     const isAccepted = isAcceptedApartment(apartment);
     const hasActiveDefects = openCount > 0;
+    const isRepeatCall = apartment?.access_status === 'call'
+        && Boolean(apartment?.last_call_at)
+        && Number(apartment?.changes_after_last_call_count || 0) > 0
+        && Boolean(apartment?.resolved_after_last_call_date)
+        && apartment?.resolved_after_last_call_date !== apartment?.last_call_date;
 
     const blackBadge = isAccepted && hasActiveDefects;
     const greenBadge = !isAccepted && hasActiveDefects;
@@ -3191,7 +3316,14 @@ function getApartmentSortMeta(apartment, catFilter) {
     const finalBlackBadge = isAccepted && openCount > 0;
     const finalGreenBadge = !isAccepted && openCount > 0;
 
-    return { openCount, reviewCount, greenBadge: finalGreenBadge, blackBadge: finalBlackBadge, totalAll: openCount + reviewCount };
+    return {
+        openCount,
+        reviewCount,
+        greenBadge: finalGreenBadge,
+        blackBadge: finalBlackBadge,
+        repeatCall: isRepeatCall,
+        totalAll: openCount + reviewCount,
+    };
 }
 
 function getApartmentStatusSortOrder(apartment) {
@@ -3636,8 +3768,8 @@ function renderApartments(apartments) {
                     const sortedApts = [...apts].sort((a, b) => {
                         const aMeta = getApartmentSortMeta(a, catFilter);
                         const bMeta = getApartmentSortMeta(b, catFilter);
-                        const aPriority = aMeta.blackBadge ? 0 : aMeta.greenBadge ? 1 : aMeta.reviewCount > 0 ? 2 : 3;
-                        const bPriority = bMeta.blackBadge ? 0 : bMeta.greenBadge ? 1 : bMeta.reviewCount > 0 ? 2 : 3;
+                        const aPriority = aMeta.blackBadge ? 0 : aMeta.greenBadge ? 1 : aMeta.reviewCount > 0 ? 2 : aMeta.repeatCall ? 3 : 4;
+                        const bPriority = bMeta.blackBadge ? 0 : bMeta.greenBadge ? 1 : bMeta.reviewCount > 0 ? 2 : bMeta.repeatCall ? 3 : 4;
 
                         if (aPriority !== bPriority) return bPriority - aPriority;
 
@@ -5992,6 +6124,50 @@ function getFilteredDefectGroups() {
         .map(apartment => ({ apartment, defects: grouped.get(apartment.id) || [] }));
 }
 
+function getApartmentPhoneNote(apartment) {
+    const accessPhone = String(apartment?.access_phone || '').trim();
+    if (apartment?.access_status !== 'by_phone' || !accessPhone) return '';
+    return `Тел.: ${accessPhone}`;
+}
+
+function renderFilteredDefectsTable(groups, options = {}) {
+    const includeRowClasses = Boolean(options.includeRowClasses);
+    const rowsHtml = groups
+        .flatMap(({ apartment, defects }) => defects.map((defect, index) => {
+            const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
+            const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
+            const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
+            const phoneNote = getApartmentPhoneNote(apartment);
+            const meta = [section, floor].filter(Boolean).join(' ');
+            const rowClass = includeRowClasses ? (index % 2 === 0 ? 'print-row-light' : 'print-row-white') : '';
+            return `
+                <tr${rowClass ? ` class="${rowClass}"` : ''}>
+                    <td class="filtered-defects-apartment-cell">${index === 0 ? `${escapeHtml(apartmentLabel)}${phoneNote ? `<div class="filtered-defects-apartment-phone">${escapeHtml(phoneNote)}</div>` : ''}${meta ? `<div class="filtered-defects-apartment-meta">${escapeHtml(meta)}</div>` : ''}` : ''}</td>
+                    <td>${getDefectPrintLocation(defect)}</td>
+                    <td><div class="filtered-defect-items">${renderReadonlyDefectItems(defect, 'filtered-defect-item-token')}</div></td>
+                    <td><span class="filtered-defect-status defect-status-badge ${getDefectStatusBadgeClass(defect.status)}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
+                </tr>
+            `;
+        }))
+        .join('');
+
+    return `
+        <div class="filtered-defects-table-wrap">
+            <table class="filtered-defects-table filtered-defects-table-flat">
+                <thead>
+                    <tr>
+                        <th>Квартира</th>
+                        <th>Место</th>
+                        <th>Замечание</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>
+    `;
+}
+
 function renderFilteredDefectCommentList(comments) {
     if (!comments.length) {
         return '<div class="filtered-comments-empty">Замечаний нет</div>';
@@ -6060,39 +6236,7 @@ async function showFilteredDefectsModal() {
     if (!body || !modal) return;
     if (commentsModal) commentsModal.classList.remove('active');
 
-    body.innerHTML = groups.map(({ apartment, defects }) => {
-        const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
-        const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
-        const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
-        const meta = [section, floor].filter(Boolean).join(' • ');
-
-        return `
-            <section class="filtered-defects-group">
-                <div class="filtered-defects-group-title">${escapeHtml(apartmentLabel)}</div>
-                ${meta ? `<div class="filtered-defects-group-meta">${escapeHtml(meta)}</div>` : ''}
-                <div class="filtered-defects-table-wrap">
-                    <table class="filtered-defects-table">
-                        <thead>
-                            <tr>
-                                <th>Место</th>
-                                <th>Замечание</th>
-                                <th>Статус</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${defects.map(defect => `
-                                <tr>
-                                    <td>${getDefectPrintLocation(defect)}</td>
-                                    <td><div class="filtered-defect-items">${renderReadonlyDefectItems(defect, 'filtered-defect-item-token')}</div></td>
-                                    <td><span class="filtered-defect-status defect-status-badge ${getDefectStatusBadgeClass(defect.status)}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        `;
-    }).join('');
+    body.innerHTML = renderFilteredDefectsTable(groups);
 
     modal.classList.add('active');
 }
@@ -6130,10 +6274,11 @@ async function showFilteredDefectCommentsModal() {
 
     body.innerHTML = groups.map(({ apartment, comments }) => {
         const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
+        const phoneNote = getApartmentPhoneNote(apartment);
 
         return `
             <section class="filtered-defects-group">
-                <div class="filtered-defects-group-title">${escapeHtml(apartmentLabel)}</div>
+                <div class="filtered-defects-group-title">${escapeHtml(apartmentLabel)}${phoneNote ? `<div class="filtered-defects-apartment-phone">${escapeHtml(phoneNote)}</div>` : ''}</div>
                 ${renderFilteredDefectCommentList(comments)}
             </section>
         `;
@@ -6171,34 +6316,7 @@ async function printFilteredDefects() {
         return;
     }
 
-    const rowsHtml = groups
-        .flatMap(({ apartment, defects }) => {
-            return defects.map((defect, index) => {
-                const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
-                const place = getDefectPrintLocation(defect);
-                const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
-                const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
-                const meta = [section, floor].filter(Boolean).join(' ');
-                const rowClass = index % 2 === 0 ? 'print-row-light' : 'print-row-white';
-                const defectStatusClass = {
-                    recorded: 'print-defect-status-recorded',
-                    new: 'print-defect-status-new',
-                    in_progress: 'print-defect-status-progress',
-                    on_review: 'print-defect-status-review',
-                    completed: 'print-defect-status-completed',
-                    rejected: 'print-defect-status-rejected',
-                }[defect.status] || 'print-defect-status-recorded';
-                return `
-                    <tr class="${rowClass}">
-                        <td class="print-col-apartment">${index === 0 ? `${escapeHtml(apartmentLabel)}${meta ? `<div class="print-apartment-meta">${escapeHtml(meta)}</div>` : ''}` : ''}</td>
-                        <td class="print-col-place">${place}</td>
-                        <td class="print-col-desc"><div class="print-defect-items">${renderReadonlyDefectItems(defect, 'print-defect-item-token')}</div></td>
-                        <td class="print-col-status"><span class="print-defect-status ${defectStatusClass}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
-                    </tr>
-                `;
-            });
-        })
-        .join('');
+    const tableHtml = renderFilteredDefectsTable(groups, { includeRowClasses: true });
 
     const title = `Замечания по отфильтрованным квартирам`;
     const subtitle = state.currentComplexData?.name ? escapeHtml(state.currentComplexData.name) : '';
@@ -6212,7 +6330,7 @@ async function printFilteredDefects() {
             <meta charset="UTF-8">
             <title>${title}</title>
             <style>
-                @page { margin: 12mm; size: A4 landscape; }
+                @page { margin: 10mm; size: A4 landscape; }
                 body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #111; font-size: 12px; }
                 .sheet { padding: 10mm 4mm; }
                 h1 { margin: 0 0 6px; font-size: 18px; }
@@ -6220,21 +6338,14 @@ async function printFilteredDefects() {
                 table { width: 100%; border-collapse: collapse; }
                 th, td { border: 1px solid #111; padding: 6px 8px; vertical-align: top; }
                 th { text-align: left; background: #f5f5f5; }
-                .print-col-apartment { width: 160px; }
-                .print-col-place { width: 120px; }
-                .print-col-status { width: 120px; }
+                .filtered-defects-apartment-cell { width: 180px; }
+                .filtered-defects-apartment-phone { margin-top: 4px; font-size: 11px; color: #111; }
+                .filtered-defects-apartment-meta { margin-top: 4px; font-size: 11px; color: #666; }
                 .print-defect-items { display: flex; flex-wrap: wrap; gap: 6px; }
                 .print-defect-item-token { display: inline-flex; align-items: center; gap: 4px; }
                 .print-defect-item-token .defect-item-number { font-weight: 700; }
-                .print-apartment-meta { margin-top: 4px; font-size: 11px; color: #666; }
                 .print-row-light td { background: #f7f7f7; }
                 .print-row-white td { background: #ffffff; }
-                .print-defect-status { font-weight: 700; padding: 2px 8px; border-radius: 999px; display: inline-block; }
-                .print-defect-status-recorded, .print-defect-status-new { background: #e5e7eb; color: #374151; }
-                .print-defect-status-progress { background: #fef3c7; color: #92400e; }
-                .print-defect-status-review { background: #ccfbf1; color: #115e59; }
-                .print-defect-status-completed { background: #dcfce7; color: #166534; }
-                .print-defect-status-rejected { background: #fee2e2; color: #991b1b; }
                 tr { page-break-inside: avoid; }
             </style>
         </head>
@@ -6242,19 +6353,7 @@ async function printFilteredDefects() {
             <div class="sheet">
                 <h1>${title}</h1>
                 ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Квартира</th>
-                            <th>Место</th>
-                            <th>Замечание</th>
-                            <th>Статус</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rowsHtml}
-                    </tbody>
-                </table>
+                ${tableHtml}
             </div>
         </body>
         </html>
@@ -6287,11 +6386,13 @@ async function printFilteredDefectComments() {
     const subtitle = state.currentComplexData?.name ? escapeHtml(state.currentComplexData.name) : '';
     const contentHtml = groups.map(({ apartment, comments }) => {
         const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
+        const phoneNote = getApartmentPhoneNote(apartment);
 
         return `
             <section class="print-comment-group">
                 <div class="print-comment-head">
                     <h2>${escapeHtml(apartmentLabel)}</h2>
+                    ${phoneNote ? `<div class="print-comment-phone">${escapeHtml(phoneNote)}</div>` : ''}
                 </div>
                 <div class="print-comment-list">
                     ${comments.map((comment, index) => `
@@ -6326,6 +6427,7 @@ async function printFilteredDefectComments() {
                 .print-comment-group { margin-bottom: 6px; page-break-inside: avoid; border: 0; border-radius: 0; overflow: visible; }
                 .print-comment-head { padding: 4px 0; background: transparent; border-bottom: 0; }
                 .print-comment-group h2 { margin: 0; font-size: 14px; }
+                .print-comment-phone { margin-top: 4px; font-size: 11px; color: #111; }
                 .print-comment-list { display: flex; flex-direction: column; padding: 0; gap: 2px; }
                 .print-comment-card { border: 0; border-radius: 0; padding: 3px 0; page-break-inside: avoid; }
                 .print-comment-line-head { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
@@ -6395,6 +6497,13 @@ function getStatsQueryString() {
     } else {
         params.set('stat_date', statsDate);
     }
+    const selectedSectionIds = getSelectedSectionIds();
+    if (selectedSectionIds.length > 0) {
+        params.set('sections', selectedSectionIds.join(','));
+    }
+    if (state.activeAccessFilters && state.activeAccessFilters.length > 0) {
+        params.set('access_filters', state.activeAccessFilters.join(','));
+    }
     return params.toString();
 }
 
@@ -6421,22 +6530,32 @@ function formatStatsShortDate(dateValue) {
     });
 }
 
-function renderStatsTrendChart(timeline) {
+function renderStatsTrendChart(timeline, options = {}) {
     if (!Array.isArray(timeline) || !timeline.length) {
         return '<div class="stats-chart-empty">Нет данных для графика</div>';
     }
 
-    const series = [
+    const defaultSeries = [
         { key: 'remaining_with_defects', label: 'Остаток с замечаниями', color: '#e60042' },
         { key: 'with_defects', label: 'С замечаниями', color: '#111111' },
         { key: 'call', label: 'Вызов', color: '#e969a8' },
         { key: 'accepted', label: 'Принято', color: '#009d91' },
         { key: 'no_access', label: 'Нет доступа', color: '#64748b' }
     ];
+    const legendLabels = options.legendLabels || {};
+    const series = defaultSeries.map((item) => ({
+        ...item,
+        label: legendLabels[item.key] || item.label,
+    }));
 
-    const width = 760;
-    const height = 320;
-    const padding = { top: 20, right: 20, bottom: 34, left: 42 };
+    const width = Number(options.width || 760);
+    const height = Number(options.height || 320);
+    const padding = {
+        top: Number(options.paddingTop || 20),
+        right: Number(options.paddingRight || 20),
+        bottom: Number(options.paddingBottom || 34),
+        left: Number(options.paddingLeft || 42),
+    };
     const innerWidth = width - padding.left - padding.right;
     const innerHeight = height - padding.top - padding.bottom;
     const maxValue = Math.max(1, ...timeline.flatMap((point) => series.map((item) => Number(point[item.key] || 0))));
@@ -6445,12 +6564,19 @@ function renderStatsTrendChart(timeline) {
     const toX = (index) => padding.left + (index * xStep);
     const toY = (value) => padding.top + innerHeight - ((Number(value || 0) / maxValue) * innerHeight);
 
+    const axisFontSize = Number(options.axisFontSize || 11);
+    const lineStrokeWidth = Number(options.lineStrokeWidth || 3);
+    const pointRadius = Number(options.pointRadius || 4);
+    const legendFontSize = Number(options.legendFontSize || 12);
+    const legendGap = Number(options.legendGap || 14);
+    const legendColumns = Math.max(1, Number(options.legendColumns || series.length));
+
     const gridLines = Array.from({ length: ySteps + 1 }, (_, index) => {
         const value = Math.round((maxValue / ySteps) * index);
         const y = padding.top + innerHeight - (innerHeight / ySteps) * index;
         return `
             <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="stats-chart-grid-line"></line>
-            <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="stats-chart-axis-label">${value}</text>
+            <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="stats-chart-axis-label" style="font-size:${axisFontSize}px">${value}</text>
         `;
     }).join('');
 
@@ -6458,8 +6584,8 @@ function renderStatsTrendChart(timeline) {
         const points = timeline.map((point, index) => `${toX(index)},${toY(point[item.key])}`).join(' ');
         const lastPoint = timeline[timeline.length - 1];
         return `
-            <polyline fill="none" stroke="${item.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${points}"></polyline>
-            <circle cx="${toX(timeline.length - 1)}" cy="${toY(lastPoint[item.key])}" r="4" fill="${item.color}"></circle>
+            <polyline fill="none" stroke="${item.color}" stroke-width="${lineStrokeWidth}" stroke-linecap="round" stroke-linejoin="round" points="${points}"></polyline>
+            <circle cx="${toX(timeline.length - 1)}" cy="${toY(lastPoint[item.key])}" r="${pointRadius}" fill="${item.color}"></circle>
         `;
     }).join('');
 
@@ -6472,13 +6598,13 @@ function renderStatsTrendChart(timeline) {
             <svg viewBox="0 0 ${width} ${height}" class="stats-chart" role="img" aria-label="График статистики за все время">
                 ${gridLines}
                 ${linePaths}
-                <text x="${padding.left}" y="${height - 8}" text-anchor="start" class="stats-chart-axis-label">${firstLabel}</text>
-                <text x="${padding.left + innerWidth / 2}" y="${height - 8}" text-anchor="middle" class="stats-chart-axis-label">${midLabel}</text>
-                <text x="${width - padding.right}" y="${height - 8}" text-anchor="end" class="stats-chart-axis-label">${lastLabel}</text>
+                <text x="${padding.left}" y="${height - 8}" text-anchor="start" class="stats-chart-axis-label" style="font-size:${axisFontSize}px">${firstLabel}</text>
+                <text x="${padding.left + innerWidth / 2}" y="${height - 8}" text-anchor="middle" class="stats-chart-axis-label" style="font-size:${axisFontSize}px">${midLabel}</text>
+                <text x="${width - padding.right}" y="${height - 8}" text-anchor="end" class="stats-chart-axis-label" style="font-size:${axisFontSize}px">${lastLabel}</text>
             </svg>
-            <div class="stats-chart-legend">
+            <div class="stats-chart-legend" style="grid-template-columns: repeat(${legendColumns}, minmax(0, 1fr)); gap:${Math.max(6, legendGap - 4)}px ${legendGap}px;">
                 ${series.map((item) => `
-                    <span class="stats-chart-legend-item">
+                    <span class="stats-chart-legend-item" style="font-size:${legendFontSize}px; gap:${Math.max(6, legendGap - 6)}px;">
                         <span class="stats-chart-legend-icon" style="background:${item.color};"></span>
                         ${item.label}
                     </span>
@@ -6498,6 +6624,221 @@ function getStatsPrintRows(stats) {
         { label: 'Остаток с замечаниями', value: todayMetrics.remaining_with_defects || 0, percent: formatStatsPercent(todayMetrics.remaining_with_defects || 0, totalApartments), tone: 'defects' },
         { label: 'С замечаниями', value: todayMetrics.with_defects || 0, percent: formatStatsPercent(todayMetrics.with_defects || 0, totalApartments), tone: 'remaining' }
     ];
+}
+
+function formatStatsDateTime(value) {
+    if (!value) return 'Дата не указана';
+    const parsed = new Date(String(value).replace(' ', 'T'));
+    if (Number.isNaN(parsed.getTime())) return String(value);
+    return parsed.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatStatsApartmentLabel(apartment) {
+    return String(apartment.number ?? '—');
+}
+
+function renderStatsApartmentList(apartments, options = {}) {
+    const {
+        emptyText = 'Список пуст',
+        showCallTime = false,
+        showDefectReason = false,
+        defectReasonLabel = 'count',
+    } = options;
+
+    if (!Array.isArray(apartments) || apartments.length === 0) {
+        return `<div class="stats-focus-empty">${escapeHtml(emptyText)}</div>`;
+    }
+
+    const groups = new Map();
+    apartments.forEach((apartment) => {
+        const key = String(apartment.section_number ?? 'Без секции');
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(apartment);
+    });
+
+    const rendered = Array.from(groups.entries()).map(([sectionKey, sectionApartments]) => {
+        const sectionText = sectionKey === 'Без секции' ? sectionKey : `Секция ${sectionKey}`;
+        const items = sectionApartments.map((apartment) => {
+            const meta = [];
+            if (showCallTime && apartment.last_call_at) {
+                meta.push(`последний вызов ${formatStatsDateTime(apartment.last_call_at)}`);
+            }
+            if (showDefectReason && Number(apartment.open_defects_count || 0) > 0) {
+                if (defectReasonLabel === 'tag') {
+                    meta.push('Открытые замечания');
+                } else {
+                    meta.push(`открытых замечаний: ${Number(apartment.open_defects_count || 0)}`);
+                }
+            }
+            const label = escapeHtml(formatStatsApartmentLabel(apartment));
+            return meta.length ? `${label} (${escapeHtml(meta.join(', '))})` : label;
+        }).join(', ');
+        return `<div class="stats-focus-line"><strong>${escapeHtml(sectionText)}:</strong> ${items}</div>`;
+    }).join('');
+
+    return `
+        <div class="stats-focus-text">${rendered}</div>
+    `;
+}
+
+function renderCallFocusStats(stats) {
+    const callDetails = stats.call_details || {};
+    const complexName = stats.complex_name || document.getElementById('jkName')?.textContent || 'ЖК';
+    const referenceDateLabel = formatStatsPeriodLabel(callDetails.reference_date || stats.period_end, callDetails.reference_date || stats.period_end);
+
+    return `
+        <div class="stats-shell stats-dashboard-shell stats-focus-shell">
+            <div class="stats-focus-header">
+                <div class="stats-dashboard-title">${escapeHtml(complexName)}</div>
+                <div class="stats-focus-subtitle">Вызов на ${escapeHtml(referenceDateLabel)}</div>
+            </div>
+
+            <div class="stats-focus-stack">
+                <section class="stats-focus-section">
+                    <div class="stats-focus-section-title">Ожидают приглашения: ${Number(callDetails.current_call_count || 0)}</div>
+                    ${Array.isArray(callDetails.waiting_by_day) && callDetails.waiting_by_day.length ? callDetails.waiting_by_day.map((group) => `
+                        <div class="stats-focus-group">
+                            <div class="stats-focus-group-head">
+                                <strong>${escapeHtml(group.date === 'Без даты' ? group.date : formatStatsPeriodLabel(group.date, group.date))}</strong>
+                                <span>${Number(group.count || 0)}</span>
+                            </div>
+                            ${renderStatsApartmentList(group.apartments || [], { showCallTime: false })}
+                        </div>
+                    `).join('') : '<div class="stats-focus-empty">Нет квартир, ожидающих приглашения.</div>'}
+                </section>
+
+                <section class="stats-focus-section">
+                    <div class="stats-focus-section-title">Повторный вызов: ${Number(callDetails.repeat_calls_count || 0)}</div>
+                    ${renderStatsApartmentList(callDetails.repeat_calls || [], {
+                        emptyText: 'Нет квартир в повторном вызове.',
+                        showCallTime: false,
+                        showDefectReason: false,
+                    })}
+                </section>
+
+                <section class="stats-focus-section">
+                    <div class="stats-focus-section-title">Не приняты после вызова: ${Number(callDetails.not_accepted_count || 0)}</div>
+                    ${renderStatsApartmentList(callDetails.not_accepted_apartments || [], {
+                        emptyText: 'После вызова нет квартир с новыми или незакрытыми замечаниями.',
+                        showCallTime: false,
+                        showDefectReason: true,
+                    })}
+                </section>
+            </div>
+        </div>
+    `;
+}
+
+function renderAcceptedFocusStats(stats) {
+    const acceptedDetails = stats.accepted_details || {};
+    const complexName = stats.complex_name || document.getElementById('jkName')?.textContent || 'ЖК';
+    const referenceDateLabel = formatStatsPeriodLabel(acceptedDetails.reference_date || stats.period_end, acceptedDetails.reference_date || stats.period_end);
+
+    return `
+        <div class="stats-shell stats-dashboard-shell stats-focus-shell">
+            <div class="stats-focus-header">
+                <div class="stats-dashboard-title">${escapeHtml(complexName)}</div>
+                <div class="stats-focus-subtitle">Принятые квартиры на ${escapeHtml(referenceDateLabel)}</div>
+            </div>
+
+            <div class="stats-focus-stack">
+                <section class="stats-focus-section">
+                    <div class="stats-focus-section-title">Принятые сегодня: ${Number(acceptedDetails.accepted_today_count || 0)}</div>
+                    ${renderStatsApartmentList(acceptedDetails.accepted_today || [], {
+                        emptyText: 'Нет квартир, принятых сегодня.',
+                        showCallTime: false,
+                        showDefectReason: true,
+                        defectReasonLabel: 'tag',
+                    })}
+                </section>
+
+                <section class="stats-focus-section">
+                    <div class="stats-focus-section-title">Принятые ранее: ${Number(acceptedDetails.accepted_earlier_count || 0)}</div>
+                    ${Array.isArray(acceptedDetails.accepted_earlier_by_day) && acceptedDetails.accepted_earlier_by_day.length ? acceptedDetails.accepted_earlier_by_day.map((group) => `
+                        <div class="stats-focus-group">
+                            <div class="stats-focus-group-head">
+                                <strong>${escapeHtml(group.date === 'Без даты' ? group.date : formatStatsPeriodLabel(group.date, group.date))}</strong>
+                                <span>${Number(group.count || 0)}</span>
+                            </div>
+                            ${renderStatsApartmentList(group.apartments || [], {
+                                emptyText: 'Список пуст',
+                                showCallTime: false,
+                                showDefectReason: true,
+                                defectReasonLabel: 'tag',
+                            })}
+                        </div>
+                    `).join('') : '<div class="stats-focus-empty">Нет ранее принятых квартир.</div>'}
+                </section>
+            </div>
+        </div>
+    `;
+}
+
+function formatNoAccessPeriod(period) {
+    const fromLabel = period.from_date ? formatStatsDateTime(period.from_date).split(',')[0] : 'без даты';
+    if (!period.to_date) return `с ${fromLabel}`;
+    const toLabel = formatStatsDateTime(period.to_date).split(',')[0];
+    return `с ${fromLabel} по ${toLabel}`;
+}
+
+function renderNoAccessList(records, emptyText) {
+    if (!Array.isArray(records) || records.length === 0) {
+        return `<div class="stats-focus-empty">${escapeHtml(emptyText)}</div>`;
+    }
+
+    const groups = new Map();
+    records.forEach((record) => {
+        const key = String(record.section_number ?? 'Без секции');
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(record);
+    });
+
+    return `
+        <div class="stats-focus-column">
+            ${Array.from(groups.entries()).map(([sectionKey, sectionRecords]) => `
+                <div class="stats-focus-group">
+                    <div class="stats-focus-group-head">
+                        <strong>${escapeHtml(sectionKey === 'Без секции' ? sectionKey : `Секция ${sectionKey}`)}</strong>
+                        <span>${Number(sectionRecords.length || 0)}</span>
+                    </div>
+                    ${sectionRecords.map((record) => `
+                        <div class="stats-focus-column-row">
+                            <strong>${escapeHtml(String(record.apartment_number ?? '—'))}</strong>
+                            <span>${escapeHtml((record.periods || []).map(formatNoAccessPeriod).join('; '))}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderNoAccessFocusStats(stats) {
+    const noAccessDetails = stats.no_access_details || {};
+    const complexName = stats.complex_name || document.getElementById('jkName')?.textContent || 'ЖК';
+    const referenceDateLabel = formatStatsPeriodLabel(noAccessDetails.reference_date || stats.period_end, noAccessDetails.reference_date || stats.period_end);
+
+    return `
+        <div class="stats-shell stats-dashboard-shell stats-focus-shell">
+            <div class="stats-focus-header">
+                <div class="stats-dashboard-title">${escapeHtml(complexName)}</div>
+                <div class="stats-focus-subtitle">Нет доступа на ${escapeHtml(referenceDateLabel)}</div>
+            </div>
+
+            <div class="stats-focus-stack">
+                <section class="stats-focus-section">
+                    <div class="stats-focus-section-title">Нет доступа сейчас: ${Number(noAccessDetails.current_no_access_count || 0)}</div>
+                    ${renderNoAccessList(noAccessDetails.records || [], 'Нет квартир с периодами нет доступа.')}
+                </section>
+            </div>
+        </div>
+    `;
 }
 
 function refreshStatsModal() {
@@ -6532,6 +6873,24 @@ async function loadStats(body, modal) {
         const timeline = stats.timeline || [];
         const isApartmentType = state.currentPropertyType === 'апартаменты';
         const firstDefectDate = stats.first_defect_date || stats.period_start || new Date().toISOString().split('T')[0];
+
+        if (stats.focus_mode === 'call' && stats.call_details) {
+            body.innerHTML = renderCallFocusStats(stats);
+            modal.classList.add('active');
+            return;
+        }
+
+        if (stats.focus_mode === 'accepted' && stats.accepted_details) {
+            body.innerHTML = renderAcceptedFocusStats(stats);
+            modal.classList.add('active');
+            return;
+        }
+
+        if (stats.focus_mode === 'no_access' && stats.no_access_details) {
+            body.innerHTML = renderNoAccessFocusStats(stats);
+            modal.classList.add('active');
+            return;
+        }
 
         const statRows = [
             {
@@ -6602,7 +6961,7 @@ async function loadStats(body, modal) {
                     </div>
                     <div class="stats-dashboard-actions">
                         <button class="pill pill-stats" onclick="printStatsReport()">Печать</button>
-                        <button class="pill pill-stats" onclick="exportStatsPdf()">PDF</button>
+                        <button class="pill pill-stats" onclick="exportStatsJpg()">JPG</button>
                     </div>
                 </div>
 
@@ -6723,7 +7082,25 @@ function printStatsReport() {
                 <td>${row.percent}</td>
             </tr>
         `).join('');
-        const chartHtml = renderStatsTrendChart(stats.timeline || []);
+        const chartHtml = renderStatsTrendChart(stats.timeline || [], {
+            width: 660,
+            height: 238,
+            paddingLeft: 38,
+            paddingRight: 16,
+            paddingTop: 16,
+            paddingBottom: 30,
+            axisFontSize: 10,
+            legendFontSize: 10,
+            legendColumns: 3,
+            legendGap: 10,
+            legendLabels: {
+                remaining_with_defects: 'Остаток',
+                with_defects: 'Замечания',
+                no_access: 'Нет доступа',
+            },
+            lineStrokeWidth: 2.5,
+            pointRadius: 3.2,
+        });
         
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
@@ -6733,50 +7110,53 @@ function printStatsReport() {
                 <title>Отчет - ${jkName}</title>
                 <style>
                     * { box-sizing: border-box; }
-                    @page { margin: 12mm; size: A4 portrait; }
-                    body { font-family: Arial, sans-serif; padding: 24px; max-width: 1200px; margin: 0 auto; color: #111; }
-                    h1 { font-size: 26px; margin-bottom: 6px; }
-                    .report-date { color: #555; margin-bottom: 18px; font-size: 14px; }
-                    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-                    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-                    th { background: #111; color: #fff; font-weight: 700; font-size: 12px; text-transform: uppercase; }
-                    .chart-block { border: 1px solid #ddd; padding: 16px; margin-bottom: 24px; }
+                    @page { margin: 10mm; size: A4 landscape; }
+                    body { font-family: Arial, sans-serif; padding: 0; margin: 0; color: #111; }
+                    .sheet { width: 100%; max-width: 277mm; margin: 0 auto; }
+                    h1 { font-size: 22px; margin: 0 0 4px; }
+                    .report-date { color: #555; margin-bottom: 14px; font-size: 12px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 18px; table-layout: fixed; }
+                    th, td { border: 1px solid #ddd; padding: 9px 10px; text-align: left; word-break: break-word; }
+                    th { background: #111; color: #fff; font-weight: 700; font-size: 11px; text-transform: uppercase; }
+                    .chart-block { border: 1px solid #ddd; padding: 12px; margin-bottom: 18px; overflow: hidden; }
                     .chart-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
                     .stats-chart-shell { display: flex; flex-direction: column; gap: 12px; }
                     .stats-chart { width: 100%; height: auto; display: block; }
                     .stats-chart-grid-line { stroke: #e2e8f0; stroke-width: 1; }
                     .stats-chart-axis-label { fill: #64748b; font-size: 11px; }
-                    .stats-chart-legend { display: flex; flex-wrap: wrap; gap: 10px 14px; }
-                    .stats-chart-legend-item { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #334155; }
-                    .stats-chart-legend-item i { display: inline-block; width: 10px; height: 10px; border-radius: 999px; }
+                    .stats-chart-legend { display: grid; align-items: start; }
+                    .stats-chart-legend-item { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #334155; min-width: 0; white-space: nowrap; }
+                    .stats-chart-legend-icon { display: inline-block; width: 10px; height: 10px; border-radius: 999px; flex: 0 0 auto; }
                     .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; }
-                    @media print { body { padding: 0; } }
+                    @media print { body { padding: 0; } .sheet { max-width: none; } }
                 </style>
             </head>
             <body>
-                <h1>${jkName}</h1>
-                <p class="report-date">Период: ${periodLabel}</p>
+                <div class="sheet">
+                    <h1>${jkName}</h1>
+                    <p class="report-date">Период: ${periodLabel}</p>
 
-                <div class="chart-block">
-                    <div class="chart-title">График за все время</div>
-                    ${chartHtml}
-                </div>
-                
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Статус</th>
-                            <th>Количество</th>
-                            <th>% от общего</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows}
-                    </tbody>
-                </table>
-                
-                <div class="footer">
-                    Сформировано системой "Перспектива Инжиниринг гарантийный сервис"
+                    <div class="chart-block">
+                        <div class="chart-title">График за все время</div>
+                        ${chartHtml}
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:54%">Статус</th>
+                                <th style="width:23%">Количество</th>
+                                <th style="width:23%">% от общего</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                    
+                    <div class="footer">
+                        Сформировано системой "Перспектива Инжиниринг гарантийный сервис"
+                    </div>
                 </div>
             </body>
             </html>
@@ -6786,8 +7166,8 @@ function printStatsReport() {
     });
 }
 
-function exportStatsPdf() {
-    window.open(`/api/complexes/${state.currentComplex}/statistics/pdf?${getStatsQueryString()}`, '_blank');
+function exportStatsJpg() {
+    window.open(`/api/complexes/${state.currentComplex}/statistics/jpg?${getStatsQueryString()}`, '_blank');
 }
 
 function closeStatsModal(event) {
