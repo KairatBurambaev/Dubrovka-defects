@@ -52,13 +52,13 @@ const FILTER_INDEXES = {
 const ACCEPTED_ACCESS_STATUSES = ['owner_accepted', 'tech_accepted'];
 const APARTMENT_STATUS_SORT_ORDER = {
     available: 0,
-    owner_accepted: 1,
-    tech_accepted: 1,
-    call: 2,
-    by_phone: 3,
-    in_progress: 4,
-    no_access: 5,
-    complex: 6
+    in_progress: 1,
+    by_phone: 2,
+    complex: 3,
+    no_access: 4,
+    call: 5,
+    owner_accepted: 6,
+    tech_accepted: 6
 };
 const DEFECT_STATUS_LABELS = {
     recorded: 'Зафиксированно',
@@ -3405,6 +3405,115 @@ function getApartmentStatusSortOrder(apartment) {
     return APARTMENT_STATUS_SORT_ORDER[apartment?.access_status] ?? 99;
 }
 
+function getApartmentDefectSortPriority(apartment, catFilter) {
+    const meta = getApartmentSortMeta(apartment, catFilter);
+
+    if (meta.totalAll === 0) return 0;
+    if (meta.openCount === 0 && meta.reviewCount > 0) return 1;
+    return 2;
+}
+
+function getApartmentSortBucketKey(apartment, catFilter) {
+    const status = apartment?.access_status || 'available';
+
+    if (ACCEPTED_ACCESS_STATUSES.includes(status)) return 'accepted';
+    if (status === 'in_progress') return 'in_progress';
+    if (status === 'by_phone') return 'by_phone';
+    if (status === 'complex') return 'complex';
+    if (status === 'no_access') return 'no_access';
+    if (status === 'call') return 'call';
+    return 'available';
+}
+
+function getAdaptiveBucketColumns(bucketSize, bucketCount) {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1440;
+    const isMobile = viewportWidth <= 768;
+    const maxColumns = isMobile ? 3 : viewportWidth <= 1180 ? 3 : viewportWidth <= 1480 ? 4 : 5;
+    const minColumns = 1;
+    const blockGap = 10;
+    const tileSize = 44;
+    const tileGap = 10;
+    const blockPadding = 24;
+    const sidePadding = isMobile ? 32 : 96;
+    const availableWidth = Math.max(220, viewportWidth - sidePadding - Math.max(0, bucketCount - 1) * blockGap);
+    const targetBucketWidth = Math.max(64, Math.floor(availableWidth / Math.max(1, bucketCount)));
+    const columnsByWidth = Math.floor((targetBucketWidth - blockPadding + tileGap) / (tileSize + tileGap));
+
+    return Math.max(minColumns, Math.min(maxColumns, bucketSize, columnsByWidth || 1));
+}
+
+function renderSortedApartmentBuckets(apartments, propFull, catFilter) {
+    const buckets = [];
+    const bucketMap = new Map();
+
+    apartments.forEach((apartment) => {
+        const key = getApartmentSortBucketKey(apartment, catFilter);
+        let bucket = bucketMap.get(key);
+
+        if (!bucket) {
+            bucket = {
+                key,
+                items: []
+            };
+            bucketMap.set(key, bucket);
+            buckets.push(bucket);
+        }
+
+        bucket.items.push(apartment);
+    });
+
+    const bucketCount = buckets.length;
+
+    return buckets.map((bucket) => {
+        const desktopColumns = getAdaptiveBucketColumns(bucket.items.length, bucketCount);
+        const mobileColumns = Math.max(1, Math.min(3, desktopColumns));
+        const sortedItems = [...bucket.items].sort((a, b) => {
+            const aDefectPriority = getApartmentDefectSortPriority(a, catFilter);
+            const bDefectPriority = getApartmentDefectSortPriority(b, catFilter);
+            if (aDefectPriority !== bDefectPriority) return aDefectPriority - bDefectPriority;
+
+            const aSortCount = getApartmentSortCount(a, catFilter);
+            const bSortCount = getApartmentSortCount(b, catFilter);
+            if (aSortCount !== bSortCount) return aSortCount - bSortCount;
+
+            const aMeta = getApartmentSortMeta(a, catFilter);
+            const bMeta = getApartmentSortMeta(b, catFilter);
+            if (aMeta.totalAll !== bMeta.totalAll) return aMeta.totalAll - bMeta.totalAll;
+
+            return Number(b.number) - Number(a.number);
+        });
+
+        return `
+            <div class="apt-sort-bucket" style="--bucket-columns:${desktopColumns}; --bucket-columns-mobile:${mobileColumns};">
+                <div class="apt-sort-grid apt-sort-grid-sorted apt-sort-grid-bucket">
+                    ${sortedItems.map(apartment => renderApartmentTile(apartment, propFull, catFilter)).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function getApartmentSortGroupPriority(apartment, catFilter) {
+    const status = apartment?.access_status || '';
+
+    if (status === 'available' || !status) return 0;
+    if (status === 'in_progress') return 1;
+    if (status === 'by_phone') return 2;
+    if (status === 'complex') return 3;
+    if (status === 'no_access') return 4;
+    if (status === 'call') return 5;
+
+    const meta = getApartmentSortMeta(apartment, catFilter);
+    const isAccepted = isAcceptedApartment(apartment);
+    const hasReview = meta.reviewCount > 0;
+    const hasDefects = meta.openCount > 0;
+
+    if (isAccepted) return 6;
+    if (hasReview) return 7;
+    if (hasDefects && !isAccepted) return 8;
+    return 9;
+}
+
 function getExecutorAssignmentApartments() {
     return [...(state.filteredApartments || [])].sort((a, b) => Number(a.number) - Number(b.number));
 }
@@ -3839,12 +3948,9 @@ function renderApartments(apartments) {
             <div class="sections-grid sections-grid-sorted sections-grid-centered">
                 ${sortedSectionNumbers.map((sectionNumber) => {
                     const apts = sortedBySection[sectionNumber];
-                    
                     const sortedApts = [...apts].sort((a, b) => {
-                        const aMeta = getApartmentSortMeta(a, catFilter);
-                        const bMeta = getApartmentSortMeta(b, catFilter);
-                        const aPriority = aMeta.blackBadge ? 0 : aMeta.greenBadge ? 1 : aMeta.reviewCount > 0 ? 2 : aMeta.repeatCall ? 3 : 4;
-                        const bPriority = bMeta.blackBadge ? 0 : bMeta.greenBadge ? 1 : bMeta.reviewCount > 0 ? 2 : bMeta.repeatCall ? 3 : 4;
+                        const aPriority = getApartmentSortGroupPriority(a, catFilter);
+                        const bPriority = getApartmentSortGroupPriority(b, catFilter);
 
                         if (aPriority !== bPriority) return aPriority - bPriority;
 
@@ -3852,10 +3958,16 @@ function renderApartments(apartments) {
                         const bStatusOrder = getApartmentStatusSortOrder(b);
                         if (aStatusOrder !== bStatusOrder) return aStatusOrder - bStatusOrder;
 
+                        const aDefectPriority = getApartmentDefectSortPriority(a, catFilter);
+                        const bDefectPriority = getApartmentDefectSortPriority(b, catFilter);
+                        if (aDefectPriority !== bDefectPriority) return aDefectPriority - bDefectPriority;
+
                         const aSortCount = getApartmentSortCount(a, catFilter);
                         const bSortCount = getApartmentSortCount(b, catFilter);
                         if (aSortCount !== bSortCount) return aSortCount - bSortCount;
 
+                        const aMeta = getApartmentSortMeta(a, catFilter);
+                        const bMeta = getApartmentSortMeta(b, catFilter);
                         if (aMeta.totalAll !== bMeta.totalAll) return aMeta.totalAll - bMeta.totalAll;
 
                         return Number(b.number) - Number(a.number);
@@ -3865,8 +3977,8 @@ function renderApartments(apartments) {
                         <section class="section-card section-card-sorted">
                             <div class="section-body-container section-body-container-sorted">
                                 <div class="section-combined-title">Секция ${sectionNumber}</div>
-                                <div class="apt-sort-grid apt-sort-grid-sorted">
-                                    ${sortedApts.map(apartment => renderApartmentTile(apartment, propFull, catFilter)).join('')}
+                                <div class="apt-sort-buckets">
+                                    ${renderSortedApartmentBuckets(sortedApts, propFull, catFilter)}
                                 </div>
                             </div>
                         </section>
