@@ -32,7 +32,13 @@ const state = {
     currentExecutorReportId: null,
     pendingAccessStatus: null,
     gridNeedsRerender: false,
-    parsedSearchCache: { input: '', numbers: null }
+    parsedSearchCache: { input: '', numbers: null },
+    createComplexResponsibleComplexId: null,
+    createComplexResponsibleComplexName: '',
+    createComplexResponsibleApartments: [],
+    createComplexResponsibleAssignments: [],
+    selectedResponsibleFilter: '',
+    currentComplexResponsibleOptions: []
 };
 
 // Global filter constants
@@ -99,6 +105,87 @@ let loadComplexesPromise = null;
 let delayedComplexPrintBtnTimer = null;
 let executorsRequestPromise = null;
 
+function getResponsibleFilterLabel() {
+    const selectedResponsible = state.selectedResponsibleFilter || '';
+    return selectedResponsible;
+}
+
+function updateCategoryFilterButtonLabel() {
+    const category = document.getElementById('defectCategoryFilter')?.value || '';
+    const responsible = getResponsibleFilterLabel();
+    const categoryFilterBtnText = document.getElementById('categoryFilterBtnText');
+    if (!categoryFilterBtnText) return;
+
+    if (category && responsible) {
+        categoryFilterBtnText.textContent = `${category} / ${responsible}`;
+    } else if (category) {
+        categoryFilterBtnText.textContent = category;
+    } else if (responsible) {
+        categoryFilterBtnText.textContent = responsible;
+    } else {
+        categoryFilterBtnText.textContent = 'Все категории';
+    }
+}
+
+function getCurrentComplexResponsibleOptionsFromDefects() {
+    const grouped = new Map();
+
+    (state.currentDefects || []).forEach((defect) => {
+        const responsibleName = String(defect.responsible_name || '').trim();
+        const category = String(defect.category || '').trim();
+        if (!responsibleName) return;
+
+        if (!grouped.has(responsibleName)) {
+            grouped.set(responsibleName, new Set());
+        }
+        if (category) {
+            grouped.get(responsibleName).add(category);
+        }
+    });
+
+    return [...grouped.entries()]
+        .map(([name, categories]) => {
+            const categoryList = [...categories].sort((a, b) => a.localeCompare(b, 'ru'));
+            return {
+                name,
+                categories: categoryList,
+                label: categoryList.length ? `${name} (${categoryList.join(', ')})` : name,
+            };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+}
+
+function renderCategoryAndResponsibleOptions() {
+    const categoryOptions = document.getElementById('categoryOptions');
+    const responsibleOptions = document.getElementById('responsibleOptions');
+    const selectedCategory = document.getElementById('defectCategoryFilter')?.value || '';
+    const selectedResponsible = state.selectedResponsibleFilter || '';
+
+    if (categoryOptions) {
+        categoryOptions.innerHTML = `
+            <div class="filter-item ${selectedCategory === '' ? 'selected' : ''}" data-category="" onclick="selectCategoryByEvent(event)">
+                Все категории
+            </div>
+            ${state.categories.map(cat => `
+                <div class="filter-item ${selectedCategory === cat ? 'selected' : ''}" data-category="${escapeHtml(cat)}" onclick="selectCategoryByEvent(event)">
+                    ${escapeHtml(cat)}
+                </div>
+            `).join('')}
+        `;
+    }
+
+    if (responsibleOptions) {
+        const options = state.currentComplexResponsibleOptions || [];
+        responsibleOptions.innerHTML = `
+            ${options.map(option => `
+                <div class="filter-item ${selectedResponsible === option.name ? 'selected' : ''}" data-responsible="${escapeHtml(option.name)}" onclick="selectResponsibleFilterByEvent(event)">
+                    ${escapeHtml(option.label)}
+                </div>
+            `).join('')}
+        `;
+    }
+}
+
 function shouldShowComplexPrintButton() {
     return state.currentTab === 'complex-detail' && !!state.currentComplex && !state.currentApartment;
 }
@@ -110,9 +197,6 @@ function hideDelayedComplexPrintButton() {
     }
     if (elements.complexPrintBtn) {
         elements.complexPrintBtn.style.display = 'none';
-    }
-    if (elements.assignmentBtn) {
-        elements.assignmentBtn.style.display = 'none';
     }
 }
 
@@ -135,9 +219,6 @@ function showDelayedComplexPrintButton() {
     delayedComplexPrintBtnTimer = setTimeout(() => {
         if (shouldShowComplexPrintButton() && elements.complexPrintBtn) {
             elements.complexPrintBtn.style.display = 'inline-flex';
-        }
-        if (shouldShowComplexPrintButton() && elements.assignmentBtn) {
-            elements.assignmentBtn.style.display = 'inline-flex';
         }
         delayedComplexPrintBtnTimer = null;
     }, 120);
@@ -255,8 +336,6 @@ function cacheElements() {
     elements.statDefects = document.getElementById('statDefects');
     elements.defectFilterPanel = document.getElementById('defectFilterPanel');
     elements.statsBtn = document.getElementById('statsBtn');
-    elements.assignmentBtn = document.getElementById('assignmentBtn');
-    elements.executorRegistryModal = document.getElementById('executorRegistryModal');
     elements.complexPrintBtn = document.getElementById('complexPrintBtn');
     elements.complexCommentsBtn = document.getElementById('complexCommentsBtn');
     elements.tabPanels = document.querySelectorAll('.tab-panel');
@@ -270,14 +349,8 @@ function setupForms() {
     const defectForm = document.getElementById('addDefectForm');
     if (defectForm) defectForm.addEventListener('submit', handleAddDefect);
 
-    const executorAssignmentForm = document.getElementById('executorAssignmentForm');
-    if (executorAssignmentForm) executorAssignmentForm.addEventListener('submit', submitExecutorAssignment);
-
-    const executorRegistryForm = document.getElementById('executorRegistryForm');
-    if (executorRegistryForm) executorRegistryForm.addEventListener('submit', submitExecutorRegistryForm);
-
-    const executorAssignmentResponsibleType = document.getElementById('executorAssignmentResponsibleType');
-    if (executorAssignmentResponsibleType) executorAssignmentResponsibleType.addEventListener('change', syncResponsibleAssignmentTypeVisibility);
+    const createResponsibleForm = document.getElementById('createComplexResponsibleForm');
+    if (createResponsibleForm) createResponsibleForm.addEventListener('submit', submitCreateComplexResponsibleForm);
     
     const fileInputBefore = document.getElementById('defectPhotosBefore');
     if (fileInputBefore) fileInputBefore.addEventListener('change', (e) => renderSelectedFiles(e.target, 'before'));
@@ -528,12 +601,15 @@ function goHome() {
     state.allApartments = [];
     state.filteredApartments = [];
     state.currentDefects = [];
+    state.currentComplexResponsibleOptions = [];
+    state.selectedResponsibleFilter = '';
     state.apartmentsCacheComplexId = null;
     apartmentsRequestPromise = null;
     apartmentsRequestComplexId = null;
     defectsRequestPromise = null;
     defectsRequestComplexId = null;
     state.gridNeedsRerender = false;
+    updateCategoryFilterButtonLabel();
     showTab('complexes');
     loadComplexes();
 }
@@ -657,6 +733,7 @@ async function ensureCurrentComplexDefectsLoaded(force = false) {
         const defects = await defectsRes.json();
         if (state.currentComplex === complexId) {
             state.currentDefects = defects;
+            state.currentComplexResponsibleOptions = getCurrentComplexResponsibleOptionsFromDefects();
         }
         return defects;
     })();
@@ -731,16 +808,18 @@ function applyApartmentFilters(apartments) {
     const searchNumbers = parseApartmentNumbers(search);
     const catFilter = document.getElementById('defectCategoryFilter')?.value;
     const statusFilter = document.getElementById('defectStatusFilter')?.value;
+    const responsibleFilter = state.selectedResponsibleFilter || '';
 
     if (selectedSectionIds.length > 0) {
         filtered = filtered.filter((apartment) => selectedSectionIds.includes(Number(apartment.section_id)));
     }
 
-    if (catFilter || statusFilter) {
+    if (catFilter || statusFilter || responsibleFilter) {
         const filteredIds = new Set();
 
         state.currentDefects.forEach((defect) => {
             if (catFilter && defect.category !== catFilter) return;
+            if (responsibleFilter && String(defect.responsible_name || '').trim() !== responsibleFilter) return;
             if (statusFilter === 'recorded' && defect.status !== 'recorded') return;
             if (statusFilter === 'in_progress' && defect.status !== 'in_progress') return;
             if (statusFilter === 'on_review' && defect.status !== 'on_review') return;
@@ -807,7 +886,8 @@ function updateApartmentListSubtitle(apartments) {
 function renderCurrentApartmentGrid() {
     const catFilter = document.getElementById('defectCategoryFilter')?.value;
     const statusFilter = document.getElementById('defectStatusFilter')?.value;
-    const needsComplexDefects = Boolean(catFilter || statusFilter || state.restorationOnly);
+    const responsibleFilter = state.selectedResponsibleFilter || '';
+    const needsComplexDefects = Boolean(catFilter || statusFilter || responsibleFilter || state.restorationOnly);
 
     if (!hasCurrentComplexApartmentsCache() || (needsComplexDefects && !state.currentDefects.length)) {
         loadApartments();
@@ -1136,6 +1216,7 @@ function refreshExecutorSelects(selectedValue = '') {
         createSelect.innerHTML = renderExecutorOptions(currentValue);
         createSelect.value = currentValue;
         updateDefectExecutorSelectAppearance(createSelect);
+        syncExecutorSelectWidth(createSelect);
     }
 
     document.querySelectorAll('select[id^="defectExecutor_"]').forEach((select) => {
@@ -1145,6 +1226,7 @@ function refreshExecutorSelects(selectedValue = '') {
         select.innerHTML = renderDefectExecutorOptions({ ...(defect || {}), executor: currentValue || defect?.executor || '' });
         select.value = currentValue;
         updateDefectExecutorSelectAppearance(select);
+        syncExecutorSelectWidth(select);
     });
 }
 
@@ -1153,353 +1235,19 @@ function updateDefectExecutorSelectAppearance(select) {
     select.classList.toggle('is-placeholder', !String(select.value || '').trim());
 }
 
-function renderExecutorRegistryList() {
-    const container = document.getElementById('executorRegistryList');
-    if (!container) return;
+function syncExecutorSelectWidth(select) {
+    if (!select) return;
 
-    if (!state.executors.length) {
-        container.innerHTML = '<div class="executor-registry-empty">Исполнителей пока нет</div>';
-        return;
-    }
+    const selectedOption = select.options?.[select.selectedIndex] || select.options?.[0];
+    const text = String(selectedOption?.textContent || '').trim();
+    const minWidth = select.classList.contains('defect-compact-executor-select') ? 120 : 150;
+    const paddingWidth = select.classList.contains('defect-compact-executor-select') ? 54 : 58;
+    const maxWidth = select.classList.contains('defect-compact-executor-select') ? 320 : 420;
+    const estimatedWidth = Math.ceil(text.length * 7.4) + paddingWidth;
+    const width = Math.max(minWidth, Math.min(maxWidth, estimatedWidth));
 
-    container.innerHTML = state.executors.map((executor) => `
-        <div class="executor-registry-item">
-            <div class="executor-registry-item-head">
-                <div>
-                    <button type="button" class="executor-registry-title executor-registry-title-btn" onclick="showExecutorResponsibleReportModal(${executor.id})">${escapeHtml(executor.display_name || executor.full_name || '')}</button>
-                </div>
-                <div class="executor-registry-item-actions">
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="editExecutor(${executor.id})">Ред.</button>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteExecutor(${executor.id})">Удалить</button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-function renderExecutorResponsibleReportContent(report) {
-    const propertyLabel = report.property_type === 'апартаменты' ? 'Апартамент' : 'Квартира';
-    if (!(report.apartments || []).length) {
-        return '<div class="executor-report-empty">Нет непринятых замечаний, назначенных исполнителю.</div>';
-    }
-
-    const rowsHtml = report.apartments.flatMap((entry) => {
-        const apartment = entry.apartment || {};
-        const apartmentLabel = `${propertyLabel} ${apartment.number || '—'}`;
-        const meta = [
-            apartment.section_number ? `Секция ${apartment.section_number}` : '',
-            apartment.floor !== null && apartment.floor !== undefined ? `Этаж ${apartment.floor}` : ''
-        ].filter(Boolean).join(' ');
-
-        const defects = entry.categories.flatMap((categoryEntry) => categoryEntry.defects.map((defect) => ({
-            category: categoryEntry.category || '',
-            location: defect.location || 'Без локации',
-            items: defect.items || [],
-            status: defect.status || '',
-            status_label: defect.status_label || defect.status || '',
-        })));
-
-        return defects.map((defect, index) => `
-            <tr>
-                <td class="filtered-defects-apartment-cell">${index === 0 ? `${escapeHtml(apartmentLabel)}${meta ? `<div class="filtered-defects-apartment-meta">${escapeHtml(meta)}</div>` : ''}` : ''}</td>
-                <td>${escapeHtml(defect.category)}${defect.location ? `<div class="filtered-defects-apartment-meta">${escapeHtml(defect.location)}</div>` : ''}</td>
-                <td><div class="filtered-defect-items">${defect.items.length ? defect.items.map((item) => `<div>${escapeHtml(item)}</div>`).join('') : '<div>Без текста</div>'}</div></td>
-                <td><span class="filtered-defect-status defect-status-badge ${getDefectStatusBadgeClass(defect.status)}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
-            </tr>
-        `);
-    }).join('');
-
-    return `
-        <div class="filtered-defects-table-wrap executor-report-table-wrap">
-            <table class="filtered-defects-table filtered-defects-table-flat">
-                <thead>
-                    <tr>
-                        <th>Квартира</th>
-                        <th>Место</th>
-                        <th>Замечание</th>
-                        <th>Статус</th>
-                    </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-            </table>
-        </div>
-    `;
-}
-
-function renderModalPaneHeader({ title, subtitle = '', actions = '', actionsClass = '' }) {
-    return `
-        <div class="modal-pane-header${actions ? ' has-actions' : ''}">
-            <div class="modal-pane-copy">
-                <div class="modal-pane-title">${escapeHtml(title || '')}</div>
-                ${subtitle ? `<div class="modal-pane-subtitle">${escapeHtml(subtitle)}</div>` : ''}
-            </div>
-            ${actions ? `<div class="modal-pane-actions ${actionsClass}">${actions}</div>` : ''}
-        </div>
-    `;
-}
-
-function resetExecutorRegistryForm() {
-    const form = document.getElementById('executorRegistryForm');
-    const submitBtn = document.getElementById('executorRegistrySubmitBtn');
-    const cancelBtn = document.getElementById('executorRegistryCancelEditBtn');
-    const editingIdField = document.getElementById('executorEditingId');
-
-    if (form) form.reset();
-    if (editingIdField) editingIdField.value = '';
-    if (submitBtn) submitBtn.textContent = 'Добавить';
-    if (cancelBtn) cancelBtn.style.display = 'none';
-}
-
-function syncResponsibleAssignmentTypeVisibility() {
-    const typeField = document.getElementById('executorAssignmentResponsibleType');
-    const nameLabel = document.getElementById('executorAssignmentNameLabel');
-    const nameInput = document.getElementById('executorAssignmentExecutor');
-    const isLegal = (typeField?.value || 'legal') === 'legal';
-
-    if (nameLabel) nameLabel.textContent = isLegal ? 'Компания' : 'ФИО';
-    if (nameInput) {
-        nameInput.placeholder = isLegal ? 'Название компании' : 'ФИО';
-    }
-}
-
-async function setExecutorRegistryMode(mode = 'executors') {
-    const normalizedMode = mode === 'responsible' ? 'responsible' : 'executors';
-    if (normalizedMode === 'responsible') {
-        const isReady = await prepareResponsibleAssignmentForm();
-        if (!isReady) return;
-    }
-
-    const executorsPanel = document.getElementById('executorRegistryExecutorsPanel');
-    const responsiblePanel = document.getElementById('executorRegistryResponsiblePanel');
-    const executorsBtn = document.getElementById('executorRegistryModeExecutors');
-    const responsibleBtn = document.getElementById('executorRegistryModeResponsible');
-    const executorsSubmitBtn = document.getElementById('executorRegistrySubmitBtn');
-    const responsibleSubmitBtn = document.getElementById('executorAssignmentSubmitBtn');
-
-    if (executorsPanel) executorsPanel.style.display = normalizedMode === 'executors' ? 'block' : 'none';
-    if (responsiblePanel) responsiblePanel.style.display = normalizedMode === 'responsible' ? 'block' : 'none';
-    if (executorsBtn) executorsBtn.classList.toggle('is-active', normalizedMode === 'executors');
-    if (responsibleBtn) responsibleBtn.classList.toggle('is-active', normalizedMode === 'responsible');
-    if (executorsSubmitBtn) executorsSubmitBtn.style.display = normalizedMode === 'executors' ? 'inline-flex' : 'none';
-    if (responsibleSubmitBtn) responsibleSubmitBtn.style.display = normalizedMode === 'responsible' ? 'inline-flex' : 'none';
-}
-
-async function prepareResponsibleAssignmentForm() {
-    if (!state.currentComplex) return false;
-
-    const apartments = getExecutorAssignmentApartments();
-    if (!apartments.length) {
-        showToast('Нет квартир для выбора', 'warning');
-        return false;
-    }
-
-    if (!state.categories.length) {
-        await loadCategories();
-    }
-
-    const categorySelect = document.getElementById('executorAssignmentCategory');
-    const executorInput = document.getElementById('executorAssignmentExecutor');
-    const summary = document.getElementById('executorAssignmentSummary');
-    const responsibleType = document.getElementById('executorAssignmentResponsibleType');
-    if (!categorySelect || !executorInput || !summary || !responsibleType) return false;
-
-    state.executorAssignmentSelectedApartmentIds = apartments.map((apartment) => apartment.id);
-    renderExecutorAssignmentApartmentList();
-
-    const categoryFilter = document.getElementById('defectCategoryFilter')?.value || '';
-    categorySelect.innerHTML = '<option value="">Выберите</option>' + state.categories.map((category) => (
-        `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`
-    )).join('');
-    categorySelect.value = categoryFilter;
-
-    const complexName = state.currentComplexData?.name || 'ЖК';
-    summary.textContent = `${complexName}: текущая выборка из ${apartments.length} ${state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир'}`;
-    responsibleType.value = 'legal';
-    executorInput.value = '';
-    syncResponsibleAssignmentTypeVisibility();
-    return true;
-}
-
-function editExecutor(executorId) {
-    const executor = state.executors.find((item) => Number(item.id) === Number(executorId));
-    if (!executor) return;
-
-    const editingIdField = document.getElementById('executorEditingId');
-    const submitBtn = document.getElementById('executorRegistrySubmitBtn');
-    const cancelBtn = document.getElementById('executorRegistryCancelEditBtn');
-    const fullNameField = document.getElementById('executorFullName');
-    const legalNameField = document.getElementById('executorLegalEntityName');
-
-    if (editingIdField) editingIdField.value = String(executor.id);
-    if (submitBtn) submitBtn.textContent = 'Сохранить';
-    if (cancelBtn) cancelBtn.style.display = 'inline-flex';
-    if (fullNameField) fullNameField.value = executor.full_name || '';
-    if (legalNameField) legalNameField.value = executor.legal_entity_name || '';
-    if (fullNameField) fullNameField.focus();
-}
-
-async function deleteExecutor(executorId) {
-    const executor = state.executors.find((item) => Number(item.id) === Number(executorId));
-    if (!executor) return;
-    if (!confirm(`Удалить исполнителя "${executor.display_name || executor.full_name}"?`)) return;
-
-    try {
-        const res = await fetch(`/api/executors/${executorId}`, { method: 'DELETE' });
-        if (!res.ok) {
-            const payload = await res.json().catch(() => ({}));
-            throw new Error(payload?.detail || 'Ошибка удаления исполнителя');
-        }
-        await loadExecutors();
-        renderExecutorRegistryList();
-        showToast('Исполнитель удален', 'success');
-    } catch (err) {
-        showToast(err.message || 'Ошибка удаления исполнителя', 'error');
-    }
-}
-
-function getExecutorById(executorId) {
-    return state.executors.find((item) => Number(item.id) === Number(executorId)) || null;
-}
-
-async function fetchExecutorResponsibleReport(executorId) {
-    if (!state.currentComplex) throw new Error('ЖК не выбран');
-    const executor = getExecutorById(executorId);
-    if (!executor) throw new Error('Исполнитель не найден');
-
-    const params = new URLSearchParams();
-    params.set('executor_name', executor.display_name || executor.full_name || '');
-    const res = await fetch(`/api/complexes/${state.currentComplex}/executor-report?${params.toString()}`, { cache: 'no-store' });
-    if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        throw new Error(payload?.detail || 'Ошибка загрузки отчета');
-    }
-    return res.json();
-}
-
-async function printExecutorResponsibleReport(executorId) {
-    try {
-        const report = await fetchExecutorResponsibleReport(executorId);
-        const win = window.open('', '_blank');
-        if (!win) return;
-        const contentHtml = renderExecutorResponsibleReportContent(report);
-
-        win.document.write(`
-            <!DOCTYPE html>
-            <html lang="ru">
-            <head>
-                <meta charset="UTF-8">
-                <title>${escapeHtml(report.executor_name || 'Отчет')}</title>
-                <style>
-                    * { box-sizing: border-box; }
-                    @page { margin: 10mm; size: A4 portrait; }
-                    body { margin: 0; color: #0f172a; font-family: Arial, sans-serif; background: #fff; }
-                    .sheet { max-width: 190mm; margin: 0 auto; }
-                    h1 { margin: 0 0 6px; font-size: 24px; line-height: 1.1; }
-                    .meta { margin-bottom: 18px; font-size: 12px; color: #475569; line-height: 1.55; }
-                    .filtered-defects-table-wrap { border: 1px solid #111; }
-                    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-                    th, td { border: 1px solid #111; padding: 8px 10px; text-align: left; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; font-size: 12px; line-height: 1.45; }
-                    th { background: #eef2f7; color: #334155; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-                    .filtered-defects-apartment-cell { width: 180px; font-weight: 700; }
-                    .filtered-defects-apartment-meta { margin-top: 4px; font-size: 11px; color: #64748b; font-weight: 400; }
-                    .filtered-defect-items { display: flex; flex-direction: column; gap: 4px; }
-                    .filtered-defect-status { display: inline-flex; font-weight: 700; }
-                    .executor-report-empty { font-size: 13px; color: #475569; }
-                    tr { page-break-inside: avoid; }
-                </style>
-            </head>
-            <body>
-                <div class="sheet">
-                    <h1>${escapeHtml(report.complex_name || '')}</h1>
-                    <div class="meta">Ответственный: ${escapeHtml(report.executor_name || '')}<br>Сформировано: ${escapeHtml(report.generated_at || '')}</div>
-                    ${contentHtml}
-                </div>
-            </body>
-            </html>
-        `);
-        win.document.close();
-        setTimeout(() => win.print(), 120);
-    } catch (err) {
-        showToast(err.message || 'Ошибка печати отчета', 'error');
-    }
-}
-
-function exportExecutorResponsibleJpg(executorId) {
-    if (!state.currentComplex) return;
-    const executor = getExecutorById(executorId);
-    if (!executor) return;
-    const params = new URLSearchParams();
-    params.set('executor_name', executor.display_name || executor.full_name || '');
-    window.open(`/api/complexes/${state.currentComplex}/executor-report/jpg?${params.toString()}`, '_blank');
-}
-
-async function showExecutorResponsibleReportModal(executorId) {
-    const modal = document.getElementById('executorReportModal');
-    const body = document.getElementById('executorReportBody');
-    if (!modal || !body) return;
-
-    state.currentExecutorReportId = executorId;
-    const executor = getExecutorById(executorId);
-    const executorTitle = executor?.display_name || executor?.full_name || 'Исполнитель';
-    body.innerHTML = `
-        ${renderModalPaneHeader({
-            title: executorTitle,
-            subtitle: 'Сводка по назначенным замечаниям с экспортом в JPG и печатью',
-            actions: `
-                <button class="btn btn-secondary" onclick="exportCurrentExecutorResponsibleJpg()">JPG</button>
-                <button class="btn btn-secondary" onclick="printCurrentExecutorResponsibleReport()">Печать</button>
-            `,
-            actionsClass: 'filtered-defects-header-actions'
-        })}
-        <div class="executor-report-loading">Загрузка...</div>
-    `;
-    modal.classList.add('active');
-
-    try {
-        const report = await fetchExecutorResponsibleReport(executorId);
-        body.innerHTML = `
-            ${renderModalPaneHeader({
-                title: report.executor_name || executorTitle,
-                subtitle: 'Сводка по назначенным замечаниям с экспортом в JPG и печатью',
-                actions: `
-                    <button class="btn btn-secondary" onclick="exportCurrentExecutorResponsibleJpg()">JPG</button>
-                    <button class="btn btn-secondary" onclick="printCurrentExecutorResponsibleReport()">Печать</button>
-                `,
-                actionsClass: 'filtered-defects-header-actions'
-            })}
-            ${renderExecutorResponsibleReportContent(report)}
-        `;
-    } catch (err) {
-        body.innerHTML = `
-            ${renderModalPaneHeader({
-                title: executorTitle,
-                subtitle: 'Сводка по назначенным замечаниям с экспортом в JPG и печатью',
-                actions: `
-                    <button class="btn btn-secondary" onclick="exportCurrentExecutorResponsibleJpg()">JPG</button>
-                    <button class="btn btn-secondary" onclick="printCurrentExecutorResponsibleReport()">Печать</button>
-                `,
-                actionsClass: 'filtered-defects-header-actions'
-            })}
-            <div class="executor-report-empty">${escapeHtml(err.message || 'Ошибка загрузки отчета')}</div>
-        `;
-    }
-}
-
-function closeExecutorResponsibleReportModal(event) {
-    if (event && event.target !== event.currentTarget) return;
-    const modal = document.getElementById('executorReportModal');
-    if (modal) modal.classList.remove('active');
-    state.currentExecutorReportId = null;
-}
-
-function printCurrentExecutorResponsibleReport() {
-    if (!state.currentExecutorReportId) return;
-    printExecutorResponsibleReport(state.currentExecutorReportId);
-}
-
-function exportCurrentExecutorResponsibleJpg() {
-    if (!state.currentExecutorReportId) return;
-    exportExecutorResponsibleJpg(state.currentExecutorReportId);
+    select.style.width = `${width}px`;
+    select.style.minWidth = `${width}px`;
 }
 
 function renderDefectExecutorOptions(defect) {
@@ -1510,78 +1258,18 @@ function renderDefectExecutorOptions(defect) {
     const responsibleName = String(defect?.responsible_name || '').trim();
     if (responsibleName) {
         seen.add(responsibleName);
-        options.push(`<option value="${escapeHtml(responsibleName)}" ${responsibleName === selectedValue ? 'selected' : ''}>Ответственный: ${escapeHtml(responsibleName)}</option>`);
+        options.push(`<option value="${escapeHtml(responsibleName)}" ${responsibleName === selectedValue ? 'selected' : ''}>${escapeHtml(responsibleName)}</option>`);
     }
 
-    state.executors.forEach((executor) => {
-        const displayName = String(executor.display_name || '').trim();
-        if (!displayName || seen.has(displayName)) return;
-        seen.add(displayName);
-        options.push(`<option value="${escapeHtml(displayName)}" ${displayName === selectedValue ? 'selected' : ''}>${escapeHtml(displayName)}</option>`);
-    });
+    const perspectiveExecutor = 'Перспектива Инжиниринг';
+    seen.add(perspectiveExecutor);
+    options.push(`<option value="${escapeHtml(perspectiveExecutor)}" ${perspectiveExecutor === selectedValue ? 'selected' : ''}>Перспектива Инжиниринг</option>`);
 
     if (selectedValue && !seen.has(selectedValue)) {
         options.push(`<option value="${escapeHtml(selectedValue)}" selected>${escapeHtml(selectedValue)}</option>`);
     }
 
     return options.join('');
-}
-
-async function showExecutorRegistryModal() {
-    await loadExecutors();
-    renderExecutorRegistryList();
-    const modal = document.getElementById('executorRegistryModal');
-    const fullNameInput = document.getElementById('executorFullName');
-    resetExecutorRegistryForm();
-    await setExecutorRegistryMode('executors');
-    if (modal) modal.classList.add('active');
-    if (fullNameInput) fullNameInput.focus();
-}
-
-function closeExecutorRegistryModal(event) {
-    if (event && event.target !== event.currentTarget) return;
-    const modal = document.getElementById('executorRegistryModal');
-    if (modal) modal.classList.remove('active');
-}
-
-async function submitExecutorRegistryForm(event) {
-    event.preventDefault();
-
-    const editingId = document.getElementById('executorEditingId')?.value?.trim() || '';
-    const fullName = document.getElementById('executorFullName')?.value?.trim() || '';
-    const legalEntityName = document.getElementById('executorLegalEntityName')?.value?.trim() || '';
-
-    if (!fullName && !legalEntityName) {
-        showToast('Укажите ФИО или название юридического лица', 'warning');
-        return;
-    }
-
-    const entityType = legalEntityName ? 'legal' : 'individual';
-
-    const body = new URLSearchParams();
-    body.set('full_name', fullName);
-    body.set('entity_type', entityType);
-    body.set('legal_entity_name', legalEntityName);
-
-    try {
-        const res = await fetch(editingId ? `/api/executors/${editingId}` : '/api/executors', {
-            method: editingId ? 'PUT' : 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body.toString(),
-        });
-        if (!res.ok) {
-            const payload = await res.json().catch(() => ({}));
-            throw new Error(payload?.detail || 'Ошибка сохранения исполнителя');
-        }
-
-        const executor = await res.json();
-        await loadExecutors(executor.display_name || executor.full_name || '');
-        renderExecutorRegistryList();
-        resetExecutorRegistryForm();
-        showToast(editingId ? 'Исполнитель обновлен' : 'Исполнитель добавлен', 'success');
-    } catch (err) {
-        showToast(err.message || 'Ошибка сохранения исполнителя', 'error');
-    }
 }
 
 function renderContractorOptions(selectedId = '') {
@@ -2251,7 +1939,12 @@ async function submitComplexForm() {
             const data = await res.json();
             console.log('Success:', data);
             showToast('Комплекс создан', 'success');
-            goHome();
+
+            if (confirm('Добавить ответственных сейчас?')) {
+                await openCreateComplexResponsibleModal(data.id, name);
+            } else {
+                goHome();
+            }
         } else {
             const errorText = await res.text();
             console.error('Error response:', errorText);
@@ -2260,6 +1953,362 @@ async function submitComplexForm() {
     } catch (err) {
         console.error('Fetch error:', err);
         showToast('Ошибка: ' + err.message, 'error');
+    }
+}
+
+async function openCreateComplexResponsibleModal(complexId, complexName) {
+    try {
+        const [apartmentsRes, assignmentsRes] = await Promise.all([
+            fetch(`/api/complexes/${complexId}/apartments`, { cache: 'no-store' }),
+            fetch(`/api/complexes/${complexId}/executor-assignments`, { cache: 'no-store' })
+        ]);
+        if (!apartmentsRes.ok) throw new Error('Не удалось загрузить квартиры для назначения ответственных');
+        if (!assignmentsRes.ok) throw new Error('Не удалось загрузить текущих ответственных');
+
+        const apartments = await apartmentsRes.json();
+        const assignmentsPayload = await assignmentsRes.json();
+        state.createComplexResponsibleComplexId = complexId;
+        state.createComplexResponsibleComplexName = complexName || '';
+        state.createComplexResponsibleApartments = Array.isArray(apartments) ? apartments : [];
+        state.createComplexResponsibleAssignments = Array.isArray(assignmentsPayload?.assignments) ? assignmentsPayload.assignments : [];
+
+        const title = document.getElementById('createComplexResponsibleTitle');
+        if (title) {
+            title.textContent = complexName ? `Ответственные для ${complexName}` : 'Ответственные';
+        }
+
+        const rows = document.getElementById('createComplexResponsibleRows');
+        if (rows) rows.innerHTML = '';
+        addCreateComplexResponsibleRow();
+
+        const modal = document.getElementById('createComplexResponsibleModal');
+        if (modal) modal.classList.add('active');
+    } catch (err) {
+        showToast(err.message || 'Не удалось открыть окно ответственных', 'error');
+        goHome();
+    }
+}
+
+function closeCreateComplexResponsibleModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('createComplexResponsibleModal');
+    if (modal) modal.classList.remove('active');
+}
+
+function finishCreateComplexResponsibleFlow(skipMessage = 'Комплекс сохранен') {
+    closeCreateComplexResponsibleModal();
+    state.createComplexResponsibleComplexId = null;
+    state.createComplexResponsibleComplexName = '';
+    state.createComplexResponsibleApartments = [];
+    state.createComplexResponsibleAssignments = [];
+    showToast(skipMessage, 'success');
+    goHome();
+}
+
+function buildCreateComplexResponsibleCategoryOptions() {
+    const categories = Array.isArray(state.categories) && state.categories.length ? state.categories : [];
+    return [
+        '<option value="">Выберите</option>',
+        ...categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
+    ].join('');
+}
+
+function addCreateComplexResponsibleRow(prefill = {}) {
+    const rows = document.getElementById('createComplexResponsibleRows');
+    if (!rows) return;
+
+    const row = document.createElement('div');
+    row.className = 'create-responsible-row';
+    row.innerHTML = `
+        <div class="form-grid form-grid-3 create-responsible-grid">
+            <div class="form-field">
+                <label>Категория</label>
+                <select class="select create-responsible-category" required>
+                    ${buildCreateComplexResponsibleCategoryOptions()}
+                </select>
+            </div>
+            <div class="form-field">
+                <label>Квартиры</label>
+                <input type="text" class="input create-responsible-apartments" placeholder="Например: 1,3-5,8" required>
+            </div>
+            <div class="form-field">
+                <label>Ответственный</label>
+                <input type="text" class="input create-responsible-name" placeholder="ФИО или компания" required>
+            </div>
+        </div>
+        <div class="create-responsible-row-actions">
+            <div class="create-responsible-row-summary"></div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="removeCreateComplexResponsibleRow(this)">Удалить</button>
+        </div>
+    `;
+
+    rows.appendChild(row);
+
+    row.querySelector('.create-responsible-category').value = prefill.category || '';
+    row.querySelector('.create-responsible-apartments').value = prefill.apartments || '';
+    row.querySelector('.create-responsible-name').value = prefill.responsible || '';
+    row.querySelector('.create-responsible-category')?.addEventListener('change', () => updateCreateComplexResponsibleRowSummary(row));
+    row.querySelector('.create-responsible-apartments')?.addEventListener('input', () => updateCreateComplexResponsibleRowSummary(row));
+    row.querySelector('.create-responsible-name')?.addEventListener('input', () => updateCreateComplexResponsibleRowSummary(row));
+    updateCreateComplexResponsibleRowSummary(row);
+}
+
+function removeCreateComplexResponsibleRow(button) {
+    const row = button.closest('.create-responsible-row');
+    const rows = document.querySelectorAll('#createComplexResponsibleRows .create-responsible-row');
+    if (rows.length <= 1) {
+        row?.querySelector('.create-responsible-category')?.focus();
+        if (row) {
+            row.querySelector('.create-responsible-category').value = '';
+            row.querySelector('.create-responsible-apartments').value = '';
+            row.querySelector('.create-responsible-name').value = '';
+        }
+        return;
+    }
+    row?.remove();
+}
+
+function getCreateComplexResponsibleApartmentIds(rawInput) {
+    const numbers = parseApartmentNumbers(rawInput);
+    if (!numbers || numbers.size === 0) {
+        throw new Error('Укажите квартиры через запятую и/или дефис');
+    }
+
+    const apartmentIds = [];
+    const missingNumbers = [];
+    const apartmentMap = new Map(
+        (state.createComplexResponsibleApartments || []).map((apartment) => [Number(apartment.number), Number(apartment.id)])
+    );
+
+    numbers.forEach((number) => {
+        const apartmentId = apartmentMap.get(Number(number));
+        if (apartmentId) {
+            apartmentIds.push(apartmentId);
+        } else {
+            missingNumbers.push(number);
+        }
+    });
+
+    if (missingNumbers.length) {
+        throw new Error(`Квартиры не найдены: ${missingNumbers.sort((a, b) => a - b).join(', ')}`);
+    }
+
+    return apartmentIds;
+}
+
+function groupConsecutiveNumbers(numbers) {
+    const sorted = [...numbers].sort((a, b) => a - b);
+    const ranges = [];
+    let start = null;
+    let prev = null;
+
+    sorted.forEach((value) => {
+        if (start === null) {
+            start = value;
+            prev = value;
+            return;
+        }
+        if (value === prev + 1) {
+            prev = value;
+            return;
+        }
+        ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+        start = value;
+        prev = value;
+    });
+
+    if (start !== null) {
+        ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+    }
+
+    return ranges;
+}
+
+function buildCreateComplexResponsibleMeta(apartmentIds) {
+    const apartmentMap = new Map(
+        (state.createComplexResponsibleApartments || []).map((apartment) => [Number(apartment.id), apartment])
+    );
+    const apartments = apartmentIds
+        .map((id) => apartmentMap.get(Number(id)))
+        .filter(Boolean)
+        .sort((a, b) => {
+            if (Number(a.section_number) !== Number(b.section_number)) return Number(a.section_number) - Number(b.section_number);
+            return Number(a.number) - Number(b.number);
+        });
+
+    const sectionsMap = new Map();
+    apartments.forEach((apartment) => {
+        const section = Number(apartment.section_number || 0);
+        if (!sectionsMap.has(section)) sectionsMap.set(section, []);
+        sectionsMap.get(section).push(Number(apartment.number));
+    });
+
+    const sectionParts = [...sectionsMap.entries()].map(([section, numbers]) => {
+        const ranges = groupConsecutiveNumbers(numbers);
+        return `секция ${section}: ${ranges.join(', ')}`;
+    });
+
+    const apartmentNumbers = apartments.map((apartment) => Number(apartment.number));
+    const firstApartment = apartmentNumbers.length ? Math.min(...apartmentNumbers) : null;
+    const lastApartment = apartmentNumbers.length ? Math.max(...apartmentNumbers) : null;
+
+    return {
+        apartments,
+        count: apartments.length,
+        firstApartment,
+        lastApartment,
+        sectionsText: sectionParts.join(' | '),
+    };
+}
+
+function findCreateComplexResponsibleConflicts(apartmentIds, category, responsible, currentRow) {
+    const draftAssignments = Array.from(document.querySelectorAll('#createComplexResponsibleRows .create-responsible-row'))
+        .filter((row) => row !== currentRow)
+        .map((row) => ({
+            category: row.querySelector('.create-responsible-category')?.value?.trim() || '',
+            responsible: row.querySelector('.create-responsible-name')?.value?.trim() || '',
+            apartmentIds: (() => {
+                try {
+                    return getCreateComplexResponsibleApartmentIds(row.querySelector('.create-responsible-apartments')?.value?.trim() || '');
+                } catch (_) {
+                    return [];
+                }
+            })()
+        }))
+        .filter((item) => item.category === category && item.responsible && item.apartmentIds.length);
+
+    const conflicts = [];
+    const seen = new Set();
+
+    (state.createComplexResponsibleAssignments || []).forEach((assignment) => {
+        if (String(assignment.category || '').trim() !== category) return;
+        if (!apartmentIds.includes(Number(assignment.apartment_id))) return;
+        const existingResponsible = String(assignment.executor_name || '').trim();
+        if (!existingResponsible || existingResponsible === responsible) return;
+        const key = `${assignment.apartment_id}:${existingResponsible}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        conflicts.push({ apartmentId: Number(assignment.apartment_id), responsible: existingResponsible });
+    });
+
+    draftAssignments.forEach((assignment) => {
+        if (assignment.responsible === responsible) return;
+        assignment.apartmentIds.forEach((apartmentId) => {
+            if (!apartmentIds.includes(apartmentId)) return;
+            const key = `${apartmentId}:${assignment.responsible}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            conflicts.push({ apartmentId, responsible: assignment.responsible });
+        });
+    });
+
+    return conflicts;
+}
+
+function updateCreateComplexResponsibleRowSummary(row) {
+    const summaryEl = row.querySelector('.create-responsible-row-summary');
+    if (!summaryEl) return;
+
+    const category = row.querySelector('.create-responsible-category')?.value?.trim() || '';
+    const apartmentsInput = row.querySelector('.create-responsible-apartments')?.value?.trim() || '';
+    const responsible = row.querySelector('.create-responsible-name')?.value?.trim() || '';
+
+    if (!apartmentsInput) {
+        summaryEl.textContent = 'Укажите квартиры';
+        summaryEl.classList.remove('is-error');
+        return;
+    }
+
+    try {
+        const apartmentIds = getCreateComplexResponsibleApartmentIds(apartmentsInput);
+        const meta = buildCreateComplexResponsibleMeta(apartmentIds);
+        const conflicts = category ? findCreateComplexResponsibleConflicts(apartmentIds, category, responsible, row) : [];
+        const sectionText = meta.sectionsText ? ` (${meta.sectionsText})` : '';
+        const baseText = `${meta.count} ${pluralize(meta.count, 'квартира', 'квартиры', 'квартир')}${sectionText}`;
+        if (conflicts.length) {
+            const names = [...new Set(conflicts.map((item) => item.responsible))].join(', ');
+            summaryEl.textContent = `${baseText}. Уже назначены: ${names}`;
+            summaryEl.classList.add('is-error');
+        } else {
+            summaryEl.textContent = baseText;
+            summaryEl.classList.remove('is-error');
+        }
+    } catch (err) {
+        summaryEl.textContent = err.message || 'Некорректный список квартир';
+        summaryEl.classList.add('is-error');
+    }
+}
+
+async function submitCreateComplexResponsibleForm(event) {
+    event.preventDefault();
+
+    const complexId = state.createComplexResponsibleComplexId;
+    if (!complexId) {
+        showToast('ЖК для назначения не найден', 'error');
+        return;
+    }
+
+    const rows = Array.from(document.querySelectorAll('#createComplexResponsibleRows .create-responsible-row'));
+    if (!rows.length) {
+        finishCreateComplexResponsibleFlow();
+        return;
+    }
+
+    const assignments = [];
+
+    try {
+        rows.forEach((row) => {
+            const category = row.querySelector('.create-responsible-category')?.value?.trim() || '';
+            const apartmentsInput = row.querySelector('.create-responsible-apartments')?.value?.trim() || '';
+            const responsible = row.querySelector('.create-responsible-name')?.value?.trim() || '';
+
+            if (!category || !apartmentsInput || !responsible) {
+                throw new Error('Заполните категорию, квартиры и ответственного во всех строках');
+            }
+
+            const apartmentIds = getCreateComplexResponsibleApartmentIds(apartmentsInput);
+            assignments.push({
+                category,
+                responsible,
+                apartmentIds,
+                conflicts: findCreateComplexResponsibleConflicts(apartmentIds, category, responsible, row)
+            });
+        });
+
+        const conflictLines = assignments
+            .filter((assignment) => assignment.conflicts.length)
+            .map((assignment) => {
+                const conflictMeta = buildCreateComplexResponsibleMeta(assignment.conflicts.map((item) => item.apartmentId));
+                const names = [...new Set(assignment.conflicts.map((item) => item.responsible))].join(', ');
+                return `${assignment.category}: ${conflictMeta.sectionsText || `${conflictMeta.count} квартир`} уже назначены на ${names}`;
+            });
+
+        if (conflictLines.length) {
+            const shouldReplace = confirm(`Есть пересечения по ответственным:\n\n${conflictLines.join('\n')}\n\nЗаменить на нового ответственного?`);
+            if (!shouldReplace) return;
+        }
+
+        for (const assignment of assignments) {
+            const body = new URLSearchParams();
+            body.set('category', assignment.category);
+            body.set('executor_name', assignment.responsible);
+            body.set('apartment_ids_json', JSON.stringify(assignment.apartmentIds));
+
+            const res = await fetch(`/api/complexes/${complexId}/executor-assignments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            });
+
+            if (!res.ok) {
+                const payload = await res.json().catch(() => ({}));
+                throw new Error(payload?.detail || 'Не удалось сохранить ответственных');
+            }
+        }
+
+        finishCreateComplexResponsibleFlow('Комплекс и ответственные сохранены');
+    } catch (err) {
+        showToast(err.message || 'Ошибка сохранения ответственных', 'error');
     }
 }
 
@@ -2275,6 +2324,8 @@ async function showComplexDetail(id) {
         state.allApartments = [];
         state.filteredApartments = [];
         state.currentDefects = [];
+        state.currentComplexResponsibleOptions = [];
+        state.selectedResponsibleFilter = '';
         state.apartmentsCacheComplexId = null;
         apartmentsRequestPromise = null;
         apartmentsRequestComplexId = null;
@@ -2303,6 +2354,7 @@ async function showComplexDetail(id) {
         
         // Update placeholders based on property type
         updatePlaceholders();
+        updateCategoryFilterButtonLabel();
         
         const propName = state.currentPropertyType === 'апартаменты' ? 'апартаментов' : 'квартир';
         const uniqueBuildings = new Set(complex.sections.map(s => s.building_number || 1));
@@ -2466,19 +2518,14 @@ function toggleCategoryDropdown(event) {
         if (wrapper) wrapper.classList.remove('active');
     }
     
-    // Initialize category options if empty
-    const categoryOptions = document.getElementById('categoryOptions');
-    if (categoryOptions && categoryOptions.innerHTML.trim() === '' && state.categories.length > 0) {
-        categoryOptions.innerHTML = `
-            <div class="filter-item selected" data-category="" onclick="selectCategory('')">
-                Все категории
-            </div>
-            ${state.categories.map(cat => `
-                <div class="filter-item" data-category="${cat}" onclick="selectCategory('${cat}')">
-                    ${cat}
-                </div>
-            `).join('')}
-        `;
+    renderCategoryAndResponsibleOptions();
+    if (state.currentComplex && !state.currentComplexResponsibleOptions.length) {
+        ensureCurrentComplexDefectsLoaded(false)
+            .then(() => {
+                renderCategoryAndResponsibleOptions();
+                updateCategoryFilterButtonLabel();
+            })
+            .catch((err) => console.error('Responsible filter preload failed:', err));
     }
     
     // Close section dropdown if open
@@ -2489,26 +2536,47 @@ function toggleCategoryDropdown(event) {
 }
 
 function selectCategory(category) {
-    const categoryFilterBtnText = document.getElementById('categoryFilterBtnText');
     const categoryDropdown = document.getElementById('categoryDropdown');
     const categoryFilterWrapper = document.getElementById('categoryFilterWrapper');
-    
-    // Update button text
-    if (categoryFilterBtnText) {
-        categoryFilterBtnText.textContent = category || 'Все категории';
-    }
-    
+
     // Close dropdown
     if (categoryDropdown) categoryDropdown.classList.remove('open');
     if (categoryFilterWrapper) categoryFilterWrapper.classList.remove('active');
-    
+
     // Update defectCategoryFilter value and reload
     const catFilter = document.getElementById('defectCategoryFilter');
     if (catFilter) {
         catFilter.value = category;
     }
-    
+
+    state.selectedResponsibleFilter = '';
+
+    updateCategoryFilterButtonLabel();
+    renderCategoryAndResponsibleOptions();
     loadApartments();
+}
+
+function selectCategoryByEvent(event) {
+    const category = event?.currentTarget?.dataset?.category || '';
+    selectCategory(category);
+}
+
+function selectResponsibleFilter(responsible) {
+    const categoryDropdown = document.getElementById('categoryDropdown');
+    const categoryFilterWrapper = document.getElementById('categoryFilterWrapper');
+
+    state.selectedResponsibleFilter = responsible || '';
+    if (categoryDropdown) categoryDropdown.classList.remove('open');
+    if (categoryFilterWrapper) categoryFilterWrapper.classList.remove('active');
+
+    updateCategoryFilterButtonLabel();
+    renderCategoryAndResponsibleOptions();
+    loadApartments();
+}
+
+function selectResponsibleFilterByEvent(event) {
+    const responsible = event?.currentTarget?.dataset?.responsible || '';
+    selectResponsibleFilter(responsible);
 }
 
 function positionDropdown(dropdown, button) {
@@ -2674,7 +2742,8 @@ async function loadApartments() {
         
         const catFilter = document.getElementById('defectCategoryFilter')?.value;
         const statusFilter = document.getElementById('defectStatusFilter')?.value;
-        const needsComplexDefects = Boolean(catFilter || statusFilter || state.restorationOnly);
+        const responsibleFilter = state.selectedResponsibleFilter || '';
+        const needsComplexDefects = Boolean(catFilter || statusFilter || responsibleFilter || state.restorationOnly);
 
         if (needsComplexDefects) {
             try {
@@ -2683,8 +2752,12 @@ async function loadApartments() {
             } catch (defectsErr) {
                 console.error('Defects loading failed:', defectsErr);
                 state.currentDefects = [];
+                state.currentComplexResponsibleOptions = [];
             }
         }
+
+        renderCategoryAndResponsibleOptions();
+        updateCategoryFilterButtonLabel();
 
         if (elements.defectFilterPanel) {
             elements.defectFilterPanel.style.display = state.defectsOnly ? 'flex' : 'none';
@@ -3512,120 +3585,6 @@ function getApartmentSortGroupPriority(apartment, catFilter) {
     if (hasReview) return 7;
     if (hasDefects && !isAccepted) return 8;
     return 9;
-}
-
-function getExecutorAssignmentApartments() {
-    return [...(state.filteredApartments || [])].sort((a, b) => Number(a.number) - Number(b.number));
-}
-
-function renderExecutorAssignmentApartmentList() {
-    const container = document.getElementById('executorAssignmentApartments');
-    if (!container) return;
-
-    const apartments = getExecutorAssignmentApartments();
-    const selectedIds = new Set(state.executorAssignmentSelectedApartmentIds || []);
-    const itemLabel = state.currentPropertyType === 'апартаменты' ? 'ап.' : 'кв.';
-
-    container.innerHTML = apartments.map((apartment) => {
-        const checked = selectedIds.has(apartment.id) ? 'checked' : '';
-        const section = apartment.section_number ? `Секция ${apartment.section_number}` : '';
-        const floor = apartment.floor ? `Этаж ${apartment.floor}` : '';
-        const meta = [section, floor].filter(Boolean).join(' • ');
-
-        return `
-            <label class="executor-assignment-apartment-option">
-                <input type="checkbox" class="executor-assignment-apartment-checkbox" value="${apartment.id}" ${checked} onchange="handleExecutorAssignmentSelectionChange()">
-                <span class="executor-assignment-apartment-main">${itemLabel} ${escapeHtml(String(apartment.number || ''))}</span>
-                ${meta ? `<span class="executor-assignment-apartment-meta">${escapeHtml(meta)}</span>` : ''}
-            </label>
-        `;
-    }).join('');
-
-    updateExecutorAssignmentSelectionCount();
-}
-
-function handleExecutorAssignmentSelectionChange() {
-    const checkboxes = document.querySelectorAll('.executor-assignment-apartment-checkbox');
-    state.executorAssignmentSelectedApartmentIds = Array.from(checkboxes)
-        .filter((checkbox) => checkbox.checked)
-        .map((checkbox) => Number(checkbox.value));
-    updateExecutorAssignmentSelectionCount();
-}
-
-function updateExecutorAssignmentSelectionCount() {
-    const counter = document.getElementById('executorAssignmentCount');
-    if (!counter) return;
-    const total = getExecutorAssignmentApartments().length;
-    const selected = (state.executorAssignmentSelectedApartmentIds || []).length;
-    counter.textContent = `Выбрано: ${selected} из ${total}`;
-}
-
-function setExecutorAssignmentApartmentSelection(selectAll) {
-    const apartments = getExecutorAssignmentApartments();
-    state.executorAssignmentSelectedApartmentIds = selectAll ? apartments.map((apartment) => apartment.id) : [];
-    renderExecutorAssignmentApartmentList();
-}
-
-async function showExecutorAssignmentModal() {
-    await loadExecutors();
-    renderExecutorRegistryList();
-    const modal = document.getElementById('executorRegistryModal');
-    const executorInput = document.getElementById('executorAssignmentExecutor');
-    resetExecutorRegistryForm();
-    await setExecutorRegistryMode('responsible');
-    if (document.getElementById('executorRegistryResponsiblePanel')?.style.display === 'none') return;
-    if (modal) modal.classList.add('active');
-    if (executorInput) executorInput.focus();
-}
-
-function closeExecutorAssignmentModal(event) {
-    closeExecutorRegistryModal(event);
-}
-
-async function submitExecutorAssignment(event) {
-    event.preventDefault();
-    if (!state.currentComplex) return;
-
-    const apartmentIds = [...(state.executorAssignmentSelectedApartmentIds || [])];
-    const category = document.getElementById('executorAssignmentCategory')?.value?.trim() || '';
-    const executor = document.getElementById('executorAssignmentExecutor')?.value?.trim() || '';
-
-    if (!apartmentIds.length) {
-        showToast('Выберите хотя бы одну квартиру', 'warning');
-        return;
-    }
-    if (!category) {
-        showToast('Выберите категорию', 'warning');
-        return;
-    }
-    if (!executor) {
-        showToast('Укажите ФИО исполнителя', 'warning');
-        return;
-    }
-
-    const body = new URLSearchParams();
-    body.set('apartment_ids_json', JSON.stringify(apartmentIds));
-    body.set('category', category);
-    body.set('executor_name', executor);
-
-    try {
-        const res = await fetch(`/api/complexes/${state.currentComplex}/executor-assignments`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body.toString(),
-        });
-
-        if (!res.ok) {
-            const message = await res.text();
-            throw new Error(message || `assignment request failed: ${res.status}`);
-        }
-
-        closeExecutorAssignmentModal();
-        showToast('Ответственный сохранен', 'success');
-    } catch (err) {
-        console.error('Executor assignment save failed:', err);
-        showToast('Ошибка сохранения ответственного', 'error');
-    }
 }
 
 function renderApartmentTile(apartment, propFull, catFilter) {
@@ -4670,7 +4629,7 @@ function renderDefectCard(d, index) {
             <div class="defect-card-header">
                 <div class="defect-card-header-meta">
                     <span class="defect-date">${fixedAt || 'Без даты'}</span>
-                    <select id="defectExecutor_${d.id}" class="select defect-executor-input" style="width: 220px;">
+                    <select id="defectExecutor_${d.id}" class="select defect-executor-input" onchange="syncExecutorSelectWidth(this)">
                         ${renderDefectExecutorOptions(d)}
                     </select>
                 </div>
@@ -4729,13 +4688,18 @@ function renderDefects(defects) {
                         .map(defect => String(defect.contractor_name || '').trim())
                         .filter(Boolean)
                 )];
+                const responsibleNames = [...new Set(
+                    categoryDefects
+                        .map(defect => String(defect.responsible_name || '').trim())
+                        .filter(Boolean)
+                )];
                 const sortedDefects = category === 'Окна' 
                     ? [...categoryDefects].sort((a, b) => Number(a.window_number ?? 0) - Number(b.window_number ?? 0))
                     : categoryDefects;
                 return `
                     <div class="defect-category-section expanded" id="defect-section-${idx}" data-category="${escapeHtml(category)}">
                         <div class="defect-section-header">
-                            <span class="defects-category-label">${getCategoryIcon(category)} ${escapeHtml(category)}</span>
+                            <span class="defects-category-label">${getCategoryIcon(category)} ${escapeHtml(category)}${responsibleNames.length ? ` - ${escapeHtml(responsibleNames.join(', '))}` : ''}</span>
                             ${contractorNames.length ? `<span class="defect-section-contractors">${escapeHtml(contractorNames.join(', '))}</span>` : ''}
                         </div>
                         <div class="defects-list">
@@ -4785,7 +4749,7 @@ function renderDefectCompactRow(d, index) {
                 </div>
                 <span class="defect-compact-desc">${summaryHtml}</span>
                 <div class="defect-compact-actions">
-                    <select id="defectExecutor_${d.id}" class="select defect-compact-executor-select">
+                    <select id="defectExecutor_${d.id}" class="select defect-compact-executor-select" onchange="syncExecutorSelectWidth(this)">
                         ${renderDefectExecutorOptions(d)}
                     </select>
                     <span class="defect-compact-status ${statusBadgeClass}" onclick="cycleDefectStatus(${d.id}, event)">${statusLabel}</span>
@@ -6283,11 +6247,13 @@ function getFilteredDefectsForComplexPrint() {
     const apartmentIds = new Set((state.filteredApartments || []).map(apartment => apartment.id));
     const categoryFilter = document.getElementById('defectCategoryFilter')?.value || '';
     const statusFilter = document.getElementById('defectStatusFilter')?.value || '';
+    const responsibleFilter = state.selectedResponsibleFilter || '';
 
     return (state.currentDefects || []).filter(defect => {
         if (!apartmentIds.has(defect.apartment_id)) return false;
         if (state.reviewOnly && defect.status !== 'on_review') return false;
         if (categoryFilter && defect.category !== categoryFilter) return false;
+        if (responsibleFilter && String(defect.responsible_name || '').trim() !== responsibleFilter) return false;
         if (statusFilter === 'recorded' && defect.status !== 'recorded') return false;
         if (statusFilter === 'in_progress' && defect.status !== 'in_progress') return false;
         if (statusFilter === 'on_review' && defect.status !== 'on_review') return false;
@@ -6379,6 +6345,7 @@ function renderFilteredDefectCommentList(comments) {
 async function getFilteredDefectCommentGroups() {
     const apartmentIds = (state.filteredApartments || []).map((apartment) => apartment.id);
     const categoryFilter = document.getElementById('defectCategoryFilter')?.value || '';
+    const responsibleFilter = state.selectedResponsibleFilter || '';
     if (!apartmentIds.length || !state.currentComplex) return [];
 
     const body = new URLSearchParams();
@@ -6397,7 +6364,15 @@ async function getFilteredDefectCommentGroups() {
     }
 
     const groups = await res.json();
-    return groups.filter((group) => Array.isArray(group.comments) && group.comments.length);
+    return groups
+        .map((group) => ({
+            ...group,
+            comments: (group.comments || []).filter((comment) => {
+                if (responsibleFilter && String(comment.responsible_name || '').trim() !== responsibleFilter) return false;
+                return true;
+            })
+        }))
+        .filter((group) => Array.isArray(group.comments) && group.comments.length);
 }
 
 async function showFilteredDefectsModal() {
@@ -6712,11 +6687,9 @@ function renderStatsTrendChart(timeline, options = {}) {
     }
 
     const defaultSeries = [
-        { key: 'remaining_with_defects', label: 'Остаток с замечаниями', color: '#e60042' },
-        { key: 'with_defects', label: 'С замечаниями', color: '#111111' },
-        { key: 'call', label: 'Вызов', color: '#e969a8' },
-        { key: 'accepted', label: 'Принято', color: '#009d91' },
-        { key: 'no_access', label: 'Нет доступа', color: '#64748b' }
+        { key: 'call', label: 'Вызов', color: '#c2185b' },
+        { key: 'accepted', label: 'Принято', color: '#12a150' },
+        { key: 'no_access', label: 'Нет доступа', color: '#2563eb' }
     ];
     const legendLabels = options.legendLabels || {};
     const series = defaultSeries.map((item) => ({
@@ -6724,8 +6697,8 @@ function renderStatsTrendChart(timeline, options = {}) {
         label: legendLabels[item.key] || item.label,
     }));
 
-    const width = Number(options.width || 760);
-    const height = Number(options.height || 320);
+    const width = Number(options.width || 1320);
+    const height = Number(options.height || 560);
     const padding = {
         top: Number(options.paddingTop || 20),
         right: Number(options.paddingRight || 20),
@@ -6740,11 +6713,11 @@ function renderStatsTrendChart(timeline, options = {}) {
     const toX = (index) => padding.left + (index * xStep);
     const toY = (value) => padding.top + innerHeight - ((Number(value || 0) / maxValue) * innerHeight);
 
-    const axisFontSize = Number(options.axisFontSize || 11);
+    const axisFontSize = Number(options.axisFontSize || 15);
     const lineStrokeWidth = Number(options.lineStrokeWidth || 3);
     const pointRadius = Number(options.pointRadius || 4);
     const legendFontSize = Number(options.legendFontSize || 12);
-    const legendGap = Number(options.legendGap || 14);
+    const legendGap = Number(options.legendGap || 22);
     const legendColumns = Math.max(1, Number(options.legendColumns || series.length));
 
     const gridLines = Array.from({ length: ySteps + 1 }, (_, index) => {
@@ -6896,7 +6869,9 @@ function renderStatsApartmentList(apartments, options = {}) {
                 meta.push(`последний вызов ${formatStatsDateTime(apartment.last_call_at)}`);
             }
             if (showDefectReason && Number(apartment.open_defects_count || 0) > 0) {
-                if (defectReasonLabel === 'tag') {
+                if (defectReasonLabel === 'short') {
+                    meta.push(`Ост. ${Number(apartment.open_defects_count || 0)} замеч.`);
+                } else if (defectReasonLabel === 'tag') {
                     meta.push('Открытые замечания');
                 } else {
                     meta.push(`открытых замечаний: ${Number(apartment.open_defects_count || 0)}`);
@@ -6980,7 +6955,7 @@ function renderAcceptedFocusStats(stats) {
                         emptyText: 'Нет квартир, принятых сегодня.',
                         showCallTime: false,
                         showDefectReason: true,
-                        defectReasonLabel: 'tag',
+                        defectReasonLabel: 'short',
                     })}
                 </section>
 
@@ -6996,7 +6971,7 @@ function renderAcceptedFocusStats(stats) {
                                 emptyText: 'Список пуст',
                                 showCallTime: false,
                                 showDefectReason: true,
-                                defectReasonLabel: 'tag',
+                                defectReasonLabel: 'short',
                             })}
                         </div>
                     `).join('') : '<div class="stats-focus-empty">Нет ранее принятых квартир.</div>'}
@@ -7026,7 +7001,7 @@ function renderNoAccessList(records, emptyText) {
     });
 
     return `
-        <div class="stats-focus-column">
+        <div class="stats-focus-column stats-focus-column-two">
             ${Array.from(groups.entries()).map(([sectionKey, sectionRecords]) => `
                 <div class="stats-focus-group">
                     <div class="stats-focus-group-head">
@@ -7193,10 +7168,6 @@ async function loadStats(body, modal) {
 
                 <div class="stats-dashboard-grid">
                     <section class="stats-dashboard-card stats-metrics-card">
-                        <div class="stats-panel-head">
-                            <strong>Оперативная статистика</strong>
-                            <span>${todayLabel}</span>
-                        </div>
                         <div class="stats-metric-list">
                             ${statRows.map((row) => `
                                 <div class="stats-metric-row tone-${row.tone}">
@@ -7209,10 +7180,6 @@ async function loadStats(body, modal) {
                     </section>
 
                     <section class="stats-dashboard-card stats-chart-card">
-                        <div class="stats-panel-head">
-                            <strong>Динамика за все время</strong>
-                            <span>С ${formatStatsShortDate(firstDefectDate)} по ${formatStatsShortDate(new Date().toISOString().split('T')[0])}</span>
-                        </div>
                         <div class="stats-chart-wrap">
                             ${renderStatsTrendChart(timeline)}
                         </div>

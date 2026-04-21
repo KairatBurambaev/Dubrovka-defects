@@ -1494,7 +1494,14 @@ async def get_complex_defects(complex_id: int):
     rows = conn.execute("""
         SELECT d.*, a.number as apartment_number, a.section_id,
                COALESCE(c.name, d.contractor_name, '') as contractor_name,
-               c.id as contractor_id
+               c.id as contractor_id,
+               (
+                   SELECT ea.executor_name
+                   FROM executor_assignments ea
+                   WHERE ea.apartment_id = d.apartment_id AND ea.category = d.category
+                   ORDER BY ea.updated_at DESC, ea.id DESC
+                   LIMIT 1
+               ) AS responsible_name
         FROM defects d
         JOIN apartments a ON d.apartment_id = a.id
         LEFT JOIN contractors c ON d.contractor_id = c.id
@@ -1552,6 +1559,13 @@ async def get_complex_item_comments(complex_id: int, apartment_ids_json: str = F
                 s.section_number AS section_number,
                 {building_number_expr} AS building_number,
                 d.category AS defect_category,
+                (
+                    SELECT ea.executor_name
+                    FROM executor_assignments ea
+                    WHERE ea.apartment_id = d.apartment_id AND ea.category = d.category
+                    ORDER BY ea.updated_at DESC, ea.id DESC
+                    LIMIT 1
+                ) AS responsible_name,
                 d.window_number AS defect_window_number,
                 d.variant_number AS defect_variant_number,
                 d.created_at AS defect_created_at,
@@ -1578,6 +1592,13 @@ async def get_complex_item_comments(complex_id: int, apartment_ids_json: str = F
                 s.section_number AS section_number,
                 {building_number_expr} AS building_number,
                 d.category AS defect_category,
+                (
+                    SELECT ea.executor_name
+                    FROM executor_assignments ea
+                    WHERE ea.apartment_id = d.apartment_id AND ea.category = d.category
+                    ORDER BY ea.updated_at DESC, ea.id DESC
+                    LIMIT 1
+                ) AS responsible_name,
                 d.window_number AS defect_window_number,
                 d.variant_number AS defect_variant_number,
                 d.created_at AS defect_created_at,
@@ -1603,6 +1624,13 @@ async def get_complex_item_comments(complex_id: int, apartment_ids_json: str = F
                 s.section_number AS section_number,
                 {building_number_expr} AS building_number,
                 d.category AS defect_category,
+                (
+                    SELECT ea.executor_name
+                    FROM executor_assignments ea
+                    WHERE ea.apartment_id = d.apartment_id AND ea.category = d.category
+                    ORDER BY ea.updated_at DESC, ea.id DESC
+                    LIMIT 1
+                ) AS responsible_name,
                 d.window_number AS defect_window_number,
                 d.variant_number AS defect_variant_number,
                 d.created_at AS defect_created_at,
@@ -1656,6 +1684,7 @@ async def get_complex_item_comments(complex_id: int, apartment_ids_json: str = F
             "created_at": row["comment_created_at"],
             "defect_created_at": row["defect_created_at"],
             "category": row["defect_category"],
+            "responsible_name": row["responsible_name"],
             "window_number": row["defect_window_number"],
             "location": get_defect_location_label(
                 row["defect_category"],
@@ -3468,33 +3497,32 @@ def get_line_height(draw, font):
 
 
 def create_stats_report_jpg(stats):
-    width = 1754
-    height = 1240
+    width = 2100
+    height = 1280
     image = Image.new('RGB', (width, height), '#ffffff')
     draw = ImageDraw.Draw(image)
 
-    title_font = load_pil_font(38, bold=True)
-    meta_font = load_pil_font(18)
-    panel_title_font = load_pil_font(22, bold=True)
-    body_font = load_pil_font(22)
-    small_font = load_pil_font(16)
-    value_font = load_pil_font(34, bold=True)
+    title_font = load_pil_font(42, bold=True)
+    meta_font = load_pil_font(20)
+    panel_title_font = load_pil_font(24, bold=True)
+    body_font = load_pil_font(24)
+    small_font = load_pil_font(18)
+    value_font = load_pil_font(36, bold=True)
 
-    margin = 56
+    margin = 64
     content_left = margin
     content_right = width - margin
-    top = 54
+    top = 58
 
     draw.text((content_left, top), stats['complex_name'], font=title_font, fill='#111111')
-    top += 52
+    top += 56
     period_start = stats.get('first_defect_date') or stats.get('period_start') or date.today().isoformat()
     period_end = date.today().isoformat()
     draw.text((content_left, top), f"Сводка и динамика за весь период: {period_start} - {period_end}", font=meta_font, fill='#555555')
-    top += 32
+    top += 34
     draw.line((content_left, top, content_right, top), fill='#d6d9de', width=2)
 
-    stats_top = top + 20
-
+    stats_top = top + 24
     today_label = datetime.now().strftime('%d %B %Y г.')
     draw.text((content_left, stats_top), 'Оперативная статистика', font=panel_title_font, fill='#111111')
     date_bbox = draw.textbbox((0, 0), today_label, font=small_font)
@@ -3503,16 +3531,16 @@ def create_stats_report_jpg(stats):
     total = stats.get('total_apartments') or 0
     today_metrics = stats.get('today_metrics') or {}
     stat_rows = [
-        ('Вызов', today_metrics.get('call', 0), '#e969a8'),
-        ('Принято', today_metrics.get('accepted', 0), '#009d91'),
-        ('Нет доступа', today_metrics.get('no_access', 0), '#64748b'),
+        ('Вызов', today_metrics.get('call', 0), '#c2185b'),
+        ('Принято', today_metrics.get('accepted', 0), '#12a150'),
+        ('Нет доступа', today_metrics.get('no_access', 0), '#2563eb'),
         ('Остаток с замечаниями', today_metrics.get('remaining_with_defects', 0), '#e60042'),
         ('С замечаниями', today_metrics.get('with_defects', 0), '#111111'),
     ]
-    table_top = stats_top + 44
+    table_top = stats_top + 48
     col_status = content_left
-    col_value = content_right - 220
-    col_percent = content_right - 84
+    col_value = content_right - 230
+    col_percent = content_right - 88
     draw.text((col_status, table_top), 'Статус', font=small_font, fill='#666666')
     draw.text((col_value, table_top), 'Количество', font=small_font, fill='#666666')
     draw.text((col_percent, table_top), '%', font=small_font, fill='#666666')
@@ -3522,35 +3550,33 @@ def create_stats_report_jpg(stats):
     row_h = 74
     for label, value, color in stat_rows:
         draw.line((content_left, row_y + row_h, content_right, row_y + row_h), fill='#ececec', width=1)
-        draw.text((content_left, row_y + 18), label, font=body_font, fill='#111111')
+        draw.rounded_rectangle((content_left, row_y + 18, content_left + 8, row_y + 50), radius=4, fill=color, outline=color)
+        draw.text((content_left + 20, row_y + 18), label, font=body_font, fill='#111111')
         value_text = str(value)
         value_bbox = draw.textbbox((0, 0), value_text, font=value_font)
-        value_x = col_value + 90 - (value_bbox[2] - value_bbox[0])
+        value_x = col_value + 92 - (value_bbox[2] - value_bbox[0])
         draw.text((value_x, row_y + 10), value_text, font=value_font, fill='#111111')
         percent = f"{round((value / total) * 100, 1) if total else 0}%"
         percent_bbox = draw.textbbox((0, 0), percent, font=small_font)
         draw.text((content_right - (percent_bbox[2] - percent_bbox[0]), row_y + 24), percent, font=small_font, fill='#666666')
         row_y += row_h + 12
 
-    chart_section_top = row_y + 24
-    chart_title = 'Динамика за все время'
-    draw.text((content_left, chart_section_top), chart_title, font=panel_title_font, fill='#111111')
+    chart_section_top = row_y + 28
+    draw.text((content_left, chart_section_top), 'Динамика за все время', font=panel_title_font, fill='#111111')
     date_range_label = f"С {period_start} по {period_end}"
     range_bbox = draw.textbbox((0, 0), date_range_label, font=small_font)
     draw.text((content_right - (range_bbox[2] - range_bbox[0]), chart_section_top + 6), date_range_label, font=small_font, fill='#555555')
 
     series = [
-        ('remaining_with_defects', 'Остаток с замечаниями', '#e60042'),
-        ('with_defects', 'С замечаниями', '#111111'),
-        ('call', 'Вызов', '#e969a8'),
-        ('accepted', 'Принято', '#009d91'),
-        ('no_access', 'Нет доступа', '#64748b'),
+        ('call', 'Вызов', '#c2185b'),
+        ('accepted', 'Принято', '#12a150'),
+        ('no_access', 'Нет доступа', '#2563eb'),
     ]
     timeline = stats.get('timeline') or []
-    chart_left = content_left + 18
+    chart_left = content_left + 20
     chart_top = chart_section_top + 56
     chart_right = content_right
-    chart_bottom = height - 170
+    chart_bottom = height - 150
     if timeline:
         max_value = max(1, max(int(point.get(key, 0) or 0) for point in timeline for key, _, _ in series))
         inner_w = chart_right - chart_left
@@ -3572,9 +3598,9 @@ def create_stats_report_jpg(stats):
         for key, _, color in series:
             points = [(to_x(index), to_y(point.get(key, 0))) for index, point in enumerate(timeline)]
             if len(points) > 1:
-                draw.line(points, fill=color, width=5, joint='curve')
+                draw.line(points, fill=color, width=6, joint='curve')
             last_x, last_y = points[-1]
-            draw.ellipse((last_x - 5, last_y - 5, last_x + 5, last_y + 5), fill=color, outline=color)
+            draw.ellipse((last_x - 6, last_y - 6, last_x + 6, last_y + 6), fill=color, outline=color)
 
         labels = [timeline[0]['date'], timeline[len(timeline) // 2]['date'], timeline[-1]['date']]
         positions = [chart_left, chart_left + inner_w / 2, chart_right]
@@ -3592,7 +3618,7 @@ def create_stats_report_jpg(stats):
         draw.text((chart_left + ((chart_right - chart_left) - (empty_bbox[2] - empty_bbox[0])) / 2, chart_top + 140), 'Нет данных для графика', font=body_font, fill='#666666')
 
     legend_x = content_left
-    legend_y = chart_bottom + 32
+    legend_y = chart_bottom + 28
     legend_width = content_right - content_left
     legend_columns = 3
     legend_gap_x = 24
@@ -3602,8 +3628,8 @@ def create_stats_report_jpg(stats):
         row = idx // legend_columns
         item_x = legend_x + col * (item_width + legend_gap_x)
         item_y = legend_y + row * 34
-        draw.rectangle((item_x, item_y + 4, item_x + 12, item_y + 16), fill=color, outline=color)
-        draw.text((item_x + 22, item_y), label, font=small_font, fill='#444444')
+        draw.ellipse((item_x, item_y + 5, item_x + 10, item_y + 15), fill=color, outline=color)
+        draw.text((item_x + 18, item_y), label, font=small_font, fill='#444444')
 
     output = io.BytesIO()
     image.save(output, format='JPEG', quality=92)

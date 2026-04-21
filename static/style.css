@@ -4505,17 +4505,23 @@ h1 {
   flex-direction: row;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 4px;
   width: auto;
   margin-left: 0;
   order: 2;
   align-self: start;
 }
 
+.defect-executor-input {
+  width: auto;
+  min-width: 150px;
+  max-width: min(420px, 100%);
+}
+
 .defect-compact-executor-select {
-  width: 180px;
-  min-width: 180px;
-  max-width: 180px;
+  width: auto;
+  min-width: 120px;
+  max-width: 320px;
   height: 32px;
   font-size: 12px;
   color: #6b7280;
@@ -4825,7 +4831,7 @@ h1 {
 .defect-card-header-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
   flex-wrap: wrap;
   margin-bottom: 2px;
@@ -4860,7 +4866,9 @@ h1 {
 }
 
 .defect-executor-input {
-  width: 180px;
+  width: auto;
+  min-width: 150px;
+  max-width: min(420px, 100%);
   padding: 6px 10px;
   font-size: 12px;
   border: 1px solid #e2e8f0;
@@ -6265,9 +6273,10 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-popover {
-    width: min(1540px, calc(100vw - 24px));
-    max-width: min(1540px, calc(100vw - 24px));
-    max-height: min(92vh, 1080px);
+    width: calc(100vw - 2px);
+    max-width: calc(100vw - 2px);
+    height: auto;
+    max-height: min(94vh, 1200px);
     border: 1px solid rgba(219, 228, 238, 0.92);
     border-radius: 24px;
     overflow: hidden;
@@ -6282,7 +6291,8 @@ body.page-create-complex .mobile-filter-buttons {
 
 .stats-popover .modal-body {
     padding: 0;
-    max-height: min(92vh, 1080px);
+    height: auto;
+    max-height: min(94vh, 1200px);
     overflow-y: auto;
 }
 
@@ -6300,7 +6310,7 @@ body.page-create-complex .mobile-filter-buttons {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 22px;
+    padding: 20px 22px 22px;
     background: #ffffff;
 }
 
@@ -6422,8 +6432,14 @@ body.page-create-complex .mobile-filter-buttons {
 
 .stats-dashboard-grid {
     display: grid;
-    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-    gap: 12px;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+}
+
+.stats-metrics-card {
+    width: 360px;
+    max-width: 360px;
 }
 
 .stats-focus-shell {
@@ -6514,6 +6530,12 @@ body.page-create-complex .mobile-filter-buttons {
     gap: 8px;
 }
 
+.stats-focus-column-two {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 18px;
+}
+
 .stats-focus-column-row {
     display: grid;
     grid-template-columns: 72px minmax(0, 1fr);
@@ -6581,7 +6603,7 @@ body.page-create-complex .mobile-filter-buttons {
 .stats-metric-row {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) 56px 64px;
     gap: 12px;
     align-items: center;
     padding: 14px 16px;
@@ -6600,25 +6622,35 @@ body.page-create-complex .mobile-filter-buttons {
     font-size: 13px;
     font-weight: 600;
     color: #111111;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .stats-metric-row strong {
-    min-width: 40px;
+    min-width: 56px;
+    width: 56px;
     text-align: right;
     font-size: 20px;
     line-height: 1;
     color: #111111;
+    font-variant-numeric: tabular-nums;
 }
 
 .stats-metric-row em {
-    min-width: 58px;
+    min-width: 64px;
+    width: 64px;
     text-align: right;
     font-size: 12px;
     color: #666666;
+    font-variant-numeric: tabular-nums;
 }
 
 .stats-chart-card {
     min-width: 0;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .stats-ticket-head {
@@ -6723,7 +6755,8 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-chart-wrap {
-    padding: 16px 18px 18px;
+    padding: 4px 4px 8px;
+    flex: 1 1 auto;
 }
 
 .stats-kpi-card.tone-accepted::before,
@@ -6759,13 +6792,15 @@ body.page-create-complex .mobile-filter-buttons {
 .stats-chart-shell {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 24px;
+    align-items: center;
 }
 
 .stats-chart {
     width: 100%;
     height: auto;
     display: block;
+    margin: 0 auto;
 }
 
 .stats-chart-grid-line {
@@ -6781,15 +6816,17 @@ body.page-create-complex .mobile-filter-buttons {
 .stats-chart-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 16px;
+    gap: 8px 14px;
     padding: 12px 18px 0;
     border-bottom: 0;
+    justify-content: center;
+    margin-top: 6px;
 }
 
 .stats-chart-legend-item {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     font-size: 11px;
     color: #444444;
     min-width: 0;
@@ -6799,8 +6836,8 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-chart-legend-icon {
-    width: 12px;
-    height: 12px;
+    width: 8px;
+    height: 8px;
     border-radius: 999px;
     display: inline-block;
     flex: 0 0 auto;
@@ -11712,7 +11749,7 @@ body.page-complex-detail .apt-sort-grid.apt-sort-grid-sorted {
   flex-direction: column;
   padding: 10px 12px;
   border-radius: 14px;
-  background: #f8fafc;
+  background: transparent;
   width: max-content;
   max-width: 100%;
 }
@@ -11745,6 +11782,77 @@ body.page-complex-detail .apt-sort-grid.apt-sort-grid-sorted {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.create-responsible-modal {
+  width: min(820px, calc(100vw - 24px));
+}
+
+.category-dropdown-divider {
+  height: 1px;
+  margin: 8px 0;
+  background: var(--border);
+}
+
+.category-dropdown-subtitle {
+  padding: 0 12px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.create-responsible-hint {
+  margin-bottom: 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.create-responsible-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.create-responsible-row {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.create-responsible-grid {
+  align-items: end;
+}
+
+.create-responsible-row-actions,
+.create-responsible-footer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.create-responsible-row-summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex: 1 1 auto;
+}
+
+.create-responsible-row-summary.is-error {
+  color: var(--danger);
+}
+
+@media (max-width: 768px) {
+  .create-responsible-row {
+    padding: 12px;
+  }
+
+  .create-responsible-row-actions,
+  .create-responsible-footer-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 .apt-wrap {

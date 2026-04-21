@@ -9,8 +9,8 @@
     <link rel="preload" href="/static/fonts/Inter-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/static/fonts/InterDisplay-Bold.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/static/fonts/InterDisplay-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/static/style.css?v=9701">
-    <script src="/static/app.js?v=9521"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9702">
+    <script src="/static/app.js?v=9522"></script>
 </head>
 <body>
     <div class="app">
@@ -67,6 +67,9 @@
                             </button>
                             <div class="multi-select-dropdown" id="categoryDropdown">
                                 <div id="categoryOptions"></div>
+                                <div class="category-dropdown-divider"></div>
+                                <div class="category-dropdown-subtitle">Ответственные</div>
+                                <div id="responsibleOptions"></div>
                             </div>
                         </div>
                     </div>
@@ -116,7 +119,6 @@
                             <span>Сложная</span>
                         </button>
                     </div>
-                    <button class="pill pill-stats" id="assignmentBtn" onclick="showExecutorRegistryModal()" style="display:none;" title="Исполнители" aria-label="Исполнители">ИО</button>
                     <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Замечания и комментарии</button>
                     <button class="pill pill-stats" id="statsBtn" onclick="showStatsModal()" style="display:none;">Статистика</button>
                 </div>
@@ -349,80 +351,6 @@
         </div>
     </div>
 
-    <div id="executorRegistryModal" class="modal" onclick="closeExecutorRegistryModal(event)">
-        <div class="modal-content executor-registry-modal" onclick="event.stopPropagation()">
-            <div class="modal-body executor-registry-body">
-                <div class="executor-registry-mode-switch">
-                    <button type="button" class="executor-registry-mode-link is-active" id="executorRegistryModeExecutors" onclick="setExecutorRegistryMode('executors')">Исполнитель</button>
-                    <button type="button" class="executor-registry-mode-link" id="executorRegistryModeResponsible" onclick="setExecutorRegistryMode('responsible')">Ответственный</button>
-                </div>
-                <div id="executorRegistryExecutorsPanel">
-                    <form id="executorRegistryForm" class="form executor-registry-form">
-                        <input type="hidden" id="executorEditingId">
-                        <div class="form-grid form-grid-2">
-                            <div class="form-field">
-                                <label>ФИО</label>
-                                <input type="text" id="executorFullName" class="input" placeholder="ФИО">
-                            </div>
-                            <div class="form-field">
-                                <label>Юридическое лицо</label>
-                                <input type="text" id="executorLegalEntityName" class="input" placeholder="Название юридического лица">
-                            </div>
-                        </div>
-                        <div class="executor-registry-form-actions">
-                            <button type="submit" form="executorRegistryForm" class="btn btn-primary" id="executorRegistrySubmitBtn">Добавить</button>
-                            <button type="button" class="btn btn-secondary" id="executorRegistryCancelEditBtn" onclick="resetExecutorRegistryForm()" style="display:none;">Отменить редактирование</button>
-                        </div>
-                    </form>
-                    <div class="executor-registry-list" id="executorRegistryList"></div>
-                </div>
-
-                <div id="executorRegistryResponsiblePanel" style="display:none;">
-                    <form id="executorAssignmentForm" class="form executor-assignment-form">
-                        <div class="executor-assignment-summary" id="executorAssignmentSummary"></div>
-                        <div class="form-field">
-                            <label>Квартиры</label>
-                            <div class="executor-assignment-actions">
-                                <button type="button" class="btn btn-secondary btn-sm" onclick="setExecutorAssignmentApartmentSelection(true)">Все</button>
-                                <button type="button" class="btn btn-secondary btn-sm" onclick="setExecutorAssignmentApartmentSelection(false)">Снять</button>
-                                <span class="executor-assignment-count" id="executorAssignmentCount"></span>
-                            </div>
-                            <div class="executor-assignment-apartments" id="executorAssignmentApartments"></div>
-                        </div>
-                        <div class="form-grid form-grid-2 executor-assignment-grid">
-                            <div class="form-field">
-                                <label>Категория</label>
-                                <select id="executorAssignmentCategory" class="select" required>
-                                    <option value="">Выберите</option>
-                                </select>
-                            </div>
-                            <div class="form-field">
-                                <label>Тип</label>
-                                <select id="executorAssignmentResponsibleType" class="select" required>
-                                    <option value="legal">Юридическое лицо</option>
-                                    <option value="individual">Физическое лицо</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-field">
-                            <label id="executorAssignmentNameLabel">Компания</label>
-                            <input type="text" id="executorAssignmentExecutor" class="input" placeholder="Название компании" required>
-                        </div>
-                        <div class="executor-registry-form-actions">
-                            <button type="submit" form="executorAssignmentForm" class="btn btn-primary" id="executorAssignmentSubmitBtn">Сохранить</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="executorReportModal" class="modal" onclick="closeExecutorResponsibleReportModal(event)">
-        <div class="modal-content executor-report-modal" onclick="event.stopPropagation()">
-            <div class="modal-body executor-report-modal-body" id="executorReportBody"></div>
-        </div>
-    </div>
-
     <div id="filteredDefectCommentsModal" class="modal" onclick="closeFilteredDefectCommentsModal(event)">
         <div class="modal-content filtered-defects-modal filtered-comments-modal" onclick="event.stopPropagation()">
             <div class="modal-header">
@@ -486,6 +414,28 @@
             <div class="modal-footer">
                 <button class="btn" onclick="closeComplexModal()">Отмена</button>
                 <button class="btn btn-primary" onclick="saveComplexAndStatus()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="createComplexResponsibleModal" class="modal" onclick="closeCreateComplexResponsibleModal(event)">
+        <div class="modal-content create-responsible-modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="createComplexResponsibleTitle">Ответственные</h3>
+                <button class="modal-close" onclick="closeCreateComplexResponsibleModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="createComplexResponsibleForm" class="form">
+                    <div class="create-responsible-hint">Выберите категорию, укажите квартиры через запятую и/или дефис и заполните ответственного.</div>
+                    <div id="createComplexResponsibleRows" class="create-responsible-rows"></div>
+                    <div class="create-responsible-footer-actions">
+                        <button type="button" class="btn btn-secondary" onclick="addCreateComplexResponsibleRow()">+ Добавить строку</button>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn" onclick="finishCreateComplexResponsibleFlow('Комплекс сохранен')">Пропустить</button>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
