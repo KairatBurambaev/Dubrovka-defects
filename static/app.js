@@ -29,6 +29,7 @@ const state = {
     apartmentsCacheComplexId: null,
     filteredApartments: [],
     executorAssignmentSelectedApartmentIds: [],
+    currentExecutorReportId: null,
     pendingAccessStatus: null,
     gridNeedsRerender: false,
     parsedSearchCache: { input: '', numbers: null }
@@ -274,9 +275,6 @@ function setupForms() {
 
     const executorRegistryForm = document.getElementById('executorRegistryForm');
     if (executorRegistryForm) executorRegistryForm.addEventListener('submit', submitExecutorRegistryForm);
-
-    const executorEntityType = document.getElementById('executorEntityType');
-    if (executorEntityType) executorEntityType.addEventListener('change', syncExecutorLegalEntityVisibility);
 
     const executorAssignmentResponsibleType = document.getElementById('executorAssignmentResponsibleType');
     if (executorAssignmentResponsibleType) executorAssignmentResponsibleType.addEventListener('change', syncResponsibleAssignmentTypeVisibility);
@@ -1070,7 +1068,10 @@ async function loadContractors(selectedId = '') {
     try {
         const res = await fetch('/api/contractors');
         const data = await res.json();
-        state.contractors = data.contractors || [];
+        state.contractors = (data.contractors || []).map(c => ({
+            ...c,
+            full_name: c.name || ''
+        }));
     } catch (err) {
         console.error('Error loading contractors:', err);
     }
@@ -1165,18 +1166,76 @@ function renderExecutorRegistryList() {
         <div class="executor-registry-item">
             <div class="executor-registry-item-head">
                 <div>
-                    <div class="executor-registry-title">${escapeHtml(executor.display_name || executor.full_name || '')}</div>
-                    <div class="executor-registry-meta">${executor.entity_type === 'legal' ? 'Юридическое лицо' : 'Физическое лицо'}</div>
+                    <button type="button" class="executor-registry-title executor-registry-title-btn" onclick="showExecutorResponsibleReportModal(${executor.id})">${escapeHtml(executor.display_name || executor.full_name || '')}</button>
                 </div>
                 <div class="executor-registry-item-actions">
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="printExecutorResponsibleReport(${executor.id})">Печать</button>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="exportExecutorResponsibleJpg(${executor.id})">JPG</button>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="editExecutor(${executor.id})">Изменить</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="editExecutor(${executor.id})">Ред.</button>
                     <button type="button" class="btn btn-danger btn-sm" onclick="deleteExecutor(${executor.id})">Удалить</button>
                 </div>
             </div>
         </div>
     `).join('');
+}
+
+function renderExecutorResponsibleReportContent(report) {
+    const propertyLabel = report.property_type === 'апартаменты' ? 'Апартамент' : 'Квартира';
+    if (!(report.apartments || []).length) {
+        return '<div class="executor-report-empty">Нет непринятых замечаний, назначенных исполнителю.</div>';
+    }
+
+    const rowsHtml = report.apartments.flatMap((entry) => {
+        const apartment = entry.apartment || {};
+        const apartmentLabel = `${propertyLabel} ${apartment.number || '—'}`;
+        const meta = [
+            apartment.section_number ? `Секция ${apartment.section_number}` : '',
+            apartment.floor !== null && apartment.floor !== undefined ? `Этаж ${apartment.floor}` : ''
+        ].filter(Boolean).join(' ');
+
+        const defects = entry.categories.flatMap((categoryEntry) => categoryEntry.defects.map((defect) => ({
+            category: categoryEntry.category || '',
+            location: defect.location || 'Без локации',
+            items: defect.items || [],
+            status: defect.status || '',
+            status_label: defect.status_label || defect.status || '',
+        })));
+
+        return defects.map((defect, index) => `
+            <tr>
+                <td class="filtered-defects-apartment-cell">${index === 0 ? `${escapeHtml(apartmentLabel)}${meta ? `<div class="filtered-defects-apartment-meta">${escapeHtml(meta)}</div>` : ''}` : ''}</td>
+                <td>${escapeHtml(defect.category)}${defect.location ? `<div class="filtered-defects-apartment-meta">${escapeHtml(defect.location)}</div>` : ''}</td>
+                <td><div class="filtered-defect-items">${defect.items.length ? defect.items.map((item) => `<div>${escapeHtml(item)}</div>`).join('') : '<div>Без текста</div>'}</div></td>
+                <td><span class="filtered-defect-status defect-status-badge ${getDefectStatusBadgeClass(defect.status)}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
+            </tr>
+        `);
+    }).join('');
+
+    return `
+        <div class="filtered-defects-table-wrap executor-report-table-wrap">
+            <table class="filtered-defects-table filtered-defects-table-flat">
+                <thead>
+                    <tr>
+                        <th>Квартира</th>
+                        <th>Место</th>
+                        <th>Замечание</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderModalPaneHeader({ title, subtitle = '', actions = '', actionsClass = '' }) {
+    return `
+        <div class="modal-pane-header${actions ? ' has-actions' : ''}">
+            <div class="modal-pane-copy">
+                <div class="modal-pane-title">${escapeHtml(title || '')}</div>
+                ${subtitle ? `<div class="modal-pane-subtitle">${escapeHtml(subtitle)}</div>` : ''}
+            </div>
+            ${actions ? `<div class="modal-pane-actions ${actionsClass}">${actions}</div>` : ''}
+        </div>
+    `;
 }
 
 function resetExecutorRegistryForm() {
@@ -1189,7 +1248,6 @@ function resetExecutorRegistryForm() {
     if (editingIdField) editingIdField.value = '';
     if (submitBtn) submitBtn.textContent = 'Добавить';
     if (cancelBtn) cancelBtn.style.display = 'none';
-    syncExecutorLegalEntityVisibility();
 }
 
 function syncResponsibleAssignmentTypeVisibility() {
@@ -1270,15 +1328,12 @@ function editExecutor(executorId) {
     const submitBtn = document.getElementById('executorRegistrySubmitBtn');
     const cancelBtn = document.getElementById('executorRegistryCancelEditBtn');
     const fullNameField = document.getElementById('executorFullName');
-    const typeField = document.getElementById('executorEntityType');
     const legalNameField = document.getElementById('executorLegalEntityName');
 
     if (editingIdField) editingIdField.value = String(executor.id);
     if (submitBtn) submitBtn.textContent = 'Сохранить';
     if (cancelBtn) cancelBtn.style.display = 'inline-flex';
     if (fullNameField) fullNameField.value = executor.full_name || '';
-    if (typeField) typeField.value = executor.entity_type || 'individual';
-    syncExecutorLegalEntityVisibility();
     if (legalNameField) legalNameField.value = executor.legal_entity_name || '';
     if (fullNameField) fullNameField.focus();
 }
@@ -1326,44 +1381,7 @@ async function printExecutorResponsibleReport(executorId) {
         const report = await fetchExecutorResponsibleReport(executorId);
         const win = window.open('', '_blank');
         if (!win) return;
-
-        const propertyLabel = report.property_type === 'апартаменты' ? 'Апартамент' : 'Квартира';
-        const contentHtml = (report.apartments || []).length
-            ? report.apartments.map((entry) => {
-                const apartment = entry.apartment || {};
-                const meta = [
-                    `${propertyLabel} ${apartment.number || '—'}`,
-                    apartment.section_number ? `Секция ${apartment.section_number}` : '',
-                    apartment.floor !== null && apartment.floor !== undefined ? `Этаж ${apartment.floor}` : ''
-                ].filter(Boolean).join(' ');
-
-                const rows = entry.categories.flatMap((categoryEntry) => categoryEntry.defects.map((defect) => `
-                    <tr>
-                        <td>${escapeHtml(categoryEntry.category || '')}</td>
-                        <td>${escapeHtml(defect.location || 'Без локации')}</td>
-                        <td>${(defect.items || []).length ? defect.items.map((item) => `<div>${escapeHtml(item)}</div>`).join('') : 'Без текста'}</td>
-                        <td>${escapeHtml(defect.status_label || defect.status || '')}</td>
-                    </tr>
-                `)).join('');
-
-                return `
-                    <section class="executor-report-group">
-                        <h2>${escapeHtml(meta)}</h2>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th style="width:20%">Категория</th>
-                                    <th style="width:20%">Локация</th>
-                                    <th style="width:45%">Замечание</th>
-                                    <th style="width:15%">Статус</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rows}</tbody>
-                        </table>
-                    </section>
-                `;
-            }).join('')
-            : '<div class="executor-report-empty">Нет замечаний в статусах "В работе" и "На проверке".</div>';
+        const contentHtml = renderExecutorResponsibleReportContent(report);
 
         win.document.write(`
             <!DOCTYPE html>
@@ -1374,16 +1392,20 @@ async function printExecutorResponsibleReport(executorId) {
                 <style>
                     * { box-sizing: border-box; }
                     @page { margin: 10mm; size: A4 portrait; }
-                    body { margin: 0; color: #111; font-family: Arial, sans-serif; }
+                    body { margin: 0; color: #0f172a; font-family: Arial, sans-serif; background: #fff; }
                     .sheet { max-width: 190mm; margin: 0 auto; }
-                    h1 { margin: 0 0 4px; font-size: 22px; }
-                    .meta { margin-bottom: 14px; font-size: 12px; color: #4b5563; }
-                    .executor-report-group { margin-bottom: 16px; page-break-inside: avoid; }
-                    .executor-report-group h2 { margin: 0 0 8px; font-size: 14px; }
+                    h1 { margin: 0 0 6px; font-size: 24px; line-height: 1.1; }
+                    .meta { margin-bottom: 18px; font-size: 12px; color: #475569; line-height: 1.55; }
+                    .filtered-defects-table-wrap { border: 1px solid #111; }
                     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-                    th, td { border: 1px solid #d1d5db; padding: 8px 9px; text-align: left; vertical-align: top; word-break: break-word; font-size: 12px; }
-                    th { background: #f3f4f6; font-size: 11px; text-transform: uppercase; }
-                    .executor-report-empty { font-size: 13px; color: #4b5563; }
+                    th, td { border: 1px solid #111; padding: 8px 10px; text-align: left; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; font-size: 12px; line-height: 1.45; }
+                    th { background: #eef2f7; color: #334155; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+                    .filtered-defects-apartment-cell { width: 180px; font-weight: 700; }
+                    .filtered-defects-apartment-meta { margin-top: 4px; font-size: 11px; color: #64748b; font-weight: 400; }
+                    .filtered-defect-items { display: flex; flex-direction: column; gap: 4px; }
+                    .filtered-defect-status { display: inline-flex; font-weight: 700; }
+                    .executor-report-empty { font-size: 13px; color: #475569; }
+                    tr { page-break-inside: avoid; }
                 </style>
             </head>
             <body>
@@ -1411,6 +1433,75 @@ function exportExecutorResponsibleJpg(executorId) {
     window.open(`/api/complexes/${state.currentComplex}/executor-report/jpg?${params.toString()}`, '_blank');
 }
 
+async function showExecutorResponsibleReportModal(executorId) {
+    const modal = document.getElementById('executorReportModal');
+    const body = document.getElementById('executorReportBody');
+    if (!modal || !body) return;
+
+    state.currentExecutorReportId = executorId;
+    const executor = getExecutorById(executorId);
+    const executorTitle = executor?.display_name || executor?.full_name || 'Исполнитель';
+    body.innerHTML = `
+        ${renderModalPaneHeader({
+            title: executorTitle,
+            subtitle: 'Сводка по назначенным замечаниям с экспортом в JPG и печатью',
+            actions: `
+                <button class="btn btn-secondary" onclick="exportCurrentExecutorResponsibleJpg()">JPG</button>
+                <button class="btn btn-secondary" onclick="printCurrentExecutorResponsibleReport()">Печать</button>
+            `,
+            actionsClass: 'filtered-defects-header-actions'
+        })}
+        <div class="executor-report-loading">Загрузка...</div>
+    `;
+    modal.classList.add('active');
+
+    try {
+        const report = await fetchExecutorResponsibleReport(executorId);
+        body.innerHTML = `
+            ${renderModalPaneHeader({
+                title: report.executor_name || executorTitle,
+                subtitle: 'Сводка по назначенным замечаниям с экспортом в JPG и печатью',
+                actions: `
+                    <button class="btn btn-secondary" onclick="exportCurrentExecutorResponsibleJpg()">JPG</button>
+                    <button class="btn btn-secondary" onclick="printCurrentExecutorResponsibleReport()">Печать</button>
+                `,
+                actionsClass: 'filtered-defects-header-actions'
+            })}
+            ${renderExecutorResponsibleReportContent(report)}
+        `;
+    } catch (err) {
+        body.innerHTML = `
+            ${renderModalPaneHeader({
+                title: executorTitle,
+                subtitle: 'Сводка по назначенным замечаниям с экспортом в JPG и печатью',
+                actions: `
+                    <button class="btn btn-secondary" onclick="exportCurrentExecutorResponsibleJpg()">JPG</button>
+                    <button class="btn btn-secondary" onclick="printCurrentExecutorResponsibleReport()">Печать</button>
+                `,
+                actionsClass: 'filtered-defects-header-actions'
+            })}
+            <div class="executor-report-empty">${escapeHtml(err.message || 'Ошибка загрузки отчета')}</div>
+        `;
+    }
+}
+
+function closeExecutorResponsibleReportModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modal = document.getElementById('executorReportModal');
+    if (modal) modal.classList.remove('active');
+    state.currentExecutorReportId = null;
+}
+
+function printCurrentExecutorResponsibleReport() {
+    if (!state.currentExecutorReportId) return;
+    printExecutorResponsibleReport(state.currentExecutorReportId);
+}
+
+function exportCurrentExecutorResponsibleJpg() {
+    if (!state.currentExecutorReportId) return;
+    exportExecutorResponsibleJpg(state.currentExecutorReportId);
+}
+
 function renderDefectExecutorOptions(defect) {
     const selectedValue = String(defect?.executor || '').trim();
     const options = ['<option value="">Исполнитель</option>'];
@@ -1436,19 +1527,6 @@ function renderDefectExecutorOptions(defect) {
     return options.join('');
 }
 
-function syncExecutorLegalEntityVisibility() {
-    const typeField = document.getElementById('executorEntityType');
-    const legalGroup = document.getElementById('executorLegalEntityGroup');
-    const legalInput = document.getElementById('executorLegalEntityName');
-    const isLegal = typeField?.value === 'legal';
-
-    if (legalGroup) legalGroup.style.display = isLegal ? 'block' : 'none';
-    if (legalInput) {
-        legalInput.required = isLegal;
-        if (!isLegal) legalInput.value = '';
-    }
-}
-
 async function showExecutorRegistryModal() {
     await loadExecutors();
     renderExecutorRegistryList();
@@ -1471,17 +1549,14 @@ async function submitExecutorRegistryForm(event) {
 
     const editingId = document.getElementById('executorEditingId')?.value?.trim() || '';
     const fullName = document.getElementById('executorFullName')?.value?.trim() || '';
-    const entityType = document.getElementById('executorEntityType')?.value || 'individual';
     const legalEntityName = document.getElementById('executorLegalEntityName')?.value?.trim() || '';
 
-    if (!fullName) {
-        showToast('Укажите ФИО исполнителя', 'warning');
+    if (!fullName && !legalEntityName) {
+        showToast('Укажите ФИО или название юридического лица', 'warning');
         return;
     }
-    if (entityType === 'legal' && !legalEntityName) {
-        showToast('Укажите название юридического лица', 'warning');
-        return;
-    }
+
+    const entityType = legalEntityName ? 'legal' : 'individual';
 
     const body = new URLSearchParams();
     body.set('full_name', fullName);
@@ -1514,7 +1589,7 @@ function renderContractorOptions(selectedId = '') {
     return [
         '<option value="">Не назначен</option>',
         ...state.contractors.map(contractor => `
-            <option value="${contractor.id}" ${String(contractor.id) === normalizedId ? 'selected' : ''}>${escapeHtml(contractor.name)}</option>
+            <option value="${contractor.id}" ${String(contractor.id) === normalizedId ? 'selected' : ''}>${escapeHtml(contractor.full_name || '')}</option>
         `)
     ].join('');
 }
@@ -3771,7 +3846,7 @@ function renderApartments(apartments) {
                         const aPriority = aMeta.blackBadge ? 0 : aMeta.greenBadge ? 1 : aMeta.reviewCount > 0 ? 2 : aMeta.repeatCall ? 3 : 4;
                         const bPriority = bMeta.blackBadge ? 0 : bMeta.greenBadge ? 1 : bMeta.reviewCount > 0 ? 2 : bMeta.repeatCall ? 3 : 4;
 
-                        if (aPriority !== bPriority) return bPriority - aPriority;
+                        if (aPriority !== bPriority) return aPriority - bPriority;
 
                         const aStatusOrder = getApartmentStatusSortOrder(a);
                         const bStatusOrder = getApartmentStatusSortOrder(b);
@@ -6028,7 +6103,7 @@ async function printDefects() {
                 <title>Акт № ${actNumber}</title>
                 <style>
                     @page { margin: 12mm; size: A4 portrait; }
-                    body { font-family: "Times New Roman", serif; margin: 0; color: #111; font-size: 14px; line-height: 1.45; }
+                    body { font-family: "Times New Roman", serif; margin: 0; color: #111; font-size: 14px; line-height: 1.48; background: #fff; }
                     .print-page { padding: 3mm 4mm 6mm; box-sizing: border-box; position: relative; page-break-after: always; }
                     .print-page:last-child { page-break-after: auto; }
                     .act-title { text-align: center; font-weight: 700; font-size: 20px; margin: 0 0 4px; }
@@ -6045,8 +6120,8 @@ async function printDefects() {
                     .section { margin-top: 16px; }
                     .defect-print-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
                     .defect-print-table th,
-                    .defect-print-table td { border: 1px solid #111; padding: 8px; vertical-align: top; }
-                    .defect-print-table th { text-align: left; background: #f3f4f6; }
+                    .defect-print-table td { border: 1px solid #111; padding: 8px; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
+                    .defect-print-table th { text-align: left; background: #f3f4f6; color: #334155; font-size: 12px; }
                     .num-cell { width: 42px; }
                     .place-cell { width: 28%; }
                     .desc-cell { width: auto; }
@@ -6055,7 +6130,7 @@ async function printDefects() {
                     .defect-print-photos-row td { border-top: 0; }
                     .photos-cell { padding-top: 2px; padding-bottom: 12px; }
                     .defect-print-items { display: flex; flex-wrap: wrap; gap: 6px; }
-                    .defect-print-item-token { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; color: #111; }
+                    .defect-print-item-token { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; color: #111; word-break: break-word; }
                     .defect-print-item-token.is-in-progress { background: #fef3c7; color: #92400e; }
                     .defect-print-item-token.is-on-review { background: #ecfeff; color: #0f766e; }
                     .defect-print-item-token.is-completed { background: #dcfce7; color: #166534; }
@@ -6316,7 +6391,7 @@ async function printFilteredDefects() {
         return;
     }
 
-    const tableHtml = renderFilteredDefectsTable(groups, { includeRowClasses: true });
+    const tableHtml = renderFilteredDefectsTable(groups);
 
     const title = `Замечания по отфильтрованным квартирам`;
     const subtitle = state.currentComplexData?.name ? escapeHtml(state.currentComplexData.name) : '';
@@ -6331,21 +6406,21 @@ async function printFilteredDefects() {
             <title>${title}</title>
             <style>
                 @page { margin: 10mm; size: A4 landscape; }
-                body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #111; font-size: 12px; }
+                body { font-family: Inter, Arial, sans-serif; margin: 0; padding: 0; color: #111; font-size: 14px; background: #fff; }
                 .sheet { padding: 10mm 4mm; }
-                h1 { margin: 0 0 6px; font-size: 18px; }
-                .subtitle { margin-bottom: 14px; color: #555; }
+                h1 { margin: 0 0 6px; font-size: 20px; }
+                .subtitle { margin-bottom: 16px; color: #475569; line-height: 1.5; }
+                .filtered-defects-table-wrap { margin-top: 10px; overflow-x: auto; }
                 table { width: 100%; border-collapse: collapse; }
-                th, td { border: 1px solid #111; padding: 6px 8px; vertical-align: top; }
-                th { text-align: left; background: #f5f5f5; }
-                .filtered-defects-apartment-cell { width: 180px; }
-                .filtered-defects-apartment-phone { margin-top: 4px; font-size: 11px; color: #111; }
-                .filtered-defects-apartment-meta { margin-top: 4px; font-size: 11px; color: #666; }
-                .print-defect-items { display: flex; flex-wrap: wrap; gap: 6px; }
-                .print-defect-item-token { display: inline-flex; align-items: center; gap: 4px; }
-                .print-defect-item-token .defect-item-number { font-weight: 700; }
-                .print-row-light td { background: #f7f7f7; }
-                .print-row-white td { background: #ffffff; }
+                th, td { padding: 10px 12px; border: 1px solid #dadce0; vertical-align: top; text-align: left; }
+                th { background: #f1f3f4; font-size: 12px; }
+                .filtered-defects-table th:first-child, .filtered-defects-table td:first-child, .filtered-defects-table th:last-child, .filtered-defects-table td:last-child { width: 160px; }
+                .filtered-defects-table-flat th:first-child, .filtered-defects-table-flat td:first-child { width: 190px; }
+                .filtered-defects-apartment-phone { margin-top: 4px; font-size: 12px; font-weight: 500; color: #5f6368; }
+                .filtered-defects-apartment-meta { margin-top: 4px; font-size: 11px; color: #6b7280; font-weight: 500; white-space: normal; text-align: left; }
+                .filtered-defect-items { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+                .filtered-defect-item-token { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; background: transparent; color: inherit; }
+                .filtered-defect-status.defect-status-badge { min-width: 140px; width: 100%; justify-content: center; min-height: auto; padding: 0; border-radius: 2px; background: transparent !important; border: 0 !important; box-shadow: none !important; font-size: 13px; font-weight: 800; }
                 tr { page-break-inside: avoid; }
             </style>
         </head>
@@ -6389,22 +6464,11 @@ async function printFilteredDefectComments() {
         const phoneNote = getApartmentPhoneNote(apartment);
 
         return `
-            <section class="print-comment-group">
-                <div class="print-comment-head">
-                    <h2>${escapeHtml(apartmentLabel)}</h2>
+            <section class="filtered-defects-group">
+                <div class="filtered-defects-group-title">${escapeHtml(apartmentLabel)}
                     ${phoneNote ? `<div class="print-comment-phone">${escapeHtml(phoneNote)}</div>` : ''}
                 </div>
-                <div class="print-comment-list">
-                    ${comments.map((comment, index) => `
-                        <article class="print-comment-card">
-                            <div class="print-comment-line-head">
-                                <span class="print-comment-index">${index + 1}</span>
-                                <span class="print-comment-location">${escapeHtml(comment.location || 'Без локации')}</span>
-                            </div>
-                            <div class="print-comment-line">${escapeHtml(comment.text || '').replace(/\n/g, '<br>')}</div>
-                        </article>
-                    `).join('')}
-                </div>
+                ${renderFilteredDefectCommentList(comments)}
             </section>
         `;
     }).join('');
@@ -6420,20 +6484,20 @@ async function printFilteredDefectComments() {
             <title>${title}</title>
             <style>
                 @page { margin: 12mm; size: A4 portrait; }
-                body { font-family: Arial, sans-serif; margin: 0; color: #111; font-size: 12px; background: #fff; }
+                body { font-family: Inter, Arial, sans-serif; margin: 0; color: #111; font-size: 14px; background: #fff; }
                 .sheet { padding: 8mm 2mm; }
-                h1 { margin: 0 0 6px; font-size: 18px; }
-                .subtitle { margin-bottom: 14px; color: #555; }
-                .print-comment-group { margin-bottom: 6px; page-break-inside: avoid; border: 0; border-radius: 0; overflow: visible; }
-                .print-comment-head { padding: 4px 0; background: transparent; border-bottom: 0; }
-                .print-comment-group h2 { margin: 0; font-size: 14px; }
-                .print-comment-phone { margin-top: 4px; font-size: 11px; color: #111; }
-                .print-comment-list { display: flex; flex-direction: column; padding: 0; gap: 2px; }
-                .print-comment-card { border: 0; border-radius: 0; padding: 3px 0; page-break-inside: avoid; }
-                .print-comment-line-head { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
-                .print-comment-index { min-width: 20px; height: 20px; border-radius: 999px; background: #e5e7eb; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
-                .print-comment-location { font-weight: 700; color: #374151; }
-                .print-comment-line { line-height: 1.25; }
+                h1 { margin: 0 0 6px; font-size: 20px; }
+                .subtitle { margin-bottom: 16px; color: #475569; line-height: 1.5; }
+                .filtered-defects-group + .filtered-defects-group { margin-top: 18px; }
+                .filtered-defects-group-title { font-size: 16px; font-weight: 700; color: #202124; line-height: 1.3; }
+                .print-comment-phone { margin-top: 4px; font-size: 12px; font-weight: 500; color: #5f6368; }
+                .filtered-comment-list { display: flex; flex-direction: column; gap: 8px; }
+                .filtered-comment-card { padding: 2px 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; text-align: left; page-break-inside: avoid; }
+                .filtered-comment-head { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+                .filtered-comment-line { color: #202124; line-height: 1.5; word-break: break-word; font-size: 14px; font-weight: 400; text-align: left; }
+                .filtered-comment-location-label { font-weight: 600; font-size: 12px; line-height: 1.4; color: #334155; padding: 0; border-radius: 999px; background: transparent; text-align: left; }
+                .filtered-comment-location-label.is-muted { color: #64748b; background: transparent; }
+                .filtered-comment-value { font-weight: 400; white-space: normal; text-align: left; font-size: 14px; line-height: 1.5; }
             </style>
         </head>
         <body>
@@ -6624,6 +6688,56 @@ function getStatsPrintRows(stats) {
         { label: 'Остаток с замечаниями', value: todayMetrics.remaining_with_defects || 0, percent: formatStatsPercent(todayMetrics.remaining_with_defects || 0, totalApartments), tone: 'defects' },
         { label: 'С замечаниями', value: todayMetrics.with_defects || 0, percent: formatStatsPercent(todayMetrics.with_defects || 0, totalApartments), tone: 'remaining' }
     ];
+}
+
+function renderStatsExportLayout(stats, chartOptions = {}) {
+    const periodLabel = formatStatsPeriodLabel(stats.first_defect_date || stats.period_start, new Date().toISOString().split('T')[0]);
+    const statRows = getStatsPrintRows(stats);
+    const timeline = stats.timeline || [];
+    const firstDefectDate = stats.first_defect_date || stats.period_start;
+    const todayLabel = formatStatsPeriodLabel(new Date().toISOString().split('T')[0], new Date().toISOString().split('T')[0]);
+
+    return `
+        <div class="stats-shell stats-dashboard-shell stats-export-shell">
+            <div class="stats-dashboard-head">
+                <div class="stats-dashboard-copy">
+                    <div class="stats-dashboard-title">${escapeHtml(stats.complex_name || '')}</div>
+                    <span class="stats-dashboard-period">Сводка и динамика за весь период: ${escapeHtml(periodLabel)}</span>
+                </div>
+            </div>
+
+            <section class="stats-export-section stats-export-stats">
+                <div class="stats-panel-head">
+                    <strong>Оперативная статистика</strong>
+                    <span>${escapeHtml(todayLabel)}</span>
+                </div>
+                <div class="stats-export-table">
+                    <div class="stats-export-table-head">
+                        <span>Статус</span>
+                        <span>Количество</span>
+                        <span>%</span>
+                    </div>
+                    ${statRows.map((row) => `
+                        <div class="stats-export-table-row tone-${row.tone}">
+                            <label>${escapeHtml(row.label)}</label>
+                            <strong>${row.value}</strong>
+                            <em>${escapeHtml(row.percent)}</em>
+                        </div>
+                    `).join('')}
+                </div>
+            </section>
+
+            <section class="stats-export-section stats-export-chart">
+                <div class="stats-panel-head">
+                    <strong>Динамика за все время</strong>
+                    <span>С ${escapeHtml(formatStatsShortDate(firstDefectDate))} по ${escapeHtml(formatStatsShortDate(new Date().toISOString().split('T')[0]))}</span>
+                </div>
+                <div class="stats-chart-wrap">
+                    ${renderStatsTrendChart(timeline, chartOptions)}
+                </div>
+            </section>
+        </div>
+    `;
 }
 
 function formatStatsDateTime(value) {
@@ -6965,16 +7079,6 @@ async function loadStats(body, modal) {
                     </div>
                 </div>
 
-                <div class="stats-kpi-grid">
-                    ${highlightCards.map((card) => `
-                        <article class="stats-kpi-card tone-${card.tone}">
-                            <span>${card.label}</span>
-                            <strong>${card.value}</strong>
-                            <em>${card.meta}</em>
-                        </article>
-                    `).join('')}
-                </div>
-
                 <div class="stats-dashboard-grid">
                     <section class="stats-dashboard-card stats-metrics-card">
                         <div class="stats-panel-head">
@@ -7069,40 +7173,35 @@ function changeStatsRange(edge, newDate) {
 }
 
 function printStatsReport() {
-    const statsRes = fetch(`/api/complexes/${state.currentComplex}/statistics?${getStatsQueryString()}`, { cache: 'no-store' }).then(r => r.json());
-    
-    statsRes.then(stats => {
-        const totalApartments = stats.total_apartments || 0;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('Браузер заблокировал окно печати');
+        return;
+    }
+
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Подготовка печати</title></head><body style="font-family: Arial, sans-serif; padding: 24px;">Подготовка печати...</body></html>`);
+    printWindow.document.close();
+
+    fetch(`/api/complexes/${state.currentComplex}/statistics?${getStatsQueryString()}`, { cache: 'no-store' })
+    .then(r => r.json())
+    .then(stats => {
         const jkName = stats.complex_name || document.getElementById('jkName').textContent;
-        const periodLabel = formatStatsPeriodLabel(stats.first_defect_date || stats.period_start, new Date().toISOString().split('T')[0]);
-        const rows = getStatsPrintRows(stats).map((row) => `
-            <tr>
-                <td>${row.label}</td>
-                <td>${row.value}</td>
-                <td>${row.percent}</td>
-            </tr>
-        `).join('');
-        const chartHtml = renderStatsTrendChart(stats.timeline || [], {
-            width: 660,
-            height: 238,
-            paddingLeft: 38,
-            paddingRight: 16,
-            paddingTop: 16,
-            paddingBottom: 30,
-            axisFontSize: 10,
-            legendFontSize: 10,
+        const contentHtml = renderStatsExportLayout(stats, {
+            width: 920,
+            height: 300,
+            paddingLeft: 48,
+            paddingRight: 24,
+            paddingTop: 14,
+            paddingBottom: 28,
+            axisFontSize: 11,
+            legendFontSize: 11,
             legendColumns: 3,
-            legendGap: 10,
-            legendLabels: {
-                remaining_with_defects: 'Остаток',
-                with_defects: 'Замечания',
-                no_access: 'Нет доступа',
-            },
-            lineStrokeWidth: 2.5,
-            pointRadius: 3.2,
+            legendGap: 8,
+            lineStrokeWidth: 3,
+            pointRadius: 4,
         });
-        
-        const printWindow = window.open('', '_blank');
+
+        printWindow.document.open();
         printWindow.document.write(`
             <!DOCTYPE html>
             <html>
@@ -7110,59 +7209,65 @@ function printStatsReport() {
                 <title>Отчет - ${jkName}</title>
                 <style>
                     * { box-sizing: border-box; }
-                    @page { margin: 10mm; size: A4 landscape; }
-                    body { font-family: Arial, sans-serif; padding: 0; margin: 0; color: #111; }
-                    .sheet { width: 100%; max-width: 277mm; margin: 0 auto; }
-                    h1 { font-size: 22px; margin: 0 0 4px; }
-                    .report-date { color: #555; margin-bottom: 14px; font-size: 12px; }
-                    table { width: 100%; border-collapse: collapse; margin-bottom: 18px; table-layout: fixed; }
-                    th, td { border: 1px solid #ddd; padding: 9px 10px; text-align: left; word-break: break-word; }
-                    th { background: #111; color: #fff; font-weight: 700; font-size: 11px; text-transform: uppercase; }
-                    .chart-block { border: 1px solid #ddd; padding: 12px; margin-bottom: 18px; overflow: hidden; }
-                    .chart-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
-                    .stats-chart-shell { display: flex; flex-direction: column; gap: 12px; }
+                    @page { size: A4 landscape; margin: 0; }
+                    html, body { width: 297mm; height: 210mm; margin: 0; padding: 0; background: #ffffff; }
+                    body { font-family: Inter, Arial, sans-serif; color: #111111; display: flex; align-items: center; justify-content: center; }
+                    .sheet { width: 297mm; height: 210mm; padding: 0; display: flex; align-items: center; justify-content: center; }
+                    .stats-export-shell { width: 70%; height: 70%; display: flex; flex-direction: column; gap: 7px; padding: 0; background: #ffffff; overflow: visible; }
+                    .stats-dashboard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 1px solid #d6d9de; padding: 0 0 8px; }
+                    .stats-dashboard-copy { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+                    .stats-dashboard-title { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: #111111; }
+                    .stats-dashboard-period { font-size: 12px; color: #555555; line-height: 1.35; }
+                    .stats-export-section { display: flex; flex-direction: column; }
+                    .stats-export-stats { flex: 0 0 auto; }
+                    .stats-export-chart { flex: 1 1 auto; min-height: 0; }
+                    .stats-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 0 6px; }
+                    .stats-panel-head strong { font-size: 14px; font-weight: 700; color: #111111; letter-spacing: -0.01em; }
+                    .stats-panel-head span { font-size: 12px; color: #555555; white-space: nowrap; }
+                    .stats-export-table-head, .stats-export-table-row { display: grid; grid-template-columns: minmax(0, 1fr) 88px 56px; gap: 10px; align-items: center; }
+                    .stats-export-table-head { padding: 0 0 6px; border-bottom: 1px solid #d6d9de; font-size: 10px; color: #666666; text-transform: uppercase; letter-spacing: 0.04em; }
+                    .stats-export-table-head span:nth-child(2), .stats-export-table-head span:nth-child(3) { text-align: right; }
+                    .stats-export-table-row { padding: 9px 0; border-bottom: 1px solid #ececec; }
+                    .stats-export-table-row:last-child { border-bottom: 0; }
+                    .stats-export-table-row label, .stats-export-table-row strong, .stats-export-table-row em { font-style: normal; }
+                    .stats-export-table-row label { font-size: 13px; font-weight: 600; color: #111111; }
+                    .stats-export-table-row strong { text-align: right; font-size: 20px; line-height: 1; color: #111111; font-variant-numeric: tabular-nums; }
+                    .stats-export-table-row em { text-align: right; font-size: 11px; color: #666666; font-variant-numeric: tabular-nums; }
+                    .stats-chart-wrap { padding: 2px 0 0; flex: 1; min-height: 0; overflow: visible; }
+                    .stats-chart-shell { display: flex; flex-direction: column; gap: 6px; overflow: visible; }
                     .stats-chart { width: 100%; height: auto; display: block; }
-                    .stats-chart-grid-line { stroke: #e2e8f0; stroke-width: 1; }
-                    .stats-chart-axis-label { fill: #64748b; font-size: 11px; }
-                    .stats-chart-legend { display: grid; align-items: start; }
-                    .stats-chart-legend-item { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #334155; min-width: 0; white-space: nowrap; }
-                    .stats-chart-legend-icon { display: inline-block; width: 10px; height: 10px; border-radius: 999px; flex: 0 0 auto; }
-                    .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; }
-                    @media print { body { padding: 0; } .sheet { max-width: none; } }
+                    .stats-chart-grid-line { stroke: #d6d9de; stroke-width: 1; }
+                    .stats-chart-axis-label { fill: #666666; font-size: 10px; }
+                    .stats-chart-legend { display: flex !important; flex-wrap: wrap; align-items: center; gap: 6px 12px !important; overflow: visible; }
+                    .stats-chart-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; color: #444444; min-width: 0; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.04em; }
+                    .stats-chart-legend-icon { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; border: 1px solid rgba(17,17,17,0.18); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+                    .stats-chart-empty { min-height: 100%; display: flex; align-items: center; justify-content: center; color: #666666; font-size: 13px; border: 0; border-radius: 0; background: #ffffff; }
+                    body, .stats-chart-legend-icon, .stats-chart, .stats-chart-shell { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+                    @media print { html, body { width: auto; height: auto; } }
                 </style>
             </head>
             <body>
                 <div class="sheet">
-                    <h1>${jkName}</h1>
-                    <p class="report-date">Период: ${periodLabel}</p>
-
-                    <div class="chart-block">
-                        <div class="chart-title">График за все время</div>
-                        ${chartHtml}
-                    </div>
-                    
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="width:54%">Статус</th>
-                                <th style="width:23%">Количество</th>
-                                <th style="width:23%">% от общего</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rows}
-                        </tbody>
-                    </table>
-                    
-                    <div class="footer">
-                        Сформировано системой "Перспектива Инжиниринг гарантийный сервис"
-                    </div>
+                    ${contentHtml}
                 </div>
+                <script>
+                    window.onload = function () {
+                        window.focus();
+                        setTimeout(function () {
+                            window.print();
+                        }, 300);
+                    };
+                </script>
             </body>
             </html>
         `);
         printWindow.document.close();
-        printWindow.print();
+    })
+    .catch(error => {
+        console.error('Print statistics failed', error);
+        printWindow.document.open();
+        printWindow.document.write(`<!DOCTYPE html><html><head><title>Ошибка печати</title></head><body style="font-family: Arial, sans-serif; padding: 24px;">Не удалось подготовить печать статистики.</body></html>`);
+        printWindow.document.close();
     });
 }
 

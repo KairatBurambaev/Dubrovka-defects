@@ -9,8 +9,8 @@
     <link rel="preload" href="/static/fonts/Inter-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/static/fonts/InterDisplay-Bold.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/static/fonts/InterDisplay-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/static/style.css?v=9698">
-    <script src="/static/app.js?v=9519"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9701">
+    <script src="/static/app.js?v=9521"></script>
 </head>
 <body>
     <div class="app">
@@ -116,7 +116,7 @@
                             <span>Сложная</span>
                         </button>
                     </div>
-                    <button class="pill pill-stats" id="assignmentBtn" onclick="showExecutorRegistryModal()" style="display:none;" title="Исполнители" aria-label="Исполнители">ио</button>
+                    <button class="pill pill-stats" id="assignmentBtn" onclick="showExecutorRegistryModal()" style="display:none;" title="Исполнители" aria-label="Исполнители">ИО</button>
                     <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Замечания и комментарии</button>
                     <button class="pill pill-stats" id="statsBtn" onclick="showStatsModal()" style="display:none;">Статистика</button>
                 </div>
@@ -362,19 +362,12 @@
                         <div class="form-grid form-grid-2">
                             <div class="form-field">
                                 <label>ФИО</label>
-                                <input type="text" id="executorFullName" class="input" placeholder="ФИО" required>
+                                <input type="text" id="executorFullName" class="input" placeholder="ФИО">
                             </div>
                             <div class="form-field">
-                                <label>Тип</label>
-                                <select id="executorEntityType" class="select" required>
-                                    <option value="individual">Физическое лицо</option>
-                                    <option value="legal">Юридическое лицо</option>
-                                </select>
+                                <label>Юридическое лицо</label>
+                                <input type="text" id="executorLegalEntityName" class="input" placeholder="Название юридического лица">
                             </div>
-                        </div>
-                        <div class="form-field" id="executorLegalEntityGroup" style="display:none;">
-                            <label>Название ЮЛ</label>
-                            <input type="text" id="executorLegalEntityName" class="input" placeholder="Название юридического лица">
                         </div>
                         <div class="executor-registry-form-actions">
                             <button type="submit" form="executorRegistryForm" class="btn btn-primary" id="executorRegistrySubmitBtn">Добавить</button>
@@ -421,6 +414,12 @@
                     </form>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="executorReportModal" class="modal" onclick="closeExecutorResponsibleReportModal(event)">
+        <div class="modal-content executor-report-modal" onclick="event.stopPropagation()">
+            <div class="modal-body executor-report-modal-body" id="executorReportBody"></div>
         </div>
     </div>
 

@@ -759,8 +759,8 @@ def ensure_contractor(conn, contractor_name: Optional[str]):
 def get_executor_display_name(full_name: Optional[str], entity_type: Optional[str], legal_entity_name: Optional[str]):
     cleaned_full_name = (full_name or "").strip()
     cleaned_legal_entity_name = (legal_entity_name or "").strip()
-    if entity_type == "legal" and cleaned_legal_entity_name:
-        return f"{cleaned_full_name} ({cleaned_legal_entity_name})"
+    if cleaned_legal_entity_name:
+        return f"{cleaned_full_name} ({cleaned_legal_entity_name})" if cleaned_full_name else cleaned_legal_entity_name
     return cleaned_full_name
 
 
@@ -769,10 +769,8 @@ def ensure_executor(conn, full_name: Optional[str], entity_type: Optional[str], 
     cleaned_entity_type = "legal" if entity_type == "legal" else "individual"
     cleaned_legal_entity_name = (legal_entity_name or "").strip() if cleaned_entity_type == "legal" else ""
 
-    if not cleaned_full_name:
-        raise HTTPException(status_code=400, detail="Укажите ФИО исполнителя")
-    if cleaned_entity_type == "legal" and not cleaned_legal_entity_name:
-        raise HTTPException(status_code=400, detail="Укажите название юридического лица")
+    if not cleaned_full_name and not cleaned_legal_entity_name:
+        raise HTTPException(status_code=400, detail="Укажите ФИО или название юридического лица")
 
     existing = conn.execute(
         """
@@ -3470,37 +3468,89 @@ def get_line_height(draw, font):
 
 
 def create_stats_report_jpg(stats):
-    width = 1600
-    height = 960
-    image = Image.new('RGB', (width, height), 'white')
+    width = 1754
+    height = 1240
+    image = Image.new('RGB', (width, height), '#ffffff')
     draw = ImageDraw.Draw(image)
 
-    title_font = load_pil_font(42, bold=True)
-    meta_font = load_pil_font(22)
-    body_font = load_pil_font(24)
-    small_font = load_pil_font(18)
-    bold_font = load_pil_font(24, bold=True)
+    title_font = load_pil_font(38, bold=True)
+    meta_font = load_pil_font(18)
+    panel_title_font = load_pil_font(22, bold=True)
+    body_font = load_pil_font(22)
+    small_font = load_pil_font(16)
+    value_font = load_pil_font(34, bold=True)
 
-    left = 60
-    top = 48
-    draw.text((left, top), stats['complex_name'], font=title_font, fill='#111111')
-    top += 58
-    period_label = f"Период: {stats['first_defect_date']} - {date.today().isoformat()}"
-    draw.text((left, top), period_label, font=meta_font, fill='#4b5563')
+    margin = 56
+    content_left = margin
+    content_right = width - margin
+    top = 54
 
-    chart_box = (left, 130, 980, 520)
-    draw.rounded_rectangle(chart_box, radius=20, outline='#d1d5db', width=2, fill='#ffffff')
-    draw.text((left + 24, 148), 'График за все время', font=bold_font, fill='#111111')
+    draw.text((content_left, top), stats['complex_name'], font=title_font, fill='#111111')
+    top += 52
+    period_start = stats.get('first_defect_date') or stats.get('period_start') or date.today().isoformat()
+    period_end = date.today().isoformat()
+    draw.text((content_left, top), f"Сводка и динамика за весь период: {period_start} - {period_end}", font=meta_font, fill='#555555')
+    top += 32
+    draw.line((content_left, top, content_right, top), fill='#d6d9de', width=2)
+
+    stats_top = top + 20
+
+    today_label = datetime.now().strftime('%d %B %Y г.')
+    draw.text((content_left, stats_top), 'Оперативная статистика', font=panel_title_font, fill='#111111')
+    date_bbox = draw.textbbox((0, 0), today_label, font=small_font)
+    draw.text((content_right - (date_bbox[2] - date_bbox[0]), stats_top + 6), today_label, font=small_font, fill='#555555')
+
+    total = stats.get('total_apartments') or 0
+    today_metrics = stats.get('today_metrics') or {}
+    stat_rows = [
+        ('Вызов', today_metrics.get('call', 0), '#e969a8'),
+        ('Принято', today_metrics.get('accepted', 0), '#009d91'),
+        ('Нет доступа', today_metrics.get('no_access', 0), '#64748b'),
+        ('Остаток с замечаниями', today_metrics.get('remaining_with_defects', 0), '#e60042'),
+        ('С замечаниями', today_metrics.get('with_defects', 0), '#111111'),
+    ]
+    table_top = stats_top + 44
+    col_status = content_left
+    col_value = content_right - 220
+    col_percent = content_right - 84
+    draw.text((col_status, table_top), 'Статус', font=small_font, fill='#666666')
+    draw.text((col_value, table_top), 'Количество', font=small_font, fill='#666666')
+    draw.text((col_percent, table_top), '%', font=small_font, fill='#666666')
+    draw.line((content_left, table_top + 28, content_right, table_top + 28), fill='#d6d9de', width=1)
+
+    row_y = table_top + 42
+    row_h = 74
+    for label, value, color in stat_rows:
+        draw.line((content_left, row_y + row_h, content_right, row_y + row_h), fill='#ececec', width=1)
+        draw.text((content_left, row_y + 18), label, font=body_font, fill='#111111')
+        value_text = str(value)
+        value_bbox = draw.textbbox((0, 0), value_text, font=value_font)
+        value_x = col_value + 90 - (value_bbox[2] - value_bbox[0])
+        draw.text((value_x, row_y + 10), value_text, font=value_font, fill='#111111')
+        percent = f"{round((value / total) * 100, 1) if total else 0}%"
+        percent_bbox = draw.textbbox((0, 0), percent, font=small_font)
+        draw.text((content_right - (percent_bbox[2] - percent_bbox[0]), row_y + 24), percent, font=small_font, fill='#666666')
+        row_y += row_h + 12
+
+    chart_section_top = row_y + 24
+    chart_title = 'Динамика за все время'
+    draw.text((content_left, chart_section_top), chart_title, font=panel_title_font, fill='#111111')
+    date_range_label = f"С {period_start} по {period_end}"
+    range_bbox = draw.textbbox((0, 0), date_range_label, font=small_font)
+    draw.text((content_right - (range_bbox[2] - range_bbox[0]), chart_section_top + 6), date_range_label, font=small_font, fill='#555555')
 
     series = [
-        ('remaining_with_defects', 'Остаток', '#e60042'),
-        ('with_defects', 'Замечания', '#111111'),
+        ('remaining_with_defects', 'Остаток с замечаниями', '#e60042'),
+        ('with_defects', 'С замечаниями', '#111111'),
         ('call', 'Вызов', '#e969a8'),
         ('accepted', 'Принято', '#009d91'),
         ('no_access', 'Нет доступа', '#64748b'),
     ]
     timeline = stats.get('timeline') or []
-    chart_left, chart_top, chart_right, chart_bottom = left + 28, 200, 940, 460
+    chart_left = content_left + 18
+    chart_top = chart_section_top + 56
+    chart_right = content_right
+    chart_bottom = height - 170
     if timeline:
         max_value = max(1, max(int(point.get(key, 0) or 0) for point in timeline for key, _, _ in series))
         inner_w = chart_right - chart_left
@@ -3508,10 +3558,10 @@ def create_stats_report_jpg(stats):
         for step in range(5):
             y = chart_bottom - (inner_h * step / 4)
             value = round(max_value * step / 4)
-            draw.line((chart_left, y, chart_right, y), fill='#e2e8f0', width=1)
+            draw.line((chart_left, y, chart_right, y), fill='#d6d9de', width=1)
             label = str(value)
             bbox = draw.textbbox((0, 0), label, font=small_font)
-            draw.text((chart_left - bbox[2] - 10, y - 10), label, font=small_font, fill='#64748b')
+            draw.text((chart_left - bbox[2] - 12, y - 9), label, font=small_font, fill='#666666')
 
         def to_x(index):
             return chart_left if len(timeline) == 1 else chart_left + (inner_w * index / (len(timeline) - 1))
@@ -3522,9 +3572,9 @@ def create_stats_report_jpg(stats):
         for key, _, color in series:
             points = [(to_x(index), to_y(point.get(key, 0))) for index, point in enumerate(timeline)]
             if len(points) > 1:
-                draw.line(points, fill=color, width=4, joint='curve')
+                draw.line(points, fill=color, width=5, joint='curve')
             last_x, last_y = points[-1]
-            draw.ellipse((last_x - 4, last_y - 4, last_x + 4, last_y + 4), fill=color, outline=color)
+            draw.ellipse((last_x - 5, last_y - 5, last_x + 5, last_y + 5), fill=color, outline=color)
 
         labels = [timeline[0]['date'], timeline[len(timeline) // 2]['date'], timeline[-1]['date']]
         positions = [chart_left, chart_left + inner_w / 2, chart_right]
@@ -3536,45 +3586,24 @@ def create_stats_report_jpg(stats):
                 x = positions[idx]
             elif idx == 2:
                 x = positions[idx] - bbox[2]
-            draw.text((x, chart_bottom + 10), text_value, font=small_font, fill='#64748b')
+            draw.text((x, chart_bottom + 12), text_value, font=small_font, fill='#666666')
     else:
-        draw.text((chart_left, chart_top + 80), 'Нет данных для графика', font=body_font, fill='#64748b')
+        empty_bbox = draw.textbbox((0, 0), 'Нет данных для графика', font=body_font)
+        draw.text((chart_left + ((chart_right - chart_left) - (empty_bbox[2] - empty_bbox[0])) / 2, chart_top + 140), 'Нет данных для графика', font=body_font, fill='#666666')
 
-    legend_x = 1010
-    legend_y = 180
-    draw.text((legend_x, legend_y - 34), 'Легенда', font=bold_font, fill='#111111')
+    legend_x = content_left
+    legend_y = chart_bottom + 32
+    legend_width = content_right - content_left
+    legend_columns = 3
+    legend_gap_x = 24
+    item_width = (legend_width - legend_gap_x * (legend_columns - 1)) / legend_columns
     for idx, (_, label, color) in enumerate(series):
-        item_y = legend_y + idx * 54
-        draw.rounded_rectangle((legend_x, item_y, legend_x + 18, item_y + 18), radius=9, fill=color, outline=color)
-        draw.text((legend_x + 30, item_y - 2), label, font=body_font, fill='#334155')
-
-    table_top = 560
-    draw.text((left, table_top), 'Статусы', font=bold_font, fill='#111111')
-    table_top += 34
-    columns = [('Статус', 680), ('Количество', 260), ('% от общего', 300)]
-    x = left
-    for header, col_width in columns:
-        draw.rectangle((x, table_top, x + col_width, table_top + 48), fill='#111111')
-        draw.text((x + 16, table_top + 12), header, font=small_font, fill='white')
-        x += col_width
-
-    rows = [
-        ('Вызов', stats['today_metrics'].get('call', 0)),
-        ('Принято', stats['today_metrics'].get('accepted', 0)),
-        ('Нет доступа', stats['today_metrics'].get('no_access', 0)),
-        ('Остаток с замечаниями', stats['today_metrics'].get('remaining_with_defects', 0)),
-        ('С замечаниями', stats['today_metrics'].get('with_defects', 0)),
-    ]
-    total = stats.get('total_apartments') or 0
-    row_y = table_top + 48
-    for index, (label, value) in enumerate(rows):
-        bg = '#f8fafc' if index % 2 == 0 else '#ffffff'
-        draw.rectangle((left, row_y, left + 1240, row_y + 50), fill=bg, outline='#d1d5db', width=1)
-        percent = f"{round((value / total) * 100, 1) if total else 0}%"
-        draw.text((left + 16, row_y + 12), label, font=body_font, fill='#111111')
-        draw.text((left + 720, row_y + 12), str(value), font=body_font, fill='#111111')
-        draw.text((left + 980, row_y + 12), percent, font=body_font, fill='#111111')
-        row_y += 50
+        col = idx % legend_columns
+        row = idx // legend_columns
+        item_x = legend_x + col * (item_width + legend_gap_x)
+        item_y = legend_y + row * 34
+        draw.rectangle((item_x, item_y + 4, item_x + 12, item_y + 16), fill=color, outline=color)
+        draw.text((item_x + 22, item_y), label, font=small_font, fill='#444444')
 
     output = io.BytesIO()
     image.save(output, format='JPEG', quality=92)
@@ -3583,102 +3612,310 @@ def create_stats_report_jpg(stats):
 
 
 def create_executor_report_jpg(report):
-    title_font = load_pil_font(34, bold=True)
-    meta_font = load_pil_font(18)
-    body_font = load_pil_font(18)
-    bold_font = load_pil_font(18, bold=True)
-    small_font = load_pil_font(16)
+    title_font = load_pil_font(30, bold=True)
+    meta_font = load_pil_font(17)
+    small_font = load_pil_font(15)
+    bold_font = load_pil_font(15, bold=True)
 
-    width = 900
-    margin = 40
-    col_widths = [220, 540, 140]
-    line_h = get_line_height(ImageDraw.Draw(Image.new('RGB', (10, 10), 'white')), small_font)
-    row_padding_y = 8
-    row_gap = 0
-
+    width = 1560
+    margin = 36
+    col_widths = [260, 260, 760, 148]
     probe = ImageDraw.Draw(Image.new('RGB', (width, 200), 'white'))
-    estimated_height = 180
+    line_h = get_line_height(probe, small_font)
+    row_padding_y = 8
+
     property_label = 'Апартамент' if report.get('property_type') == 'апартаменты' else 'Квартира'
+    flat_rows = []
     for apartment_entry in report['apartments']:
-        estimated_height += 40
+        apartment = apartment_entry['apartment']
+        apartment_label = f"{property_label} {apartment['number']}"
+        apartment_meta = ' '.join([
+            f"Секция {apartment['section_number']}" if apartment.get('section_number') else '',
+            f"Этаж {apartment['floor']}" if apartment.get('floor') is not None else '',
+        ]).strip()
+        defects = []
         for category_entry in apartment_entry['categories']:
             for defect in category_entry['defects']:
-                loc = defect['location']
-                cat_loc = f"{category_entry['category']}" + (f" • {loc}" if loc else "")
-                cat_loc_lines = wrap_text_lines(probe, cat_loc, small_font, col_widths[0] - 12)
-                items_lines = []
-                for item in (defect['items'] or ['Без текста']):
-                    items_lines.extend(wrap_text_lines(probe, item, small_font, col_widths[1] - 12))
-                status_lines = wrap_text_lines(probe, defect['status_label'], small_font, col_widths[2] - 12)
-                max_lines = max(len(cat_loc_lines), len(items_lines), len(status_lines))
-                estimated_height += max(36, max_lines * line_h + row_padding_y * 2) + row_gap
-        estimated_height += 10
+                place_label = category_entry['category']
+                if defect.get('location'):
+                    place_label = f"{place_label} {defect['location']}"
+                defects.append({
+                    'place_label': place_label,
+                    'items': defect.get('items') or ['Без текста'],
+                    'status_label': defect.get('status_label') or defect.get('status') or '',
+                })
+        for index, defect in enumerate(defects):
+            flat_rows.append({
+                'apartment_label': apartment_label if index == 0 else '',
+                'apartment_meta': apartment_meta if index == 0 else '',
+                'place_label': defect['place_label'],
+                'items': defect['items'],
+                'status_label': defect['status_label'],
+            })
 
-    height = max(600, estimated_height + 30)
-    image = Image.new('RGB', (width, height), 'white')
+    estimated_height = 170
+    for row in flat_rows:
+        apartment_lines = wrap_text_lines(probe, row['apartment_label'], small_font, col_widths[0] - 14) if row['apartment_label'] else ['']
+        apartment_meta_lines = wrap_text_lines(probe, row['apartment_meta'], small_font, col_widths[0] - 14) if row['apartment_meta'] else []
+        place_lines = wrap_text_lines(probe, row['place_label'], small_font, col_widths[1] - 14)
+        item_lines = []
+        for item in row['items']:
+            item_lines.extend(wrap_text_lines(probe, item, small_font, col_widths[2] - 14))
+        status_lines = wrap_text_lines(probe, row['status_label'], small_font, col_widths[3] - 14)
+        max_lines = max(len(apartment_lines) + len(apartment_meta_lines), len(place_lines), len(item_lines), len(status_lines))
+        estimated_height += max(38, max_lines * line_h + row_padding_y * 2)
+
+    height = max(520, estimated_height + 30)
+    image = Image.new('RGB', (width, height), '#f8fbff')
     draw = ImageDraw.Draw(image)
 
     x = margin
-    y = 30
-    draw.text((x, y), report['complex_name'], font=title_font, fill='black')
-    y += 42
-    draw.text((x, y), f"Исполнитель: {report['executor_name']}", font=meta_font, fill='black')
-    y += 24
-    draw.text((x, y), f"Сформировано: {report['generated_at']}", font=meta_font, fill='black')
-    y += 30
+    y = 26
+    draw.rounded_rectangle((18, 18, width - 18, height - 18), radius=24, fill='#ffffff', outline='#dbe4ee', width=2)
+    draw.text((x, y), report['complex_name'], font=title_font, fill='#111111')
+    y += 38
+    draw.text((x, y), f"Исполнитель: {report['executor_name']}", font=meta_font, fill='#4b5563')
+    y += 22
+    draw.text((x, y), f"Сформировано: {report['generated_at']}", font=meta_font, fill='#4b5563')
+    y += 28
 
-    if not report['apartments']:
-        draw.text((x, y), 'Нет замечаний в статусах "В работе" и "На На проверке".', font=body_font, fill='black')
+    if not flat_rows:
+        draw.text((x, y), 'Нет непринятых замечаний, назначенных исполнителю.', font=meta_font, fill='#4b5563')
     else:
-        headers = ['Категория', 'Замечание', 'Статус']
-        for apartment_entry in report['apartments']:
-            apartment = apartment_entry['apartment']
-            apartment_meta = [f"{property_label} {apartment['number']}"]
-            if apartment.get('section_number'):
-                apartment_meta.append(f"Секция {apartment['section_number']}")
-            if apartment.get('floor') is not None:
-                apartment_meta.append(f"Этаж {apartment['floor']}")
-            apartment_text = ' '.join(apartment_meta)
+        headers = ['Квартира', 'Место', 'Замечание', 'Статус']
+        current_x = x
+        for idx, header in enumerate(headers):
+            draw.rounded_rectangle((current_x, y, current_x + col_widths[idx], y + 34), radius=8, fill='#eef4fb', outline='#d7e1ec', width=1)
+            draw.text((current_x + 6, y + 7), header, font=bold_font, fill='#111111')
+            current_x += col_widths[idx]
+        y += 38
 
-            draw.text((x, y), apartment_text, font=bold_font, fill='black')
-            y += 28
+        for row_index, row in enumerate(flat_rows):
+            apartment_lines = wrap_text_lines(draw, row['apartment_label'], small_font, col_widths[0] - 14) if row['apartment_label'] else ['']
+            apartment_meta_lines = wrap_text_lines(draw, row['apartment_meta'], small_font, col_widths[0] - 14) if row['apartment_meta'] else []
+            apartment_block_lines = apartment_lines + apartment_meta_lines
+            place_lines = wrap_text_lines(draw, row['place_label'], small_font, col_widths[1] - 14)
+            item_lines = []
+            for item in row['items']:
+                item_lines.extend(wrap_text_lines(draw, item, small_font, col_widths[2] - 14))
+            status_lines = wrap_text_lines(draw, row['status_label'], small_font, col_widths[3] - 14)
+            max_lines = max(len(apartment_block_lines), len(place_lines), len(item_lines), len(status_lines))
+            row_height = max(38, max_lines * line_h + row_padding_y * 2)
 
             current_x = x
-            for idx, header in enumerate(headers):
-                draw.rectangle((current_x, y, current_x + col_widths[idx], y + 30), outline='black')
-                draw.text((current_x + 6, y + 6), header, font=bold_font, fill='black')
-                current_x += col_widths[idx]
-            y += 30
+            row_fill = '#f8fbff' if row_index % 2 == 0 else '#ffffff'
+            for col_width in col_widths:
+                draw.rectangle((current_x, y, current_x + col_width, y + row_height), outline='#dbe4ee', width=1, fill=row_fill)
+                current_x += col_width
 
-            for category_entry in apartment_entry['categories']:
-                for defect in category_entry['defects']:
-                    loc = defect['location']
-                    cat_loc = f"{category_entry['category']}" + (f" • {loc}" if loc else "")
-                    cat_loc_lines = wrap_text_lines(draw, cat_loc, small_font, col_widths[0] - 12)
-                    items_lines = []
-                    for idx, item in enumerate(defect['items'] or ['Без текста'], start=1):
-                        prefix = f"{idx}. " if defect['items'] else ''
-                        items_lines.extend(wrap_text_lines(draw, f"{prefix}{item}", small_font, col_widths[1] - 12))
-                    status_lines = wrap_text_lines(draw, defect['status_label'], small_font, col_widths[2] - 12)
-                    max_lines = max(len(cat_loc_lines), len(items_lines), len(status_lines))
-                    row_height = max(36, max_lines * line_h + row_padding_y * 2)
+            text_y = y + row_padding_y
+            for line in apartment_lines:
+                if line:
+                    draw.text((x + 6, text_y), line, font=small_font, fill='#111111')
+                text_y += line_h
+            for line in apartment_meta_lines:
+                draw.text((x + 6, text_y), line, font=small_font, fill='#6b7280')
+                text_y += line_h
 
-                    current_x = x
-                    for col_width in col_widths:
-                        draw.rectangle((current_x, y, current_x + col_width, y + row_height), outline='black')
-                        current_x += col_width
+            text_y = y + row_padding_y
+            for line in place_lines:
+                draw.text((x + col_widths[0] + 6, text_y), line, font=small_font, fill='#111111')
+                text_y += line_h
 
-                    columns = [cat_loc_lines, items_lines, status_lines]
-                    current_x = x
-                    for idx, lines in enumerate(columns):
-                        text_y = y + row_padding_y
-                        for line in lines:
-                            draw.text((current_x + 6, text_y), line, font=small_font, fill='black')
-                            text_y += line_h
-                        current_x += col_widths[idx]
+            text_y = y + row_padding_y
+            for line in item_lines:
+                draw.text((x + col_widths[0] + col_widths[1] + 6, text_y), line, font=small_font, fill='#111111')
+                text_y += line_h
 
-                    y += row_height + row_gap
-            y += 10
+            text_y = y + row_padding_y
+            for line in status_lines:
+                draw.text((x + col_widths[0] + col_widths[1] + col_widths[2] + 6, text_y), line, font=small_font, fill='#111111')
+                text_y += line_h
+
+            y += row_height
+
+    output = io.BytesIO()
+    image.save(output, format='JPEG', quality=92)
+    output.seek(0)
+    return output
+
+
+def build_filtered_defects_report(conn, complex_id: int, apartment_ids: list[int], category_filter: str = ''):
+    apartment_ids = list(dict.fromkeys(int(value) for value in apartment_ids))
+    if not apartment_ids:
+        return []
+
+    placeholders = ','.join('?' for _ in apartment_ids)
+    building_number_expr = get_sections_building_number_expr(conn, 's')
+    category_filter = (category_filter or '').strip()
+    category_clause = 'AND d.category = ?' if category_filter else ''
+    params = [complex_id, *apartment_ids]
+    if category_filter:
+        params.append(category_filter)
+
+    rows = conn.execute(
+        f"""
+        SELECT
+            a.id AS apartment_id,
+            a.number AS apartment_number,
+            a.floor AS apartment_floor,
+            s.section_number AS section_number,
+            {building_number_expr} AS building_number,
+            d.category AS category,
+            d.location AS location,
+            d.status AS status,
+            d.description AS description,
+            d.created_at AS defect_created_at
+        FROM defects d
+        JOIN apartments a ON a.id = d.apartment_id
+        LEFT JOIN sections s ON s.id = a.section_id
+        WHERE a.complex_id = ?
+          AND a.id IN ({placeholders})
+          {category_clause}
+          AND d.status NOT IN ('rejected', 'completed', 'on_review')
+        ORDER BY building_number, section_number, apartment_floor, apartment_number, defect_created_at
+        """,
+        params,
+    ).fetchall()
+
+    grouped = []
+    current_apartment_id = None
+    current_group = None
+    for row in rows:
+        if row['apartment_id'] != current_apartment_id:
+            current_apartment_id = row['apartment_id']
+            current_group = {
+                'apartment': {
+                    'number': row['apartment_number'],
+                    'floor': row['apartment_floor'],
+                    'section_number': row['section_number'],
+                },
+                'defects': [],
+            }
+            grouped.append(current_group)
+
+        items = [part.strip() for part in str(row['description'] or '').split('||') if part.strip()]
+        current_group['defects'].append({
+            'category': row['category'] or '',
+            'location': row['location'] or '',
+            'status': row['status'] or '',
+            'items': items or ['Без текста'],
+        })
+
+    return grouped
+
+
+def create_filtered_defects_report_jpg(complex_name: str, groups, property_type: str = 'квартиры'):
+    title_font = load_pil_font(28, bold=True)
+    meta_font = load_pil_font(16)
+    body_font = load_pil_font(15)
+    bold_font = load_pil_font(15, bold=True)
+    width = 1560
+    margin = 36
+    row_height = 34
+    property_label = 'Апартамент' if property_type == 'апартаменты' else 'Квартира'
+
+    rows = []
+    for group in groups:
+        apartment = group['apartment']
+        apartment_label = f"{property_label} {apartment['number']}"
+        meta = ' '.join(filter(None, [
+            f"Секция {apartment.get('section_number')}" if apartment.get('section_number') else '',
+            f"Этаж {apartment.get('floor')}" if apartment.get('floor') is not None else '',
+        ])).strip()
+        for index, defect in enumerate(group['defects']):
+            rows.append({
+                'apartment': apartment_label if index == 0 else '',
+                'meta': meta if index == 0 else '',
+                'place': ' '.join(filter(None, [defect['category'], defect['location']])).strip(),
+                'text': '; '.join(defect['items']),
+                'status': defect['status'],
+            })
+
+    height = max(540, 170 + len(rows) * row_height)
+    image = Image.new('RGB', (width, height), '#f8fbff')
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((20, 20, width - 20, height - 20), radius=28, fill='#ffffff', outline='#dbe4ee', width=2)
+    draw.text((margin, 34), complex_name or 'ЖК', font=title_font, fill='#111111')
+    draw.text((margin, 74), 'Замечания по отфильтрованным квартирам', font=meta_font, fill='#64748b')
+
+    col_x = [margin, 320, 690, 1310]
+    col_w = [260, 350, 620, 180]
+    y = 120
+    headers = ['Квартира', 'Место', 'Замечание', 'Статус']
+    for index, header in enumerate(headers):
+        draw.rounded_rectangle((col_x[index], y, col_x[index] + col_w[index], y + 42), radius=10, fill='#0f172a', outline='#0f172a')
+        draw.text((col_x[index] + 14, y + 11), header, font=bold_font, fill='#ffffff')
+    y += 52
+
+    for index, row in enumerate(rows):
+        bg = '#f8fbff' if index % 2 == 0 else '#ffffff'
+        draw.rounded_rectangle((margin, y, width - margin, y + row_height), radius=8, fill=bg, outline='#e5edf5')
+        draw.text((col_x[0] + 12, y + 8), row['apartment'], font=body_font, fill='#111111')
+        if row['meta']:
+            draw.text((col_x[0] + 12, y + 20), row['meta'], font=meta_font, fill='#64748b')
+        draw.text((col_x[1] + 12, y + 8), row['place'], font=body_font, fill='#111111')
+        draw.text((col_x[2] + 12, y + 8), row['text'], font=body_font, fill='#111111')
+        draw.text((col_x[3] + 12, y + 8), row['status'], font=body_font, fill='#111111')
+        y += row_height + 6
+
+    output = io.BytesIO()
+    image.save(output, format='JPEG', quality=92)
+    output.seek(0)
+    return output
+
+
+def create_filtered_comments_report_jpg(complex_name: str, groups, property_type: str = 'квартиры'):
+    title_font = load_pil_font(28, bold=True)
+    meta_font = load_pil_font(16)
+    body_font = load_pil_font(15)
+    bold_font = load_pil_font(15, bold=True)
+    width = 1560
+    margin = 36
+    row_height = 34
+    property_label = 'Апартамент' if property_type == 'апартаменты' else 'Квартира'
+
+    rows = []
+    for group in groups:
+        apartment = group['apartment']
+        apartment_label = f"{property_label} {apartment['number']}"
+        meta = ' '.join(filter(None, [
+            f"Секция {apartment.get('section_number')}" if apartment.get('section_number') else '',
+            f"Этаж {apartment.get('floor')}" if apartment.get('floor') is not None else '',
+        ])).strip()
+        for index, comment in enumerate(group['comments']):
+            rows.append({
+                'apartment': apartment_label if index == 0 else '',
+                'meta': meta if index == 0 else '',
+                'location': comment.get('location') or 'Без локации',
+                'text': comment.get('text') or '',
+            })
+
+    height = max(540, 170 + len(rows) * row_height)
+    image = Image.new('RGB', (width, height), '#f8fbff')
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((20, 20, width - 20, height - 20), radius=28, fill='#ffffff', outline='#dbe4ee', width=2)
+    draw.text((margin, 34), complex_name or 'ЖК', font=title_font, fill='#111111')
+    draw.text((margin, 74), 'Комментарии к замечаниям', font=meta_font, fill='#64748b')
+
+    col_x = [margin, 320, 650]
+    col_w = [260, 290, 874]
+    y = 120
+    headers = ['Квартира', 'Локация', 'Комментарий']
+    for index, header in enumerate(headers):
+        draw.rounded_rectangle((col_x[index], y, col_x[index] + col_w[index], y + 42), radius=10, fill='#0f172a', outline='#0f172a')
+        draw.text((col_x[index] + 14, y + 11), header, font=bold_font, fill='#ffffff')
+    y += 52
+
+    for index, row in enumerate(rows):
+        bg = '#f8fbff' if index % 2 == 0 else '#ffffff'
+        draw.rounded_rectangle((margin, y, width - margin, y + row_height), radius=8, fill=bg, outline='#e5edf5')
+        draw.text((col_x[0] + 12, y + 8), row['apartment'], font=body_font, fill='#111111')
+        if row['meta']:
+            draw.text((col_x[0] + 12, y + 20), row['meta'], font=meta_font, fill='#64748b')
+        draw.text((col_x[1] + 12, y + 8), row['location'], font=body_font, fill='#111111')
+        draw.text((col_x[2] + 12, y + 8), row['text'], font=body_font, fill='#111111')
+        y += row_height + 6
 
     output = io.BytesIO()
     image.save(output, format='JPEG', quality=92)
@@ -3845,16 +4082,19 @@ async def get_complex_statistics(complex_id: int, stat_date: str = None, start_d
 
 
 @app.get("/api/complexes/{complex_id}/statistics/jpg")
-async def export_complex_statistics_jpg(complex_id: int, stat_date: str = None, start_date: str = None, end_date: str = None, sections: str = None):
+async def export_complex_statistics_jpg(complex_id: int, stat_date: str = None, start_date: str = None, end_date: str = None, sections: str = None, access_filters: str = None):
     conn = get_db()
     try:
         section_ids = []
+        parsed_access_filters = []
         if sections:
             try:
                 section_ids = [int(s.strip()) for s in sections.split(',') if s.strip()]
             except ValueError:
                 pass
-        stats = build_complex_statistics(conn, complex_id, stat_date, start_date, end_date, section_ids)
+        if access_filters:
+            parsed_access_filters = [value.strip() for value in access_filters.split(',') if value.strip()]
+        stats = build_complex_statistics(conn, complex_id, stat_date, start_date, end_date, section_ids, parsed_access_filters)
     finally:
         conn.close()
 
@@ -3884,6 +4124,48 @@ async def export_executor_report_jpg(complex_id: int, executor_name: str):
     output = create_executor_report_jpg(report)
     safe_name = sanitize_ascii_filename(report['executor_name'], 'executor')
     headers = {"Content-Disposition": f'attachment; filename="executor_report_{complex_id}_{safe_name}.jpg"'}
+    return StreamingResponse(output, media_type='image/jpeg', headers=headers)
+
+
+@app.get('/api/complexes/{complex_id}/filtered-defects/jpg')
+async def export_filtered_defects_jpg(complex_id: int, apartment_ids_json: str = '[]', category_filter: str = ''):
+    try:
+        apartment_ids = [int(value) for value in json.loads(apartment_ids_json or '[]')]
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail='Некорректный список квартир') from exc
+
+    conn = get_db()
+    try:
+        complex_row = conn.execute('SELECT name, property_type FROM complexes WHERE id = ?', (complex_id,)).fetchone()
+        if not complex_row:
+            raise HTTPException(status_code=404, detail='ЖК не найден')
+        groups = build_filtered_defects_report(conn, complex_id, apartment_ids, category_filter)
+    finally:
+        conn.close()
+
+    output = create_filtered_defects_report_jpg(complex_row['name'], groups, complex_row['property_type'])
+    headers = {"Content-Disposition": f'attachment; filename="filtered_defects_{complex_id}.jpg"'}
+    return StreamingResponse(output, media_type='image/jpeg', headers=headers)
+
+
+@app.get('/api/complexes/{complex_id}/filtered-comments/jpg')
+async def export_filtered_comments_jpg(complex_id: int, apartment_ids_json: str = '[]', category_filter: str = ''):
+    try:
+        apartment_ids = [int(value) for value in json.loads(apartment_ids_json or '[]')]
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail='Некорректный список квартир') from exc
+
+    conn = get_db()
+    try:
+        complex_row = conn.execute('SELECT name, property_type FROM complexes WHERE id = ?', (complex_id,)).fetchone()
+        if not complex_row:
+            raise HTTPException(status_code=404, detail='ЖК не найден')
+    finally:
+        conn.close()
+
+    groups = await get_complex_item_comments(complex_id, apartment_ids_json=apartment_ids_json, category_filter=category_filter)
+    output = create_filtered_comments_report_jpg(complex_row['name'], groups, complex_row['property_type'])
+    headers = {"Content-Disposition": f'attachment; filename="filtered_comments_{complex_id}.jpg"'}
     return StreamingResponse(output, media_type='image/jpeg', headers=headers)
 
 
