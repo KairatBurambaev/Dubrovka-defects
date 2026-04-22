@@ -43,6 +43,7 @@ const state = {
 
 // Global filter constants
 const FILTERS = ['', 'defects', 'restoration', 'on_review', 'in_progress', 'call', 'owner_accepted', 'complex', 'no_access'];
+const STATUS_CONTEXT_FILTERS = ['in_progress', 'call', 'owner_accepted', 'complex', 'no_access'];
 const FILTER_NAMES = ['Все', 'С замечаниями', 'Реставрация', 'На проверке', 'В работе', 'Вызваные квартиры', 'Принята', 'Сложная', 'Нет доступа'];
 const FILTER_INDEXES = {
     '': 0,
@@ -67,7 +68,7 @@ const APARTMENT_STATUS_SORT_ORDER = {
     tech_accepted: 6
 };
 const DEFECT_STATUS_LABELS = {
-    recorded: 'Зафиксированно',
+    recorded: 'Новое',
     in_progress: 'В работе',
     on_review: 'На проверке',
     completed: 'Выполнено'
@@ -104,7 +105,6 @@ let appInitialized = false;
 let loadComplexesPromise = null;
 let delayedComplexPrintBtnTimer = null;
 let executorsRequestPromise = null;
-
 function getResponsibleFilterLabel() {
     const selectedResponsible = state.selectedResponsibleFilter || '';
     return selectedResponsible;
@@ -274,6 +274,7 @@ function initApp() {
     if (appInitialized) return;
     appInitialized = true;
 
+    blockWheelZoom();
     cacheElements();
     loadCategories();
     loadContractors();
@@ -284,6 +285,13 @@ function initApp() {
     setBodyViewClass('complexes');
     updateMobileFilterIndicator('');
     updateMobileFilterButtons('');
+}
+
+function blockWheelZoom() {
+    window.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+    }, { passive: false });
 }
 
 // Init
@@ -413,6 +421,21 @@ function setupEventListeners() {
         btn.addEventListener('click', () => {
             const filter = btn.dataset.filter;
             setAccessFilter(filter);
+        });
+        btn.addEventListener('contextmenu', (e) => {
+            const filter = btn.dataset.filter;
+            if (!STATUS_CONTEXT_FILTERS.includes(filter)) return;
+            e.preventDefault();
+            activateAllAccessFiltersExcept(filter);
+        });
+    });
+
+    document.querySelectorAll('.pill[data-filter]').forEach((btn) => {
+        btn.addEventListener('contextmenu', (e) => {
+            const filter = btn.dataset.filter;
+            if (!STATUS_CONTEXT_FILTERS.includes(filter)) return;
+            e.preventDefault();
+            activateAllAccessFiltersExcept(filter);
         });
     });
 
@@ -1436,6 +1459,7 @@ function getDefectItemStatusClass(itemStatus) {
 function renderReadonlyDefectItems(defect, baseClass = 'defect-item-token') {
     const items = getSortedDefectItems(defect);
     let itemNumber = 0;
+    const includeStatusClass = baseClass !== 'defect-print-item-token';
     return items.flatMap((item) => {
         const itemStatus = item.status || 'recorded';
         const contentParts = String(item.text || '')
@@ -1448,9 +1472,21 @@ function renderReadonlyDefectItems(defect, baseClass = 'defect-item-token') {
             .filter(Boolean)
             .map((part) => {
                 itemNumber += 1;
-                return `<span class="${baseClass} ${getDefectItemStatusClass(itemStatus)}"><span class="defect-item-number">${itemNumber}.</span> ${escapeHtml(part)}</span>`;
+                const statusClass = includeStatusClass ? ` ${getDefectItemStatusClass(itemStatus)}` : '';
+                return `<span class="${baseClass}${statusClass}"><span class="defect-item-number">${itemNumber}.</span> ${escapeHtml(part)}</span>`;
             });
     }).join(' ');
+}
+
+function renderFilteredDefectSummary(defect) {
+    const location = getDefectPrintLocation(defect);
+    const items = getSortedDefectItems(defect)
+        .map((item) => String(item?.text || '').trim())
+        .filter(Boolean)
+        .flatMap((text) => text.split(/\r?\n|,/).map((part) => part.trim()).filter(Boolean));
+    const summary = items.map((part) => escapeHtml(part)).join(', ');
+    const locationHtml = `<strong>${escapeHtml(location)}</strong>`;
+    return summary ? `${locationHtml}, ${summary}` : locationHtml;
 }
 
 function getDefectPrintPhotos(defect) {
@@ -2799,39 +2835,27 @@ async function loadApartments() {
 function setAccessFilter(filter) {
     if (filter === 'defects') {
         state.defectsOnly = !state.defectsOnly;
-        updateDesktopFilterButtons();
-        updateMobileFilterIndicator();
-        updateMobileFilterButtons();
-        if (elements.defectFilterPanel) {
-            elements.defectFilterPanel.style.display = state.defectsOnly ? 'flex' : 'none';
-        }
-        loadApartments();
+        syncAccessFilterUiAndLoad();
         return;
     }
 
     if (filter === 'on_review') {
         state.reviewOnly = !state.reviewOnly;
-        updateDesktopFilterButtons();
-        updateMobileFilterIndicator();
-        updateMobileFilterButtons();
         const mobileStatusFilter = document.getElementById('mobileStatusFilter');
         if (mobileStatusFilter && !state.accessFilter) {
             mobileStatusFilter.value = state.reviewOnly ? 'on_review' : '';
         }
-        loadApartments();
+        syncAccessFilterUiAndLoad();
         return;
     }
 
     if (filter === 'restoration') {
         state.restorationOnly = !state.restorationOnly;
-        updateDesktopFilterButtons();
-        updateMobileFilterIndicator();
-        updateMobileFilterButtons();
         const mobileStatusFilter = document.getElementById('mobileStatusFilter');
         if (mobileStatusFilter && !state.accessFilter) {
             mobileStatusFilter.value = state.restorationOnly ? 'restoration' : '';
         }
-        loadApartments();
+        syncAccessFilterUiAndLoad();
         return;
     }
 
@@ -2842,26 +2866,55 @@ function setAccessFilter(filter) {
         state.activeAccessFilters.push(filter);
     }
 
-    const hasAnyFilter = state.activeAccessFilters.length > 0;
+    syncAccessFilterUiAndLoad();
+}
+
+function syncAccessFilterUiAndLoad() {
     updateDesktopFilterButtons();
-    
-    // Update mobile filter indicator and buttons
     updateMobileFilterIndicator();
     updateMobileFilterButtons();
+
     const mobileStatusFilter = document.getElementById('mobileStatusFilter');
-    if (mobileStatusFilter) mobileStatusFilter.value = state.activeAccessFilters.length > 0 ? state.activeAccessFilters.join(',') : '';
-    
-    // Update current filter index for swipe
+    if (mobileStatusFilter && !state.accessFilter) {
+        if (state.activeAccessFilters.length > 0) {
+            mobileStatusFilter.value = state.activeAccessFilters.join(',');
+        } else if (state.reviewOnly) {
+            mobileStatusFilter.value = 'on_review';
+        } else if (state.restorationOnly) {
+            mobileStatusFilter.value = 'restoration';
+        } else if (state.defectsOnly) {
+            mobileStatusFilter.value = 'defects';
+        } else {
+            mobileStatusFilter.value = '';
+        }
+    }
+
     if (state.activeAccessFilters.length > 0) {
         const index = FILTERS.indexOf(state.activeAccessFilters[0]);
         if (index >= 0) currentFilterIndex = index;
     }
-    
+
     if (elements.defectFilterPanel) {
         elements.defectFilterPanel.style.display = state.defectsOnly ? 'flex' : 'none';
     }
-    
+
     loadApartments();
+}
+
+function activateAllAccessFiltersExcept(excludedFilter) {
+    const allExceptFilter = STATUS_CONTEXT_FILTERS.filter((filter) => filter !== excludedFilter);
+    const hasOnlyExcludedFilter = state.activeAccessFilters.length === 1
+        && state.activeAccessFilters[0] === excludedFilter
+        && !state.reviewOnly;
+    const hasAllExceptExcludedFilter = state.activeAccessFilters.length === allExceptFilter.length
+        && allExceptFilter.every((filter) => state.activeAccessFilters.includes(filter))
+        && !state.reviewOnly;
+
+    state.reviewOnly = false;
+    state.activeAccessFilters = hasAllExceptExcludedFilter && !hasOnlyExcludedFilter
+        ? [excludedFilter]
+        : allExceptFilter;
+    syncAccessFilterUiAndLoad();
 }
 
 function updateDesktopFilterButtons() {
@@ -3636,20 +3689,22 @@ function renderSectionCard(title, apartments, floors, propFull) {
     if (window.innerWidth <= 768) {
         return `
             <section class="section-card section-card-mobile-flat">
-                <div class="section-header">
-                    <div class="section-heading section-heading-simple">
-                        <span class="section-title">${title}</span>
+                <div class="section-card-zoom-body">
+                    <div class="section-header">
+                        <div class="section-heading section-heading-simple">
+                            <span class="section-title">${title}</span>
+                        </div>
+                        <div class="section-mobile-summary">
+                            <span>${sortedApartments.length} ${propFull === 'апартамент' ? 'ап.' : 'кв.'}</span>
+                            ${issueCount ? `<span>${issueCount} с замеч.</span>` : ''}
+                            ${inProgressCount ? `<span>${inProgressCount} в работе</span>` : ''}
+                            ${acceptedCount ? `<span>${acceptedCount} приняты</span>` : ''}
+                        </div>
                     </div>
-                    <div class="section-mobile-summary">
-                        <span>${sortedApartments.length} ${propFull === 'апартамент' ? 'ап.' : 'кв.'}</span>
-                        ${issueCount ? `<span>${issueCount} с замеч.</span>` : ''}
-                        ${inProgressCount ? `<span>${inProgressCount} в работе</span>` : ''}
-                        ${acceptedCount ? `<span>${acceptedCount} приняты</span>` : ''}
-                    </div>
-                </div>
-                <div class="section-body-container">
-                    <div class="apt-sort-grid section-mobile-apt-grid">
-                        ${sortedApartments.map(apartment => renderApartmentTile(apartment, propFull, catFilter)).join('')}
+                    <div class="section-body-container">
+                        <div class="apt-sort-grid section-mobile-apt-grid">
+                            ${sortedApartments.map(apartment => renderApartmentTile(apartment, propFull, catFilter)).join('')}
+                        </div>
                     </div>
                 </div>
             </section>
@@ -3658,18 +3713,20 @@ function renderSectionCard(title, apartments, floors, propFull) {
 
     return `
         <section class="section-card">
-            <div class="section-header">
-                <div class="section-header-spacer" aria-hidden="true"></div>
-                <div class="section-heading section-heading-simple">
-                    <span class="section-title">${title}</span>
+            <div class="section-card-zoom-body">
+                <div class="section-header">
+                    <div class="section-header-spacer" aria-hidden="true"></div>
+                    <div class="section-heading section-heading-simple">
+                        <span class="section-title">${title}</span>
+                    </div>
                 </div>
-            </div>
-            <div class="section-body-container">
-                <div class="section-body">
-                    ${sortedFloors.map(floor => {
-                        const floorApts = floors[floor].sort((a, b) => a.number - b.number);
-                        return renderFloorRow(floorApts, floor, propFull);
-                    }).join('')}
+                <div class="section-body-container">
+                    <div class="section-body">
+                        ${sortedFloors.map(floor => {
+                            const floorApts = floors[floor].sort((a, b) => a.number - b.number);
+                            return renderFloorRow(floorApts, floor, propFull);
+                        }).join('')}
+                    </div>
                 </div>
             </div>
         </section>
@@ -3789,31 +3846,33 @@ function renderCombinedSectionCard(sectionItems, propFull, uniqueBuildingsCount,
 
     return `
         <section class="section-card section-card-combined">
-            <div class="section-body-container">
-                <div class="section-body section-body-combined">
-                    ${singleSectionTitle ? `<div class="section-combined-title section-combined-title-main">${singleSectionTitle}</div>` : ''}
-                    ${rows.map((row) => `
-                        <div class="section-combined-row">
-                            ${row.map(({ sectionNumber, buildingNumber, floors, estimatedWidth }) => {
-                                const title = uniqueBuildingsCount > 1
-                                    ? `Корпус ${buildingNumber} • Секция ${sectionNumber}`
-                                    : `Секция ${sectionNumber}`;
-                                const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
+            <div class="section-card-zoom-body">
+                <div class="section-body-container">
+                    <div class="section-body section-body-combined">
+                        ${singleSectionTitle ? `<div class="section-combined-title section-combined-title-main">${singleSectionTitle}</div>` : ''}
+                        ${rows.map((row) => `
+                            <div class="section-combined-row">
+                                ${row.map(({ sectionNumber, buildingNumber, floors, estimatedWidth }) => {
+                                    const title = uniqueBuildingsCount > 1
+                                        ? `Корпус ${buildingNumber} • Секция ${sectionNumber}`
+                                        : `Секция ${sectionNumber}`;
+                                    const sortedFloors = Object.keys(floors).sort((a, b) => b - a);
 
-                                return `
-                                    <div class="section-combined-block" style="width:${estimatedWidth}px; max-width:100%;">
-                                        ${singleSectionTitle ? '' : `<div class="section-combined-title">${title}</div>`}
-                                        <div class="section-combined-floors">
-                                            ${sortedFloors.map((floor) => {
-                                                const floorApts = floors[floor].sort((a, b) => a.number - b.number);
-                                                return renderFloorRow(floorApts, floor, propFull);
-                                            }).join('')}
+                                    return `
+                                        <div class="section-combined-block" style="width:${estimatedWidth}px; max-width:100%;">
+                                            ${singleSectionTitle ? '' : `<div class="section-combined-title">${title}</div>`}
+                                            <div class="section-combined-floors">
+                                                ${sortedFloors.map((floor) => {
+                                                    const floorApts = floors[floor].sort((a, b) => a.number - b.number);
+                                                    return renderFloorRow(floorApts, floor, propFull);
+                                                }).join('')}
+                                            </div>
                                         </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    `).join('')}
+                                    `;
+                                }).join('')}
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
             </div>
         </section>
@@ -3934,10 +3993,12 @@ function renderApartments(apartments) {
 
                     return `
                         <section class="section-card section-card-sorted">
-                            <div class="section-body-container section-body-container-sorted">
-                                <div class="section-combined-title">Секция ${sectionNumber}</div>
-                                <div class="apt-sort-buckets">
-                                    ${renderSortedApartmentBuckets(sortedApts, propFull, catFilter)}
+                            <div class="section-card-zoom-body">
+                                <div class="section-body-container section-body-container-sorted">
+                                    <div class="section-combined-title">Секция ${sectionNumber}</div>
+                                    <div class="apt-sort-buckets">
+                                        ${renderSortedApartmentBuckets(sortedApts, propFull, catFilter)}
+                                    </div>
                                 </div>
                             </div>
                         </section>
@@ -5973,15 +6034,18 @@ function getDefectPrintLocation(defect) {
 
 function splitDefectsForPrint(defects) {
     const pages = [];
-    const firstPageBudget = 17;
-    const otherPagesBudget = 19;
+    const firstPageBudget = 13.5;
+    const otherPagesBudget = 16;
     let currentPage = [];
     let currentUnits = 0;
     let pageBudget = firstPageBudget;
 
     defects.forEach(defect => {
-        const photosCount = Array.isArray(defect?.photos) ? defect.photos.length : 0;
-        const units = Math.max(1, Math.ceil(photosCount / 3)) + ((defect?.description || '').length > 320 ? 1 : 0);
+        const photosCount = getDefectPrintPhotos(defect).length;
+        const itemCount = Array.isArray(defect?.items) ? defect.items.length : 0;
+        const hasSinglePhoto = photosCount === 1;
+        const photoUnits = hasSinglePhoto ? 0.9 : (photosCount * 1.25);
+        const units = Math.max(0.9, 0.85 + (itemCount > 4 ? 0.35 : 0)) + photoUnits + ((defect?.description || '').length > 220 ? 0.4 : 0);
 
         if (currentPage.length && currentUnits + units > pageBudget) {
             pages.push(currentPage);
@@ -6080,26 +6144,25 @@ async function printDefects() {
         const actNumber = `${formatActNumberDate(now)}/${complexSequenceNumber}/${apt.number}`;
         const defectPages = splitDefectsForPrint(defects);
 
-        const renderRowsHtml = (pageDefects, startIndex) => pageDefects.map((d, index) => {
+        const renderCardsHtml = (pageDefects, startIndex) => pageDefects.map((d, index) => {
             const photos = getDefectPrintPhotos(d);
             const defectNumber = startIndex + index + 1;
             const photoHtml = photos.length
-                ? `<div class="photo-stack">${photos.map((photo, photoIndex) => `<figure class="photo-item"><img src="${window.location.origin}/uploads/${encodeURIComponent(photo.filename)}" alt="Фото ${defectNumber}.${photoIndex + 1}"><figcaption>Фото ${defectNumber}.${photoIndex + 1}</figcaption></figure>`).join('')}</div>`
+                ? `<div class="photo-grid photo-grid-${Math.min(photos.length, 3)}">${photos.map((photo, photoIndex) => `<figure class="photo-item"><img src="${window.location.origin}/uploads/${encodeURIComponent(photo.filename)}" alt="Фото к замечанию ${defectNumber}.${photoIndex + 1}"><figcaption>Фото к замечанию ${defectNumber}.${photoIndex + 1}</figcaption></figure>`).join('')}</div>`
                 : '';
-            const rowClass = index % 2 === 0 ? 'print-row-light' : 'print-row-white';
+            const layoutClass = photos.length === 1 ? ' defect-print-card-single-photo' : '';
 
             return `
-                <tr class="defect-print-item ${rowClass}">
-                    <td class="num-cell">${defectNumber}.</td>
-                    <td class="place-cell">${getDefectPrintLocation(d)}</td>
-                    <td class="desc-cell"><div class="defect-print-items">${renderReadonlyDefectItems(d, 'defect-print-item-token')}</div></td>
-                </tr>
-                ${photoHtml ? `
-                    <tr class="defect-print-photos-row ${rowClass}">
-                        <td class="num-cell"></td>
-                        <td class="photos-cell" colspan="2">${photoHtml}</td>
-                    </tr>
-                ` : ''}
+                <article class="defect-print-card${layoutClass}">
+                    <div class="defect-print-card-main">
+                        <div class="defect-print-card-meta">
+                            <div class="defect-print-number">${defectNumber}.</div>
+                            <div class="defect-print-location">${getDefectPrintLocation(d)}</div>
+                        </div>
+                        <div class="defect-print-items">${renderReadonlyDefectItems(d, 'defect-print-item-token')}</div>
+                    </div>
+                    ${photoHtml ? `<div class="defect-print-photos">${photoHtml}</div>` : ''}
+                </article>
             `;
         }).join('');
 
@@ -6126,18 +6189,9 @@ async function printDefects() {
                         <div class="section">Перечень замечаний (недостатков) на текущую дату ${printDate}:</div>
                     ` : ''}
 
-                    <table class="defect-print-table">
-                        <thead>
-                            <tr>
-                                <th>№</th>
-                                <th>Место замечания</th>
-                                <th>Описание дефекта</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${renderRowsHtml(pageDefects, startIndex)}
-                        </tbody>
-                    </table>
+                    <div class="defect-print-list">
+                        ${renderCardsHtml(pageDefects, startIndex)}
+                    </div>
 
                     ${pageIndex === defectPages.length - 1 ? `
                         <div class="section">Подтверждение полноты перечня:</div>
@@ -6178,51 +6232,59 @@ async function printDefects() {
                 <meta charset="UTF-8">
                 <title>Акт № ${actNumber}</title>
                 <style>
-                    @page { margin: 12mm; size: A4 portrait; }
-                    body { font-family: "Times New Roman", serif; margin: 0; color: #111; font-size: 14px; line-height: 1.48; background: #fff; }
-                    .print-page { padding: 3mm 4mm 6mm; box-sizing: border-box; position: relative; page-break-after: always; }
+                    @page { margin: 7mm; size: A4 portrait; }
+                    body { font-family: "Times New Roman", serif; margin: 0; color: #111; font-size: 13px; line-height: 1.34; background: #fff; }
+                    .print-page { padding: 2mm 2mm 6mm; box-sizing: border-box; position: relative; page-break-after: always; }
                     .print-page:last-child { page-break-after: auto; }
                     .act-title { text-align: center; font-weight: 700; font-size: 20px; margin: 0 0 4px; }
-                    .act-subtitle { text-align: center; font-weight: 700; font-size: 16px; margin: 0 0 18px; }
-                    .city-row { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
-                    .field-line { margin-bottom: 14px; }
+                    .act-subtitle { text-align: center; font-weight: 700; font-size: 15px; margin: 0 0 10px; }
+                    .city-row { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 10px; }
+                    .field-line { margin-bottom: 7px; }
                     .line-fill { display: inline-block; border-bottom: 1px solid #111; min-height: 18px; vertical-align: baseline; padding: 0 4px 2px; }
                     .line-city { min-width: 170px; }
                     .line-person { min-width: 460px; }
                     .line-contractor { min-width: 420px; }
                     .line-apt-number { min-width: 52px; text-align: center; }
                     .line-address { min-width: 360px; }
-                    .hint { display: block; font-size: 12px; color: #444; margin-top: 3px; }
-                    .section { margin-top: 16px; }
-                    .defect-print-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                    .defect-print-table th,
-                    .defect-print-table td { border: 1px solid #111; padding: 8px; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
-                    .defect-print-table th { text-align: left; background: #f3f4f6; color: #334155; font-size: 12px; }
-                    .num-cell { width: 42px; }
-                    .place-cell { width: 28%; }
-                    .desc-cell { width: auto; }
-                    .print-row-light td { background: #f7f7f7; }
-                    .print-row-white td { background: #ffffff; }
-                    .defect-print-photos-row td { border-top: 0; }
-                    .photos-cell { padding-top: 2px; padding-bottom: 12px; }
-                    .defect-print-items { display: flex; flex-wrap: wrap; gap: 6px; }
-                    .defect-print-item-token { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; color: #111; word-break: break-word; }
-                    .defect-print-item-token.is-in-progress { background: #fef3c7; color: #92400e; }
-                    .defect-print-item-token.is-on-review { background: #ecfeff; color: #0f766e; }
-                    .defect-print-item-token.is-completed { background: #dcfce7; color: #166534; }
+                    .hint { display: block; font-size: 11px; color: #444; margin-top: 2px; }
+                    .section { margin-top: 9px; }
+                    .defect-print-list { display: grid; gap: 0; margin-top: 7px; }
+                    .defect-print-card { padding: 6px 0 8px; border-top: 1px solid #111; border-bottom: 0; border-left: 0; border-right: 0; border-radius: 0; page-break-inside: avoid; break-inside: avoid; overflow: hidden; background: #fff; }
+                    .defect-print-card:last-child { border-bottom: 1px solid #111; }
+                    .defect-print-card-main { display: grid; gap: 5px; }
+                    .defect-print-card-single-photo .defect-print-card-main { grid-template-columns: minmax(0, 1fr) minmax(250px, 40%); align-items: start; column-gap: 14px; }
+                    .defect-print-card-meta { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 10px; align-items: start; }
+                    .defect-print-card-single-photo .defect-print-card-meta,
+                    .defect-print-card-single-photo .defect-print-items { grid-column: 1; }
+                    .defect-print-number { font-size: 18px; font-weight: 700; line-height: 1; }
+                    .defect-print-location { font-size: 14px; font-weight: 700; line-height: 1.15; }
+                    .defect-print-items { display: flex; flex-wrap: wrap; gap: 5px; }
+                    .defect-print-item-token,
+                    .defect-print-item-token * { display: inline-flex; align-items: center; color: #111 !important; fill: #111 !important; stroke: #111 !important; }
+                    .defect-print-item-token { padding: 2px 7px; border-radius: 999px; word-break: break-word; background: transparent; }
+                    .defect-print-item-token.is-in-progress,
+                    .defect-print-item-token.is-on-review,
+                    .defect-print-item-token.is-completed { background: transparent; color: #111; }
                     .defect-item-number { font-weight: 600; }
-                    .photo-stack { display: flex; flex-wrap: wrap; gap: 12px; }
-                    .photo-item { margin: 0; width: 300px; max-width: 100%; }
-                    .photo-item img { width: 100%; max-height: 240px; object-fit: cover; border: 1px solid #999; display: block; }
-                    .photo-item figcaption { font-size: 12px; text-align: center; margin-top: 4px; font-weight: 600; }
+                    .defect-print-photos { margin-top: 6px; }
+                    .defect-print-card-single-photo .defect-print-photos { margin: 0; grid-column: 2; grid-row: 1 / span 2; align-self: start; }
+                    .defect-print-card-single-photo .photo-grid-1 { justify-items: center; }
+                    .photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+                    .photo-grid-1 { grid-template-columns: 1fr; }
+                    .photo-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+                    .photo-item { margin: 0; }
+                    .defect-print-card-single-photo .photo-item { width: 100%; max-width: 340px; }
+                    .defect-print-card-single-photo .photo-item img { height: 300px; object-fit: contain; background: #fff; }
+                    .photo-item img { width: 100%; height: 250px; object-fit: cover; border: 0; border-radius: 0; display: block; background: #fff; }
+                    .photo-item figcaption { font-size: 10px; text-align: center; margin-top: 2px; font-weight: 600; color: #475569; }
                     .photo-placeholder { color: #666; font-style: italic; }
-                    .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 24px; }
-                    .signature-block { margin-top: 18px; }
+                    .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 14px; }
+                    .signature-block { margin-top: 10px; }
                     .signature-line { margin-top: 36px; }
                     .page-footer { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; color: #555; text-align: right; padding: 0 4mm 0.5mm; }
                     @media print {
                         body { margin: 0; }
-                        .defect-print-item { page-break-inside: avoid; }
+                        .defect-print-card { page-break-inside: avoid; break-inside: avoid; }
                     }
                 </style>
             </head>
@@ -6293,11 +6355,13 @@ function renderFilteredDefectsTable(groups, options = {}) {
             const phoneNote = getApartmentPhoneNote(apartment);
             const meta = [section, floor].filter(Boolean).join(' ');
             const rowClass = includeRowClasses ? (index % 2 === 0 ? 'print-row-light' : 'print-row-white') : '';
+            const apartmentCell = index === 0
+                ? `<td class="filtered-defects-apartment-cell" rowspan="${defects.length}"><div class="filtered-defects-apartment-content"><div class="filtered-defects-apartment-main">${escapeHtml(apartmentLabel)}</div>${meta ? `<div class="filtered-defects-apartment-meta">${escapeHtml(meta)}</div>` : ''}${phoneNote ? `<div class="filtered-defects-apartment-phone">${escapeHtml(phoneNote)}</div>` : ''}</div></td>`
+                : '';
             return `
                 <tr${rowClass ? ` class="${rowClass}"` : ''}>
-                    <td class="filtered-defects-apartment-cell">${index === 0 ? `${escapeHtml(apartmentLabel)}${phoneNote ? `<div class="filtered-defects-apartment-phone">${escapeHtml(phoneNote)}</div>` : ''}${meta ? `<div class="filtered-defects-apartment-meta">${escapeHtml(meta)}</div>` : ''}` : ''}</td>
-                    <td>${getDefectPrintLocation(defect)}</td>
-                    <td><div class="filtered-defect-items">${renderReadonlyDefectItems(defect, 'filtered-defect-item-token')}</div></td>
+                    ${apartmentCell}
+                    <td class="filtered-defect-summary-cell"><div class="filtered-defect-summary">${renderFilteredDefectSummary(defect)}</div></td>
                     <td><span class="filtered-defect-status defect-status-badge ${getDefectStatusBadgeClass(defect.status)}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
                 </tr>
             `;
@@ -6310,7 +6374,6 @@ function renderFilteredDefectsTable(groups, options = {}) {
                 <thead>
                     <tr>
                         <th>Квартира</th>
-                        <th>Место</th>
                         <th>Замечание</th>
                         <th>Статус</th>
                     </tr>
@@ -6499,15 +6562,16 @@ async function printFilteredDefects() {
                 .subtitle { margin-bottom: 16px; color: #475569; line-height: 1.5; }
                 .filtered-defects-table-wrap { margin-top: 10px; overflow-x: auto; }
                 table { width: 100%; border-collapse: collapse; }
-                th, td { padding: 10px 12px; border: 1px solid #dadce0; vertical-align: top; text-align: left; }
-                th { background: #f1f3f4; font-size: 12px; }
-                .filtered-defects-table th:first-child, .filtered-defects-table td:first-child, .filtered-defects-table th:last-child, .filtered-defects-table td:last-child { width: 160px; }
-                .filtered-defects-table-flat th:first-child, .filtered-defects-table-flat td:first-child { width: 190px; }
+                th, td { padding: 10px 12px; border: 1px solid #dadce0; vertical-align: middle; text-align: left; }
+                th { background: #f1f3f4; font-size: 12px; text-align: center; }
+                .filtered-defects-table-flat th:first-child, .filtered-defects-table-flat td:first-child { width: 96px; }
+                .filtered-defects-table th:last-child, .filtered-defects-table td:last-child { width: 120px; }
+                .filtered-defects-apartment-cell { text-align: left; }
+                .filtered-defects-apartment-main { font-weight: 600; }
                 .filtered-defects-apartment-phone { margin-top: 4px; font-size: 12px; font-weight: 500; color: #5f6368; }
                 .filtered-defects-apartment-meta { margin-top: 4px; font-size: 11px; color: #6b7280; font-weight: 500; white-space: normal; text-align: left; }
-                .filtered-defect-items { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
-                .filtered-defect-item-token { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; background: transparent; color: inherit; }
-                .filtered-defect-status.defect-status-badge { min-width: 140px; width: 100%; justify-content: center; min-height: auto; padding: 0; border-radius: 2px; background: transparent !important; border: 0 !important; box-shadow: none !important; font-size: 13px; font-weight: 800; }
+                .filtered-defect-summary { line-height: 1.4; }
+                .filtered-defect-status.defect-status-badge { min-width: 0; width: 100%; justify-content: center; min-height: auto; padding: 0; border-radius: 2px; background: transparent !important; border: 0 !important; box-shadow: none !important; font-size: 13px; font-weight: 800; white-space: nowrap; }
                 tr { page-break-inside: avoid; }
             </style>
         </head>
@@ -6776,25 +6840,20 @@ function getStatsPrintRows(stats) {
 }
 
 function renderStatsExportLayout(stats, chartOptions = {}) {
-    const periodLabel = formatStatsPeriodLabel(stats.first_defect_date || stats.period_start, new Date().toISOString().split('T')[0]);
     const statRows = getStatsPrintRows(stats);
     const timeline = stats.timeline || [];
-    const firstDefectDate = stats.first_defect_date || stats.period_start;
-    const todayLabel = formatStatsPeriodLabel(new Date().toISOString().split('T')[0], new Date().toISOString().split('T')[0]);
 
     return `
         <div class="stats-shell stats-dashboard-shell stats-export-shell">
             <div class="stats-dashboard-head">
                 <div class="stats-dashboard-copy">
                     <div class="stats-dashboard-title">${escapeHtml(stats.complex_name || '')}</div>
-                    <span class="stats-dashboard-period">Сводка и динамика за весь период: ${escapeHtml(periodLabel)}</span>
                 </div>
             </div>
 
             <section class="stats-export-section stats-export-stats">
                 <div class="stats-panel-head">
-                    <strong>Оперативная статистика</strong>
-                    <span>${escapeHtml(todayLabel)}</span>
+                    <strong>Статистика</strong>
                 </div>
                 <div class="stats-export-table">
                     <div class="stats-export-table-head">
@@ -6814,8 +6873,7 @@ function renderStatsExportLayout(stats, chartOptions = {}) {
 
             <section class="stats-export-section stats-export-chart">
                 <div class="stats-panel-head">
-                    <strong>Динамика за все время</strong>
-                    <span>С ${escapeHtml(formatStatsShortDate(firstDefectDate))} по ${escapeHtml(formatStatsShortDate(new Date().toISOString().split('T')[0]))}</span>
+                    <strong>График</strong>
                 </div>
                 <div class="stats-chart-wrap">
                     ${renderStatsTrendChart(timeline, chartOptions)}
@@ -7293,7 +7351,7 @@ function printStatsReport() {
                     body { font-family: Inter, Arial, sans-serif; color: #111111; display: flex; align-items: center; justify-content: center; }
                     .sheet { width: 297mm; height: 210mm; padding: 0; display: flex; align-items: center; justify-content: center; }
                     .stats-export-shell { width: 70%; height: 70%; display: flex; flex-direction: column; gap: 7px; padding: 0; background: #ffffff; overflow: visible; }
-                    .stats-dashboard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 1px solid #d6d9de; padding: 0 0 8px; }
+                    .stats-dashboard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 0; padding: 0 0 8px; }
                     .stats-dashboard-copy { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
                     .stats-dashboard-title { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: #111111; }
                     .stats-dashboard-period { font-size: 12px; color: #555555; line-height: 1.35; }
@@ -7319,7 +7377,7 @@ function printStatsReport() {
                     .stats-chart-axis-label { fill: #666666; font-size: 10px; }
                     .stats-chart-legend { display: flex !important; flex-wrap: wrap; align-items: center; gap: 6px 12px !important; overflow: visible; }
                     .stats-chart-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; color: #444444; min-width: 0; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.04em; }
-                    .stats-chart-legend-icon { display: inline-block; width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; border: 1px solid rgba(17,17,17,0.18); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+                    .stats-chart-legend-icon { display: inline-block; width: 10px; height: 10px; border-radius: 999px; flex: 0 0 auto; border: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
                     .stats-chart-empty { min-height: 100%; display: flex; align-items: center; justify-content: center; color: #666666; font-size: 13px; border: 0; border-radius: 0; background: #ffffff; }
                     body, .stats-chart-legend-icon, .stats-chart, .stats-chart-shell { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
                     @media print { html, body { width: auto; height: auto; } }

@@ -1027,11 +1027,34 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
 
 
 .filtered-defects-modal {
-  width: min(1480px, 98vw);
-  max-width: min(1480px, 98vw);
-  max-height: min(84vh, 920px);
+  width: min(1720px, 98vw);
+  max-width: min(1720px, 98vw);
+  max-height: min(76vh, 760px);
   display: flex;
   flex-direction: column;
+}
+
+.filtered-defects-modal .modal-header {
+  background: transparent !important;
+  border-bottom: 0 !important;
+}
+
+.filtered-defects-modal .modal-header h3 {
+  display: none;
+}
+
+.filtered-defects-modal .modal-header {
+  justify-content: flex-start;
+  padding: 14px 18px;
+  gap: 0;
+}
+
+.filtered-defects-modal .filtered-defects-header-actions {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
 }
 
 .filtered-defects-modal .modal-body {
@@ -1388,37 +1411,77 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
 .filtered-defects-table td {
   padding: 10px 12px;
   border: 1px solid var(--border);
-  vertical-align: top;
+  vertical-align: middle;
   text-align: left;
+  font-size: 12px;
+}
+
+.filtered-defects-table td {
+  height: auto;
 }
 
 .filtered-defects-table th {
   background: var(--gray-lightest);
-  font-size: 12px;
+  font-size: 11px;
+  text-align: center;
 }
 
-.filtered-defects-table th:first-child,
-.filtered-defects-table td:first-child,
 .filtered-defects-table th:last-child,
 .filtered-defects-table td:last-child {
-  width: 160px;
+  width: 120px;
 }
 
 .filtered-defects-table-flat th:first-child,
 .filtered-defects-table-flat td:first-child {
-  width: 190px;
+  width: 46px;
+}
+
+.filtered-defects-apartment-cell {
+  vertical-align: middle !important;
+  line-height: 1.25;
+  word-break: break-word;
+  text-align: center;
+}
+
+.filtered-defects-apartment-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  min-height: 100%;
+  text-align: center;
+}
+
+.filtered-defects-apartment-main {
+  font-weight: 600;
+  font-size: 12px;
 }
 
 .filtered-defects-apartment-meta {
-  margin-top: 4px;
-  font-size: 11px;
+  font-size: 10px;
   color: #6b7280;
+  line-height: 1.25;
+}
+
+.filtered-defects-apartment-phone {
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.filtered-defect-summary-cell {
+  width: auto;
+}
+
+.filtered-defect-summary {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .filtered-defect-status.defect-status-badge {
-  min-width: 140px;
-  width: 100%;
-  justify-content: center;
+  min-width: 0;
+  width: auto;
   min-height: auto;
   padding: 0;
   border-radius: 2px;
@@ -1426,8 +1489,11 @@ body.page-apartment-detail #defectsList .defect-edit-btn:hover {
   background-color: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
+  white-space: nowrap;
+  display: block;
+  text-align: center;
 }
 
 .filtered-defect-status.defect-status-badge.badge-new,
@@ -1490,28 +1556,6 @@ body.page-apartment-detail #defectsList .defect-status-badge.badge-rejected {
   margin-top: 0;
 }
 
-.filtered-defect-items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: flex-start;
-}
-
-.filtered-defect-item-token {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: transparent;
-  color: inherit;
-}
-
-.filtered-defect-item-token.is-in-progress,
-.filtered-defect-item-token.is-on-review,
-.filtered-defect-item-token.is-completed {
-  background: transparent;
-  color: inherit;
-}
 
 .filtered-defects-footer {
   display: none;
@@ -2599,21 +2643,21 @@ body.page-complex-detail .header {
 }
 
 .toolbar-status .status-item[data-status="owner_accepted"].active {
-  background: #34d399;
-  border-color: #34d399;
-  color: #064e3b;
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
 }
 
 .toolbar-status .status-item[data-status="call"].active {
-  background: #ec4899;
-  border-color: #ec4899;
+  background: #E969A8;
+  border-color: #db2777;
   color: #ffffff;
 }
 
 .toolbar-status .status-item[data-status="in_progress"].active {
-  background: #fde047;
-  border-color: #facc15;
-  color: #713f12;
+  background: #f6ef8f;
+  border-color: #d4c63d;
+  color: #5f5200;
 }
 
 .toolbar-status .status-item[data-status="by_phone"].active {
@@ -2623,14 +2667,14 @@ body.page-complex-detail .header {
 }
 
 .toolbar-status .status-item[data-status="no_access"].active {
-  background: #94a3b8;
-  border-color: #94a3b8;
+  background: #9ca3af;
+  border-color: #6b7280;
   color: #ffffff;
 }
 
 .toolbar-status .status-item[data-status="complex"].active {
-  background: #ff4040;
-  border-color: #ff4040;
+  background: #E60042;
+  border-color: #be123c;
   color: #ffffff;
 }
 
@@ -6273,10 +6317,10 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-popover {
-    width: calc(100vw - 2px);
-    max-width: calc(100vw - 2px);
+    width: min(99vw, 2400px);
+    max-width: min(99vw, 2400px);
     height: auto;
-    max-height: min(94vh, 1200px);
+    max-height: min(98vh, 1600px);
     border: 1px solid rgba(219, 228, 238, 0.92);
     border-radius: 24px;
     overflow: hidden;
@@ -6292,7 +6336,7 @@ body.page-create-complex .mobile-filter-buttons {
 .stats-popover .modal-body {
     padding: 0;
     height: auto;
-    max-height: min(94vh, 1200px);
+    max-height: min(98vh, 1600px);
     overflow-y: auto;
 }
 
@@ -6310,7 +6354,7 @@ body.page-create-complex .mobile-filter-buttons {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 20px 22px 22px;
+    padding: 24px 28px 28px;
     background: #ffffff;
 }
 
@@ -6320,8 +6364,8 @@ body.page-create-complex .mobile-filter-buttons {
     justify-content: space-between;
     gap: 20px;
     padding: 2px 0 4px;
-    border-bottom: 1px solid #d6d9de;
-    padding-bottom: 14px;
+    border-bottom: 0;
+    padding-bottom: 8px;
 }
 
 .stats-dashboard-copy {
@@ -6432,14 +6476,14 @@ body.page-create-complex .mobile-filter-buttons {
 
 .stats-dashboard-grid {
     display: grid;
-    grid-template-columns: 360px minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 18px;
     align-items: start;
 }
 
 .stats-metrics-card {
-    width: 360px;
-    max-width: 360px;
+    width: 280px;
+    max-width: 280px;
 }
 
 .stats-focus-shell {
@@ -6755,8 +6799,9 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-chart-wrap {
-    padding: 4px 4px 8px;
+    padding: 10px 10px 16px;
     flex: 1 1 auto;
+    min-height: 720px;
 }
 
 .stats-kpi-card.tone-accepted::before,
@@ -6792,7 +6837,7 @@ body.page-create-complex .mobile-filter-buttons {
 .stats-chart-shell {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 32px;
     align-items: center;
 }
 
@@ -9557,62 +9602,62 @@ body {
 
 .apt.apt-available {
   background: #ffffff !important;
-  border: 2px solid #d1d5db !important;
+  border: 1px solid #d1d5db !important;
   color: #374151 !important;
 }
 
 /* Apartment colors match toolbar status buttons */
 .apt.apt-owner_accepted {
   background: #dcfce7 !important;
-  border: 2px solid #22c55e !important;
+  border: 1px solid #86efac !important;
   color: #15803d !important;
 }
 
 .apt.apt-call {
   background: #f3e8ff !important;
-  border: 2px solid #a855f7 !important;
+  border: 1px solid #d8b4fe !important;
   color: #7e22ce !important;
 }
 
 .apt.apt-by_phone {
   background: #bae6fd !important;
-  border: 2px solid #38bdf8 !important;
+  border: 1px solid #7dd3fc !important;
   color: #0369a1 !important;
 }
 
 .apt.apt-in_progress {
   background: #fef9c3 !important;
-  border: 2px solid #facc15 !important;
+  border: 1px solid #fde047 !important;
   color: #854d0e !important;
 }
 
 .apt.apt-complex {
   background: #fee2e2 !important;
-  border: 2px solid #ef4444 !important;
+  border: 1px solid #fca5a5 !important;
   color: #b91c1c !important;
 }
 
 .apt.apt-no_access {
   background: #e2e8f0 !important;
-  border: 2px solid #64748b !important;
+  border: 1px solid #94a3b8 !important;
   color: #334155 !important;
 }
 
 .apt.apt-rejected {
   background: #dc2626 !important;
-  border: 2px solid #991b1b !important;
+  border: 1px solid #b91c1c !important;
   color: #ffffff !important;
 }
 
 .apt.apt-defects {
   background: #fde047 !important;
-  border: 2px solid #ca8a04 !important;
+  border: 1px solid #eab308 !important;
   color: #422006 !important;
 }
 
 .apt-available, .apt:not([class*="apt-"]) {
   background: #ffffff !important;
-  border: 2px solid #d1d5db !important;
+  border: 1px solid #d1d5db !important;
   color: #374151 !important;
 }
 
@@ -9843,7 +9888,7 @@ body {
 
 .section-card,
 .section-group {
-  background: rgba(255, 255, 255, 0.9);
+  background: transparent;
   border: 1px solid #dbe3ee;
   border-radius: 22px;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
@@ -11411,8 +11456,8 @@ body.page-complex-detail .section-heading.section-heading-simple {
   width: clamp(38px, 2.65vw, 44px);
   height: clamp(34px, 2.45vw, 40px);
   border-radius: 8px;
-  border: none !important;
-  box-shadow: none !important;
+  border: 1px solid transparent !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1) !important;
   font-size: clamp(11px, 0.72vw, 12px);
   font-weight: 700;
   overflow: visible !important;
@@ -11426,48 +11471,55 @@ body.page-complex-detail .section-heading.section-heading-simple {
 
 .apt.apt-available {
   background: #f3f6fb !important;
+  border-color: #d7dee9 !important;
   color: #475569 !important;
 }
 
 .apt.apt-owner_accepted {
   background: #dcfce7 !important;
+  border-color: #86efac !important;
   color: #166534 !important;
 }
 
 .apt.apt-call {
   background: #E969A8 !important;
+  border-color: #db2777 !important;
   color: #ffffff !important;
 }
 
 .apt.apt-by_phone {
   background: #8ec5ff !important;
+  border-color: #60a5fa !important;
   color: #17324d !important;
 }
 
 .apt.apt-in_progress {
   background: #f6ef8f !important;
+  border-color: #d4c63d !important;
   color: #5f5200 !important;
 }
 
 .apt.apt-ready_for_acceptance {
   background: #b7f3ee !important;
+  border-color: #5eead4 !important;
   color: #0f4f4a !important;
 }
 
 .apt.apt-complex {
   background: #E60042 !important;
+  border-color: #be123c !important;
   color: #ffffff !important;
 }
 
 .apt.apt-no_access {
   background: #9ca3af !important;
-  border: none !important;
+  border-color: #6b7280 !important;
   color: #ffffff !important;
 }
 
 .apt.apt-defects {
   background: #f6ef8f !important;
-  border: none !important;
+  border-color: #d4c63d !important;
   color: #5f5200 !important;
 }
 
@@ -11479,8 +11531,8 @@ body.page-complex-detail .section-heading.section-heading-simple {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 3px;
-  background: #1f2937;
+  border-radius: 4px;
+  background: #455A64;
   border: none;
   color: #ffffff;
   font-size: 7px;
@@ -11492,6 +11544,23 @@ body.page-complex-detail .section-heading.section-heading-simple {
   z-index: 2;
 }
 
+.apt-badge-total,
+.apt-badge-new,
+.apt-badge-black {
+  background: #455A64 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border-radius: 4px !important;
+}
+
+.apt-badge-review,
+.apt-badge-completed {
+  background: #78909C !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border-radius: 4px !important;
+}
+
 
 
 .apt-badge-completed {
@@ -11499,7 +11568,7 @@ body.page-complex-detail .section-heading.section-heading-simple {
   left: -2px;
   right: auto;
   top: auto;
-  background: #22c55e;
+  background: #78909C;
   color: #ffffff;
   box-shadow: none;
 }
@@ -11603,7 +11672,7 @@ body.page-complex-detail .section-heading.section-heading-simple {
   }
 }
 
-/* Final apartment tile override: no frames */
+/* Final apartment tile override */
 .floor-apts .apt,
 .floor-apts .apt:hover,
 .floor-apts .apt:focus,
@@ -11628,9 +11697,54 @@ body.page-complex-detail .section-heading.section-heading-simple {
 .apt-sort-grid .apt.apt-complex,
 .apt-sort-grid .apt.apt-no_access,
 .apt-sort-grid .apt.apt-defects {
-  border: none !important;
+  border: 1px solid transparent !important;
   outline: none !important;
-  box-shadow: none !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1) !important;
+}
+
+.floor-apts .apt.apt-available,
+.apt-sort-grid .apt.apt-available {
+  border-color: #d7dee9 !important;
+}
+
+.floor-apts .apt.apt-owner_accepted,
+.apt-sort-grid .apt.apt-owner_accepted {
+  border-color: #86efac !important;
+}
+
+.floor-apts .apt.apt-call,
+.apt-sort-grid .apt.apt-call {
+  border-color: #db2777 !important;
+}
+
+.floor-apts .apt.apt-by_phone,
+.apt-sort-grid .apt.apt-by_phone {
+  border-color: #60a5fa !important;
+}
+
+.floor-apts .apt.apt-in_progress,
+.apt-sort-grid .apt.apt-in_progress {
+  border-color: #d4c63d !important;
+}
+
+.floor-apts .apt.apt-ready_for_acceptance,
+.apt-sort-grid .apt.apt-ready_for_acceptance {
+  border-color: #5eead4 !important;
+}
+
+.floor-apts .apt.apt-complex,
+.apt-sort-grid .apt.apt-complex {
+  border-color: #be123c !important;
+}
+
+.floor-apts .apt.apt-no_access,
+.apt-sort-grid .apt.apt-no_access {
+  border-color: #6b7280 !important;
+}
+
+.floor-apts .apt.apt-defects,
+.apt-sort-grid .apt.apt-defects {
+  border-color: #d4c63d !important;
 }
 
 /* Final controls override: same shape as apartment tiles */
@@ -14008,68 +14122,71 @@ body.dark-theme .toolbar-status .status-item[data-status="complex"]:hover {
 
 body.dark-theme .apt.apt-available {
   background: #d9e0e8 !important;
+  border-color: #b6c0cd !important;
   color: #425164 !important;
 }
 
 body.dark-theme .apt.apt-owner_accepted {
   background: #138b7f !important;
+  border-color: #0f766e !important;
   color: #ffffff !important;
 }
 
 body.dark-theme .apt.apt-call {
   background: #d85a97 !important;
+  border-color: #be467f !important;
   color: #ffffff !important;
 }
 
 body.dark-theme .apt.apt-by_phone {
   background: #7fb3df !important;
+  border-color: #5f99ca !important;
   color: #162d44 !important;
 }
 
 body.dark-theme .apt.apt-in_progress {
   background: #dfd57a !important;
+  border-color: #c2b95d !important;
   color: #594d08 !important;
 }
 
 body.dark-theme .apt.apt-ready_for_acceptance {
   background: #9fded7 !important;
+  border-color: #73c8bf !important;
   color: #134742 !important;
 }
 
 body.dark-theme .apt.apt-complex {
   background: #cb2455 !important;
+  border-color: #a61d45 !important;
   color: #ffffff !important;
 }
 
 body.dark-theme .apt.apt-no_access {
   background: #818a96 !important;
+  border-color: #67707c !important;
   color: #ffffff !important;
 }
 
 body.dark-theme .apt.apt-defects {
   background: #dfd57a !important;
+  border-color: #c2b95d !important;
   color: #594d08 !important;
 }
 
-body.dark-theme .apt-badge-total {
-  background: #1f2937 !important;
+body.dark-theme .apt-badge-total,
+body.dark-theme .apt-badge-new,
+body.dark-theme .apt-badge-black {
+  background: #455A64 !important;
   color: #ffffff !important;
   border-color: transparent !important;
 }
 
-body.dark-theme .apt-badge-new {
-  background: #f5efe3 !important;
-  color: #8a6a35 !important;
-}
-
-body.dark-theme .apt-badge-review {
-  background: #7DE3D6 !important;
-  color: #111111 !important;
-}
-
+body.dark-theme .apt-badge-review,
 body.dark-theme .apt-badge-completed {
-  background: #dcfce7 !important;
-  color: #166534 !important;
+  background: #78909C !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
 }
 
 body.dark-theme.page-complex-detail .main,
@@ -14374,21 +14491,21 @@ body.dark-theme .section-filter-wrapper.active .section-filter-btn {
 }
 
 body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"].active {
-  background: #34d399 !important;
-  border-color: #34d399 !important;
-  color: #064e3b !important;
+  background: #138b7f !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
 }
 
 body.dark-theme .toolbar-status .status-item[data-status="call"].active {
-  background: #ec4899 !important;
-  border-color: #ec4899 !important;
+  background: #d85a97 !important;
+  border-color: #be467f !important;
   color: #ffffff !important;
 }
 
 body.dark-theme .toolbar-status .status-item[data-status="in_progress"].active {
-  background: #fde047 !important;
-  border-color: #facc15 !important;
-  color: #713f12 !important;
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
 }
 
 body.dark-theme .toolbar-status .status-item[data-status="by_phone"].active {
@@ -14398,14 +14515,415 @@ body.dark-theme .toolbar-status .status-item[data-status="by_phone"].active {
 }
 
 body.dark-theme .toolbar-status .status-item[data-status="no_access"].active {
-  background: #94a3b8 !important;
-  border-color: #94a3b8 !important;
+  background: #818a96 !important;
+  border-color: #67707c !important;
   color: #ffffff !important;
 }
 
 body.dark-theme .toolbar-status .status-item[data-status="complex"].active {
-  background: #ff4040 !important;
-  border-color: #ff4040 !important;
+  background: #cb2455 !important;
+  border-color: #a61d45 !important;
+  color: #ffffff !important;
+}
+
+body.page-complex-detail .pill[data-filter="owner_accepted"].active {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .pill[data-filter="owner_accepted"].active:hover,
+body.page-complex-detail .pill[data-filter="owner_accepted"].active:focus {
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .pill[data-filter="call"].active {
+  background: #E969A8 !important;
+  border-color: #db2777 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .pill[data-filter="call"].active:hover,
+body.page-complex-detail .pill[data-filter="call"].active:focus {
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .pill[data-filter="in_progress"].active {
+  background: #f6ef8f !important;
+  border-color: #d4c63d !important;
+  color: #5f5200 !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .pill[data-filter="in_progress"].active:hover,
+body.page-complex-detail .pill[data-filter="in_progress"].active:focus {
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .pill[data-filter="no_access"].active {
+  background: #9ca3af !important;
+  border-color: #6b7280 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .pill[data-filter="no_access"].active:hover,
+body.page-complex-detail .pill[data-filter="no_access"].active:focus {
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .pill[data-filter="complex"].active {
+  background: #E60042 !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .pill[data-filter="complex"].active:hover,
+body.page-complex-detail .pill[data-filter="complex"].active:focus {
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="owner_accepted"].active {
+  background: #138b7f !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="owner_accepted"].active:hover,
+body.dark-theme.page-complex-detail .pill[data-filter="owner_accepted"].active:focus {
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="call"].active {
+  background: #d85a97 !important;
+  border-color: #be467f !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="call"].active:hover,
+body.dark-theme.page-complex-detail .pill[data-filter="call"].active:focus {
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="in_progress"].active {
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="in_progress"].active:hover,
+body.dark-theme.page-complex-detail .pill[data-filter="in_progress"].active:focus {
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="no_access"].active {
+  background: #818a96 !important;
+  border-color: #67707c !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="no_access"].active:hover,
+body.dark-theme.page-complex-detail .pill[data-filter="no_access"].active:focus {
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="complex"].active {
+  background: #cb2455 !important;
+  border-color: #a61d45 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="complex"].active:hover,
+body.dark-theme.page-complex-detail .pill[data-filter="complex"].active:focus {
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="owner_accepted"].active {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="owner_accepted"].active:hover,
+body.page-complex-detail .mobile-filter-btn[data-filter="owner_accepted"].active:focus {
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="call"].active {
+  background: #E969A8 !important;
+  border-color: #db2777 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="call"].active:hover,
+body.page-complex-detail .mobile-filter-btn[data-filter="call"].active:focus {
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="in_progress"].active {
+  background: #f6ef8f !important;
+  border-color: #d4c63d !important;
+  color: #5f5200 !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="in_progress"].active:hover,
+body.page-complex-detail .mobile-filter-btn[data-filter="in_progress"].active:focus {
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="no_access"].active {
+  background: #9ca3af !important;
+  border-color: #6b7280 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="no_access"].active:hover,
+body.page-complex-detail .mobile-filter-btn[data-filter="no_access"].active:focus {
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="complex"].active {
+  background: #E60042 !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="complex"].active:hover,
+body.page-complex-detail .mobile-filter-btn[data-filter="complex"].active:focus {
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="owner_accepted"].active {
+  background: #138b7f !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="owner_accepted"].active:hover,
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="owner_accepted"].active:focus {
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="call"].active {
+  background: #d85a97 !important;
+  border-color: #be467f !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="call"].active:hover,
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="call"].active:focus {
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="in_progress"].active {
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="in_progress"].active:hover,
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="in_progress"].active:focus {
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="no_access"].active {
+  background: #818a96 !important;
+  border-color: #67707c !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="no_access"].active:hover,
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="no_access"].active:focus {
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="complex"].active {
+  background: #cb2455 !important;
+  border-color: #a61d45 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="complex"].active:hover,
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="complex"].active:focus {
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .toolbar-status button.status-item[data-status="owner_accepted"].active,
+body.page-complex-detail .toolbar-status button.status-item[data-status="owner_accepted"].active:hover,
+body.page-complex-detail .toolbar-status button.status-item[data-status="owner_accepted"].active:focus {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+}
+
+body.page-complex-detail .toolbar-status button.status-item[data-status="call"].active,
+body.page-complex-detail .toolbar-status button.status-item[data-status="call"].active:hover,
+body.page-complex-detail .toolbar-status button.status-item[data-status="call"].active:focus {
+  background: #E969A8 !important;
+  border-color: #db2777 !important;
+  color: #ffffff !important;
+}
+
+body.page-complex-detail .toolbar-status button.status-item[data-status="in_progress"].active,
+body.page-complex-detail .toolbar-status button.status-item[data-status="in_progress"].active:hover,
+body.page-complex-detail .toolbar-status button.status-item[data-status="in_progress"].active:focus {
+  background: #f6ef8f !important;
+  border-color: #d4c63d !important;
+  color: #5f5200 !important;
+}
+
+body.page-complex-detail .toolbar-status button.status-item[data-status="no_access"].active,
+body.page-complex-detail .toolbar-status button.status-item[data-status="no_access"].active:hover,
+body.page-complex-detail .toolbar-status button.status-item[data-status="no_access"].active:focus {
+  background: #9ca3af !important;
+  border-color: #6b7280 !important;
+  color: #ffffff !important;
+}
+
+body.page-complex-detail .toolbar-status button.status-item[data-status="complex"].active,
+body.page-complex-detail .toolbar-status button.status-item[data-status="complex"].active:hover,
+body.page-complex-detail .toolbar-status button.status-item[data-status="complex"].active:focus {
+  background: #E60042 !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="owner_accepted"].active,
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="owner_accepted"].active:hover,
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="owner_accepted"].active:focus {
+  background: #138b7f !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="call"].active,
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="call"].active:hover,
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="call"].active:focus {
+  background: #d85a97 !important;
+  border-color: #be467f !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="in_progress"].active,
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="in_progress"].active:hover,
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="in_progress"].active:focus {
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
+}
+
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="no_access"].active,
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="no_access"].active:hover,
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="no_access"].active:focus {
+  background: #818a96 !important;
+  border-color: #67707c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="complex"].active,
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="complex"].active:hover,
+body.dark-theme.page-complex-detail .toolbar-status button.status-item[data-status="complex"].active:focus {
+  background: #cb2455 !important;
+  border-color: #a61d45 !important;
+  color: #ffffff !important;
+}
+
+/* Final apartment detail toolbar override */
+body.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"].active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"].active:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"].active:focus {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="call"].active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="call"].active:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="call"].active:focus {
+  background: #E969A8 !important;
+  border-color: #db2777 !important;
+  color: #ffffff !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"].active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"].active:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"].active:focus {
+  background: #f6ef8f !important;
+  border-color: #d4c63d !important;
+  color: #5f5200 !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"].active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"].active:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"].active:focus {
+  background: #9ca3af !important;
+  border-color: #6b7280 !important;
+  color: #ffffff !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="complex"].active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="complex"].active:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="complex"].active:focus {
+  background: #E60042 !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"].active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"].active:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"].active:focus {
+  background: #138b7f !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="call"].active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="call"].active:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="call"].active:focus {
+  background: #d85a97 !important;
+  border-color: #be467f !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"].active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"].active:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"].active:focus {
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"].active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"].active:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"].active:focus {
+  background: #818a96 !important;
+  border-color: #67707c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="complex"].active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="complex"].active:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="complex"].active:focus {
+  background: #cb2455 !important;
+  border-color: #a61d45 !important;
   color: #ffffff !important;
 }
 
@@ -15184,6 +15702,321 @@ body.dark-theme .defect-item-photo-icon {
   color: #8fc0ff !important;
 }
 
+/* Final apartment-defects status hover = base */
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:focus,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:focus,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:hover,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:focus {
+  background: #c0c0c0 !important;
+  color: #111111 !important;
+  filter: none !important;
+}
+
+body.page-apartment-detail #defectsList .defect-status-badge.badge-progress,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-progress:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-progress:focus,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-progress,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-progress:hover,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-progress:focus {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  filter: none !important;
+}
+
+body.page-apartment-detail #defectsList .defect-status-badge.badge-on-review,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-on-review:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-on-review:focus,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-on-review,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-on-review:hover,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-on-review:focus {
+  background: #ecfeff !important;
+  color: #0f766e !important;
+  filter: none !important;
+}
+
+body.page-apartment-detail #defectsList .defect-status-badge.badge-completed,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-completed:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-completed:focus,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-completed,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-completed:hover,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-completed:focus {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+  filter: none !important;
+}
+
+body.page-apartment-detail #defectsList .defect-status-badge.badge-rejected,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-rejected:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-rejected:focus {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+  filter: none !important;
+}
+
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:focus {
+  background: #f5efe3 !important;
+  color: #8a6a35 !important;
+  filter: none !important;
+}
+
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-progress,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-progress:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-progress:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-progress,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-progress:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-progress:focus {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  filter: none !important;
+}
+
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-on-review,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-on-review:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-on-review:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-on-review,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-on-review:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-on-review:focus {
+  background: #ecfeff !important;
+  color: #0f766e !important;
+  filter: none !important;
+}
+
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-completed,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-completed:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-completed:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-completed,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-completed:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-completed:focus {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+  filter: none !important;
+}
+
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-rejected,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-rejected:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-rejected:focus {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+  filter: none !important;
+}
+
+/* Final complex-detail filter hover = active */
+body.page-complex-detail .pill[data-filter="owner_accepted"]:hover,
+body.page-complex-detail .pill[data-filter="owner_accepted"]:focus-visible {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+}
+
+body.page-complex-detail .pill[data-filter="call"]:hover,
+body.page-complex-detail .pill[data-filter="call"]:focus-visible {
+  background: #E969A8 !important;
+  border-color: #db2777 !important;
+  color: #ffffff !important;
+}
+
+body.page-complex-detail .pill[data-filter="in_progress"]:hover,
+body.page-complex-detail .pill[data-filter="in_progress"]:focus-visible {
+  background: #f6ef8f !important;
+  border-color: #d4c63d !important;
+  color: #5f5200 !important;
+}
+
+body.page-complex-detail .pill[data-filter="no_access"]:hover,
+body.page-complex-detail .pill[data-filter="no_access"]:focus-visible {
+  background: #9ca3af !important;
+  border-color: #6b7280 !important;
+  color: #ffffff !important;
+}
+
+body.page-complex-detail .pill[data-filter="complex"]:hover,
+body.page-complex-detail .pill[data-filter="complex"]:focus-visible {
+  background: #E60042 !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="owner_accepted"]:hover,
+body.dark-theme.page-complex-detail .pill[data-filter="owner_accepted"]:focus-visible {
+  background: #138b7f !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="call"]:hover,
+body.dark-theme.page-complex-detail .pill[data-filter="call"]:focus-visible {
+  background: #d85a97 !important;
+  border-color: #be467f !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="in_progress"]:hover,
+body.dark-theme.page-complex-detail .pill[data-filter="in_progress"]:focus-visible {
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="no_access"]:hover,
+body.dark-theme.page-complex-detail .pill[data-filter="no_access"]:focus-visible {
+  background: #818a96 !important;
+  border-color: #67707c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .pill[data-filter="complex"]:hover,
+body.dark-theme.page-complex-detail .pill[data-filter="complex"]:focus-visible {
+  background: #cb2455 !important;
+  border-color: #a61d45 !important;
+  color: #ffffff !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="owner_accepted"]:hover,
+body.page-complex-detail .mobile-filter-btn[data-filter="owner_accepted"]:focus-visible {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="call"]:hover,
+body.page-complex-detail .mobile-filter-btn[data-filter="call"]:focus-visible {
+  background: #E969A8 !important;
+  border-color: #db2777 !important;
+  color: #ffffff !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="in_progress"]:hover,
+body.page-complex-detail .mobile-filter-btn[data-filter="in_progress"]:focus-visible {
+  background: #f6ef8f !important;
+  border-color: #d4c63d !important;
+  color: #5f5200 !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="no_access"]:hover,
+body.page-complex-detail .mobile-filter-btn[data-filter="no_access"]:focus-visible {
+  background: #9ca3af !important;
+  border-color: #6b7280 !important;
+  color: #ffffff !important;
+}
+
+body.page-complex-detail .mobile-filter-btn[data-filter="complex"]:hover,
+body.page-complex-detail .mobile-filter-btn[data-filter="complex"]:focus-visible {
+  background: #E60042 !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="owner_accepted"]:hover,
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="owner_accepted"]:focus-visible {
+  background: #138b7f !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="call"]:hover,
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="call"]:focus-visible {
+  background: #d85a97 !important;
+  border-color: #be467f !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="in_progress"]:hover,
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="in_progress"]:focus-visible {
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="no_access"]:hover,
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="no_access"]:focus-visible {
+  background: #818a96 !important;
+  border-color: #67707c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="complex"]:hover,
+body.dark-theme.page-complex-detail .mobile-filter-btn[data-filter="complex"]:focus-visible {
+  background: #cb2455 !important;
+  border-color: #a61d45 !important;
+  color: #ffffff !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"]:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"]:focus-visible {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="call"]:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="call"]:focus-visible {
+  background: #E969A8 !important;
+  border-color: #db2777 !important;
+  color: #ffffff !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"]:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"]:focus-visible {
+  background: #f6ef8f !important;
+  border-color: #d4c63d !important;
+  color: #5f5200 !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="complex"]:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="complex"]:focus-visible {
+  background: #E60042 !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"]:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"]:focus-visible {
+  background: #138b7f !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="call"]:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="call"]:focus-visible {
+  background: #d85a97 !important;
+  border-color: #be467f !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"]:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"]:focus-visible {
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="complex"]:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="complex"]:focus-visible {
+  background: #cb2455 !important;
+  border-color: #a61d45 !important;
+  color: #ffffff !important;
+}
+
+/* Apartment tile press feedback */
+body.page-complex-detail .floor-apts .apt:active,
+body.page-complex-detail .apt-sort-grid .apt:active {
+  transform: scale(0.98) !important;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.12), 0 1px 2px rgb(0 0 0 / 0.06) !important;
+}
+
 body.dark-theme .defect-media-card {
   background: #11151b !important;
   border-color: #2f3641 !important;
@@ -15227,4 +16060,65 @@ body.page-apartment-detail .defect-section-header {
 
 body.page-apartment-detail .defects-list {
   padding-top: 8px !important;
+}
+
+/* Final toolbar status color sync with apartment tiles */
+.toolbar-status .status-item[data-status="owner_accepted"].active {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+}
+
+.toolbar-status .status-item[data-status="call"].active {
+  background: #E969A8 !important;
+  border-color: #db2777 !important;
+  color: #ffffff !important;
+}
+
+.toolbar-status .status-item[data-status="in_progress"].active {
+  background: #f6ef8f !important;
+  border-color: #d4c63d !important;
+  color: #5f5200 !important;
+}
+
+.toolbar-status .status-item[data-status="no_access"].active {
+  background: #9ca3af !important;
+  border-color: #6b7280 !important;
+  color: #ffffff !important;
+}
+
+.toolbar-status .status-item[data-status="complex"].active {
+  background: #E60042 !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"].active {
+  background: #138b7f !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="call"].active {
+  background: #d85a97 !important;
+  border-color: #be467f !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"].active {
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="no_access"].active {
+  background: #818a96 !important;
+  border-color: #67707c !important;
+  color: #ffffff !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="complex"].active {
+  background: #cb2455 !important;
+  border-color: #a61d45 !important;
+  color: #ffffff !important;
 }

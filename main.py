@@ -3515,18 +3515,13 @@ def create_stats_report_jpg(stats):
     top = 58
 
     draw.text((content_left, top), stats['complex_name'], font=title_font, fill='#111111')
-    top += 56
+    top += 42
     period_start = stats.get('first_defect_date') or stats.get('period_start') or date.today().isoformat()
     period_end = date.today().isoformat()
-    draw.text((content_left, top), f"Сводка и динамика за весь период: {period_start} - {period_end}", font=meta_font, fill='#555555')
-    top += 34
     draw.line((content_left, top, content_right, top), fill='#d6d9de', width=2)
 
     stats_top = top + 24
     today_label = datetime.now().strftime('%d %B %Y г.')
-    draw.text((content_left, stats_top), 'Оперативная статистика', font=panel_title_font, fill='#111111')
-    date_bbox = draw.textbbox((0, 0), today_label, font=small_font)
-    draw.text((content_right - (date_bbox[2] - date_bbox[0]), stats_top + 6), today_label, font=small_font, fill='#555555')
 
     total = stats.get('total_apartments') or 0
     today_metrics = stats.get('today_metrics') or {}
@@ -3537,7 +3532,7 @@ def create_stats_report_jpg(stats):
         ('Остаток с замечаниями', today_metrics.get('remaining_with_defects', 0), '#e60042'),
         ('С замечаниями', today_metrics.get('with_defects', 0), '#111111'),
     ]
-    table_top = stats_top + 48
+    table_top = stats_top + 8
     col_status = content_left
     col_value = content_right - 230
     col_percent = content_right - 88
@@ -3561,11 +3556,7 @@ def create_stats_report_jpg(stats):
         draw.text((content_right - (percent_bbox[2] - percent_bbox[0]), row_y + 24), percent, font=small_font, fill='#666666')
         row_y += row_h + 12
 
-    chart_section_top = row_y + 28
-    draw.text((content_left, chart_section_top), 'Динамика за все время', font=panel_title_font, fill='#111111')
-    date_range_label = f"С {period_start} по {period_end}"
-    range_bbox = draw.textbbox((0, 0), date_range_label, font=small_font)
-    draw.text((content_right - (range_bbox[2] - range_bbox[0]), chart_section_top + 6), date_range_label, font=small_font, fill='#555555')
+    chart_section_top = row_y + 20
 
     series = [
         ('call', 'Вызов', '#c2185b'),
@@ -3574,7 +3565,7 @@ def create_stats_report_jpg(stats):
     ]
     timeline = stats.get('timeline') or []
     chart_left = content_left + 20
-    chart_top = chart_section_top + 56
+    chart_top = chart_section_top + 20
     chart_right = content_right
     chart_bottom = height - 150
     if timeline:
@@ -3628,7 +3619,7 @@ def create_stats_report_jpg(stats):
         row = idx // legend_columns
         item_x = legend_x + col * (item_width + legend_gap_x)
         item_y = legend_y + row * 34
-        draw.ellipse((item_x, item_y + 5, item_x + 10, item_y + 15), fill=color, outline=color)
+        draw.ellipse((item_x, item_y + 5, item_x + 10, item_y + 15), fill=color)
         draw.text((item_x + 18, item_y), label, font=small_font, fill='#444444')
 
     output = io.BytesIO()
