@@ -1990,10 +1990,43 @@ body.page-complex-detail .header {
 .page-home .cards-grid {
   position: relative;
   z-index: 1;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  max-width: none;
+  width: 100%;
 }
 
 .page-home .header-left > div {
   display: block;
+}
+
+.page-home .header-left {
+  width: 100%;
+}
+
+.page-home #pageTitle,
+.page-home .title-stack {
+  align-items: center;
+  text-align: center;
+  margin: 0 auto;
+}
+
+.page-home .title-primary,
+.page-home .title-secondary,
+.page-home #jkName {
+  text-align: center;
+}
+
+.page-home .complex-card,
+.page-home .complex-card-red,
+.page-home .complex-card-has-bg {
+  width: 220px !important;
+  max-width: 220px !important;
+  flex: 0 0 220px;
+  transform: none;
 }
 
 .title-stack {
@@ -11955,7 +11988,24 @@ body.page-complex-detail .apt-sort-grid.apt-sort-grid-sorted {
 }
 
 .create-responsible-modal {
-  width: min(820px, calc(100vw - 24px));
+  width: min(1180px, calc(100vw - 24px));
+  max-width: min(1180px, calc(100vw - 24px));
+}
+
+#createComplexResponsibleModal .modal-header,
+.create-responsible-modal .modal-header {
+  display: none !important;
+  background: transparent !important;
+  border-bottom: 0 !important;
+}
+
+.create-responsible-modal .modal-body {
+  padding: 20px 22px 22px !important;
+}
+
+.create-responsible-modal .form {
+  width: 100%;
+  max-width: none;
 }
 
 .category-dropdown-divider {
@@ -11981,6 +12031,7 @@ body.page-complex-detail .apt-sort-grid.apt-sort-grid-sorted {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
 }
 
 .create-responsible-row {
@@ -11991,6 +12042,7 @@ body.page-complex-detail .apt-sort-grid.apt-sort-grid-sorted {
 }
 
 .create-responsible-grid {
+  width: 100%;
   align-items: end;
 }
 
@@ -12014,6 +12066,15 @@ body.page-complex-detail .apt-sort-grid.apt-sort-grid-sorted {
 }
 
 @media (max-width: 768px) {
+  .create-responsible-modal {
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
+  }
+
+  .create-responsible-modal .modal-body {
+    padding: 14px !important;
+  }
+
   .create-responsible-row {
     padding: 12px;
   }
@@ -12062,19 +12123,20 @@ body.page-complex-detail .apt-sort-grid.apt-sort-grid-sorted {
 .complex-card-has-bg {
   background: linear-gradient(180deg, #ffffff 0%, #fcfcfe 100%) !important;
   border: none !important;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
   transition: box-shadow 0.2s ease, background 0.2s ease !important;
   transform: none !important;
-  min-height: 72px !important;
+  min-height: 60px !important;
   aspect-ratio: auto !important;
-  border-radius: 20px !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
 }
 
 .complex-card:hover,
 .complex-card-red:hover,
 .complex-card-has-bg:hover {
   background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%) !important;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
   transform: none !important;
 }
 
@@ -12124,6 +12186,7 @@ body.page-complex-detail .apt-sort-grid.apt-sort-grid-sorted {
   color: #64748b !important;
   text-align: center;
   max-width: 26ch;
+  font-weight: 400;
 }
 
 .complex-card-cover {
@@ -16788,6 +16851,194 @@ body.page-apartment-detail .toolbar-status .status-item span {
   text-align: center;
 }
 
+/* Final text-only status button states */
+.toolbar-status .status-item,
+body.page-apartment-detail .toolbar-status .status-item,
+.status-item {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.toolbar-status .status-item:hover,
+.toolbar-status .status-item:focus,
+.toolbar-status .status-item.active,
+body.page-apartment-detail .toolbar-status .status-item:hover,
+body.page-apartment-detail .toolbar-status .status-item:focus,
+body.page-apartment-detail .toolbar-status .status-item.active,
+.status-item:hover,
+.status-item:focus,
+.status-item.active {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.toolbar-status .status-item[data-status="owner_accepted"]:hover,
+.toolbar-status .status-item[data-status="owner_accepted"].active,
+.status-item[data-status="owner_accepted"]:hover,
+.status-item[data-status="owner_accepted"].active {
+  background: transparent !important;
+  color: #16a34a !important;
+  border-color: #e2e8f0 !important;
+}
+
+.toolbar-status .status-item[data-status="call"]:hover,
+.toolbar-status .status-item[data-status="call"].active,
+.status-item[data-status="call"]:hover,
+.status-item[data-status="call"].active {
+  background: transparent !important;
+  color: #ec4899 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.toolbar-status .status-item[data-status="in_progress"]:hover,
+.toolbar-status .status-item[data-status="in_progress"].active,
+.status-item[data-status="in_progress"]:hover,
+.status-item[data-status="in_progress"].active {
+  background: transparent !important;
+  color: #d97706 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.toolbar-status .status-item[data-status="by_phone"]:hover,
+.toolbar-status .status-item[data-status="by_phone"].active,
+.status-item[data-status="by_phone"]:hover,
+.status-item[data-status="by_phone"].active {
+  background: transparent !important;
+  color: #0284c7 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.toolbar-status .status-item[data-status="no_access"]:hover,
+.toolbar-status .status-item[data-status="no_access"].active,
+.status-item[data-status="no_access"]:hover,
+.status-item[data-status="no_access"].active {
+  background: transparent !important;
+  color: #64748b !important;
+  border-color: #e2e8f0 !important;
+}
+
+.toolbar-status .status-item[data-status="complex"]:hover,
+.toolbar-status .status-item[data-status="complex"].active,
+.status-item[data-status="complex"]:hover,
+.status-item[data-status="complex"].active {
+  background: transparent !important;
+  color: #e11d48 !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.dark-theme .toolbar-status .status-item,
+body.dark-theme .status-item {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .toolbar-status .status-item:hover,
+body.dark-theme .toolbar-status .status-item:focus,
+body.dark-theme .toolbar-status .status-item.active,
+body.dark-theme .status-item:hover,
+body.dark-theme .status-item:focus,
+body.dark-theme .status-item.active {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"],
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"]:hover,
+body.dark-theme .toolbar-status .status-item[data-status="owner_accepted"].active {
+  background: transparent !important;
+  color: #7dd3a7 !important;
+  border-color: #334155 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="call"],
+body.dark-theme .toolbar-status .status-item[data-status="call"]:hover,
+body.dark-theme .toolbar-status .status-item[data-status="call"].active {
+  background: transparent !important;
+  color: #f18cbc !important;
+  border-color: #334155 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"],
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"]:hover,
+body.dark-theme .toolbar-status .status-item[data-status="in_progress"].active {
+  background: transparent !important;
+  color: #f3c56b !important;
+  border-color: #334155 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"],
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"]:hover,
+body.dark-theme .toolbar-status .status-item[data-status="by_phone"].active {
+  background: transparent !important;
+  color: #7dd3fc !important;
+  border-color: #334155 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="no_access"],
+body.dark-theme .toolbar-status .status-item[data-status="no_access"]:hover,
+body.dark-theme .toolbar-status .status-item[data-status="no_access"].active {
+  background: transparent !important;
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+}
+
+body.dark-theme .toolbar-status .status-item[data-status="complex"],
+body.dark-theme .toolbar-status .status-item[data-status="complex"]:hover,
+body.dark-theme .toolbar-status .status-item[data-status="complex"].active {
+  background: transparent !important;
+  color: #fb7185 !important;
+  border-color: #334155 !important;
+}
+
+/* Defect modal headerless layout */
+#defectModal .modal-header,
+.defect-modal .modal-header {
+  display: none !important;
+  background: transparent !important;
+  border-bottom: 0 !important;
+}
+
+.defect-modal .modal-body {
+  padding-top: 18px !important;
+}
+
+.defect-form .form-footer.defect-modal-footer-centered {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 12px;
+  padding-top: 14px;
+}
+
+@media (max-width: 768px) {
+  .defect-form .form-footer.defect-modal-footer-centered .btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+/* Match defect in-progress status color with toolbar */
+.defect-compact-status.badge-in_progress,
+.defect-status-badge.badge-in_progress,
+.defect-status-option.status-in_progress,
+.defect-status-option.status-in_progress.active,
+.defect-status-option.status-in_progress:hover,
+.defect-status-option.status-in_progress:focus {
+  background: #f6ef8f !important;
+  border-color: #d4c63d !important;
+  color: #5f5200 !important;
+}
+
+body.dark-theme .defect-compact-status.badge-in_progress,
+body.dark-theme .defect-status-badge.badge-in_progress,
+body.dark-theme .defect-status-option.status-in_progress,
+body.dark-theme .defect-status-option.status-in_progress.active,
+body.dark-theme .defect-status-option.status-in_progress:hover,
+body.dark-theme .defect-status-option.status-in_progress:focus {
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
+}
+
 body.dark-theme .defect-media-thumb {
   background: #0e1217 !important;
 }
@@ -16825,6 +17076,138 @@ body.page-apartment-detail .defect-section-header {
 
 body.page-apartment-detail .defects-list {
   padding-top: 8px !important;
+}
+
+/* Apartment detail status buttons use full-color interaction like by_phone */
+body.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"]:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"]:focus-visible,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"]:active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"].active {
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #166534 !important;
+  box-shadow: none !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="call"]:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="call"]:focus-visible,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="call"]:active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="call"].active {
+  background: #E969A8 !important;
+  border-color: #db2777 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"]:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"]:focus-visible,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"]:active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"].active {
+  background: #f6ef8f !important;
+  border-color: #d4c63d !important;
+  color: #5f5200 !important;
+  box-shadow: none !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="by_phone"]:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="by_phone"]:focus-visible,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="by_phone"]:active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="by_phone"].active {
+  background: #bae6fd !important;
+  border-color: #38bdf8 !important;
+  color: #0369a1 !important;
+  box-shadow: none !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"]:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"]:focus-visible,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"]:active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"].active {
+  background: #9ca3af !important;
+  border-color: #6b7280 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.page-apartment-detail .toolbar-status button.status-item[data-status="complex"]:hover,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="complex"]:focus-visible,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="complex"]:active,
+body.page-apartment-detail .toolbar-status button.status-item[data-status="complex"].active {
+  background: #E60042 !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"]:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"]:focus-visible,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"]:active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="owner_accepted"].active {
+  background: #138b7f !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="call"]:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="call"]:focus-visible,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="call"]:active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="call"].active {
+  background: #d85a97 !important;
+  border-color: #be467f !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"]:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"]:focus-visible,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"]:active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="in_progress"].active {
+  background: #dfd57a !important;
+  border-color: #c2b95d !important;
+  color: #594d08 !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="by_phone"]:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="by_phone"]:focus-visible,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="by_phone"]:active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="by_phone"].active {
+  background: #16303a !important;
+  border-color: #235267 !important;
+  color: #9bdcff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"]:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"]:focus-visible,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"]:active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="no_access"].active {
+  background: #818a96 !important;
+  border-color: #67707c !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="complex"]:hover,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="complex"]:focus-visible,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="complex"]:active,
+body.dark-theme.page-apartment-detail .toolbar-status button.status-item[data-status="complex"].active {
+  background: #cb2455 !important;
+  border-color: #a61d45 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+body.page-complex-detail .section-card {
+  transform: translateY(-30px);
+}
+
+body.page-complex-detail .section-title,
+body.page-complex-detail .section-group-title,
+body.page-complex-detail .section-combined-title,
+body.page-complex-detail .section-combined-title-main {
+  color: #64748b !important;
 }
 
 /* Final toolbar status color sync with apartment tiles */

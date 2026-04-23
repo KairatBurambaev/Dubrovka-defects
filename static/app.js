@@ -159,6 +159,8 @@ function getCurrentComplexResponsibleOptionsFromDefects() {
 function renderCategoryAndResponsibleOptions() {
     const categoryOptions = document.getElementById('categoryOptions');
     const responsibleOptions = document.getElementById('responsibleOptions');
+    const responsibleDivider = document.querySelector('#categoryDropdown .category-dropdown-divider');
+    const responsibleSubtitle = document.querySelector('#categoryDropdown .category-dropdown-subtitle');
     const selectedCategory = document.getElementById('defectCategoryFilter')?.value || '';
     const selectedResponsible = state.selectedResponsibleFilter || '';
 
@@ -177,6 +179,7 @@ function renderCategoryAndResponsibleOptions() {
 
     if (responsibleOptions) {
         const options = state.currentComplexResponsibleOptions || [];
+        const hasResponsibleOptions = options.length > 0;
         responsibleOptions.innerHTML = `
             ${options.map(option => `
                 <div class="filter-item ${selectedResponsible === option.name ? 'selected' : ''}" data-responsible="${escapeHtml(option.name)}" onclick="selectResponsibleFilterByEvent(event)">
@@ -184,6 +187,9 @@ function renderCategoryAndResponsibleOptions() {
                 </div>
             `).join('')}
         `;
+        responsibleOptions.style.display = hasResponsibleOptions ? '' : 'none';
+        if (responsibleDivider) responsibleDivider.style.display = hasResponsibleOptions ? '' : 'none';
+        if (responsibleSubtitle) responsibleSubtitle.style.display = hasResponsibleOptions ? '' : 'none';
     }
 }
 
@@ -537,12 +543,14 @@ function showTab(tab) {
             if (elements.editComplexBtn) elements.editComplexBtn.style.display = 'inline-flex';
             if (elements.deleteComplexBtn) elements.deleteComplexBtn.style.display = 'inline-flex';
         }
-        setPageTitle('Перспектива', '');
+        setPageTitle('Перспектива Инжиниринг', '');
         // Hide section filter on main page
         const sectionFilterWrapper = document.getElementById('sectionFilterWrapper');
         if (sectionFilterWrapper) sectionFilterWrapper.style.display = 'none';
-        // Show инжиниринг only on main page
-        if (titleSecondary) titleSecondary.style.display = 'block';
+        if (titleSecondary) {
+            titleSecondary.textContent = '-гарантийный сервис-';
+            titleSecondary.style.display = 'block';
+        }
     } else {
         // Hide инжиниринг on other pages
         if (titleSecondary) titleSecondary.style.display = 'none';
@@ -552,7 +560,7 @@ function showTab(tab) {
 function setPageTitle(title, subtitle) {
     const jkName = document.getElementById('jkName');
     if (jkName) {
-        jkName.textContent = title || 'Перспектива';
+        jkName.textContent = title || 'Перспектива Инжиниринг';
         // Если это квартира/апартамент - добавляем клик для возврата в ЖК
         if (state.currentApartment) {
             jkName.onclick = function() { backToComplex(); };
@@ -2088,6 +2096,11 @@ function addCreateComplexResponsibleRow(prefill = {}) {
     row.querySelector('.create-responsible-apartments')?.addEventListener('input', () => updateCreateComplexResponsibleRowSummary(row));
     row.querySelector('.create-responsible-name')?.addEventListener('input', () => updateCreateComplexResponsibleRowSummary(row));
     updateCreateComplexResponsibleRowSummary(row);
+
+    requestAnimationFrame(() => {
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        row.querySelector('.create-responsible-category')?.focus();
+    });
 }
 
 function removeCreateComplexResponsibleRow(button) {
@@ -5399,7 +5412,8 @@ function showAddDefectForm(prefillCategory = '') {
     const windowSelect = document.getElementById('windowNumber');
     if (windowSelect) windowSelect.disabled = false;
     
-    document.getElementById('defectModalTitle').textContent = 'Новое замечание';
+    const defectModalTitle = document.getElementById('defectModalTitle');
+    if (defectModalTitle) defectModalTitle.textContent = 'Новое замечание';
     
     if (modal) {
         modal.classList.add('active');
@@ -5596,7 +5610,8 @@ async function editDefect(id) {
         closeDefectActionsModal();
         
         const modal = document.getElementById('defectModal');
-        document.getElementById('defectModalTitle').textContent = 'Редактирование замечания';
+        const defectModalTitle = document.getElementById('defectModalTitle');
+        if (defectModalTitle) defectModalTitle.textContent = 'Редактирование замечания';
         
         document.getElementById('defectCategory').value = defect.category || '';
         document.getElementById('defectCategory').disabled = true; // Cannot change category
@@ -6788,9 +6803,9 @@ function renderStatsTrendChart(timeline, options = {}) {
 
     if (options.dailyBars) {
         const series = [
-            { key: 'call', label: 'Вызов', color: '#d98aae' },
-            { key: 'accepted', label: 'Принято', color: '#82c7a1' },
-            { key: 'no_access', label: 'Нет доступа', color: '#8fb2ea' }
+            { key: 'call', label: 'Вызов', color: '#c2185b' },
+            { key: 'accepted', label: 'Принято', color: '#16a34a' },
+            { key: 'no_access', label: 'Нет доступа', color: '#2563eb' }
         ];
         const dayWidth = Number(options.dayWidth || 72);
         const width = Math.max(Number(options.width || 1320), timeline.length * dayWidth);
@@ -6994,43 +7009,46 @@ function getStatsPrintRows(stats) {
 function renderStatsExportLayout(stats, chartOptions = {}) {
     const statRows = getStatsPrintRows(stats);
     const timeline = stats.timeline || [];
+    const exportChartOptions = {
+        dailyBars: true,
+        dayWidth: 56,
+        width: 920,
+        height: 420,
+        paddingLeft: 48,
+        paddingRight: 32,
+        paddingTop: 16,
+        paddingBottom: 78,
+        ...chartOptions,
+    };
 
     return `
         <div class="stats-shell stats-dashboard-shell stats-export-shell">
             <div class="stats-dashboard-head">
                 <div class="stats-dashboard-copy">
                     <div class="stats-dashboard-title">${escapeHtml(stats.complex_name || '')}</div>
+                    <span class="stats-dashboard-period">Сводка и динамика за весь период: ${escapeHtml(formatStatsPeriodLabel(stats.period_start, stats.period_end))}</span>
                 </div>
             </div>
 
-            <section class="stats-export-section stats-export-stats">
-                <div class="stats-panel-head">
-                    <strong>Статистика</strong>
-                </div>
-                <div class="stats-export-table">
-                    <div class="stats-export-table-head">
-                        <span>Статус</span>
-                        <span>Количество</span>
-                        <span>%</span>
+            <div class="stats-dashboard-grid stats-export-grid">
+                <section class="stats-dashboard-card stats-metrics-card stats-metrics-card-wide">
+                    <div class="stats-metric-list stats-export-metric-list">
+                        ${statRows.map((row) => `
+                            <div class="stats-metric-row tone-${row.tone}">
+                                <label>${escapeHtml(row.label)}</label>
+                                <strong>${row.value}</strong>
+                                <em>${escapeHtml(row.percent)}</em>
+                            </div>
+                        `).join('')}
                     </div>
-                    ${statRows.map((row) => `
-                        <div class="stats-export-table-row tone-${row.tone}">
-                            <label>${escapeHtml(row.label)}</label>
-                            <strong>${row.value}</strong>
-                            <em>${escapeHtml(row.percent)}</em>
-                        </div>
-                    `).join('')}
-                </div>
-            </section>
+                </section>
 
-            <section class="stats-export-section stats-export-chart">
-                <div class="stats-panel-head">
-                    <strong>График</strong>
-                </div>
-                <div class="stats-chart-wrap">
-                    ${renderStatsTrendChart(timeline, chartOptions)}
-                </div>
-            </section>
+                <section class="stats-dashboard-card stats-chart-card">
+                    <div class="stats-chart-wrap">
+                        ${renderStatsTrendChart(timeline, exportChartOptions)}
+                    </div>
+                </section>
+            </div>
         </div>
     `;
 }
@@ -7475,20 +7493,7 @@ function printStatsReport() {
     .then(r => r.json())
     .then(stats => {
         const jkName = stats.complex_name || document.getElementById('jkName').textContent;
-        const contentHtml = renderStatsExportLayout(stats, {
-            width: 920,
-            height: 300,
-            paddingLeft: 48,
-            paddingRight: 24,
-            paddingTop: 14,
-            paddingBottom: 28,
-            axisFontSize: 11,
-            legendFontSize: 11,
-            legendColumns: 3,
-            legendGap: 8,
-            lineStrokeWidth: 3,
-            pointRadius: 4,
-        });
+        const contentHtml = renderStatsExportLayout(stats);
 
         printWindow.document.open();
         printWindow.document.write(`
@@ -7502,33 +7507,34 @@ function printStatsReport() {
                     html, body { width: 297mm; height: 210mm; margin: 0; padding: 0; background: #ffffff; }
                     body { font-family: Inter, Arial, sans-serif; color: #111111; display: flex; align-items: center; justify-content: center; }
                     .sheet { width: 297mm; height: 210mm; padding: 0; display: flex; align-items: center; justify-content: center; }
-                    .stats-export-shell { width: 70%; height: 70%; display: flex; flex-direction: column; gap: 7px; padding: 0; background: #ffffff; overflow: visible; }
+                    .stats-export-shell { width: 78%; height: 78%; display: flex; flex-direction: column; gap: 12px; padding: 0; background: #ffffff; overflow: visible; }
                     .stats-dashboard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 0; padding: 0 0 8px; }
                     .stats-dashboard-copy { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
                     .stats-dashboard-title { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: #111111; }
                     .stats-dashboard-period { font-size: 12px; color: #555555; line-height: 1.35; }
-                    .stats-export-section { display: flex; flex-direction: column; }
-                    .stats-export-stats { flex: 0 0 auto; }
-                    .stats-export-chart { flex: 1 1 auto; min-height: 0; }
-                    .stats-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 0 6px; }
-                    .stats-panel-head strong { font-size: 14px; font-weight: 700; color: #111111; letter-spacing: -0.01em; }
-                    .stats-panel-head span { font-size: 12px; color: #555555; white-space: nowrap; }
-                    .stats-export-table-head, .stats-export-table-row { display: grid; grid-template-columns: minmax(0, 1fr) 88px 56px; gap: 10px; align-items: center; }
-                    .stats-export-table-head { padding: 0 0 6px; border-bottom: 1px solid #d6d9de; font-size: 10px; color: #666666; text-transform: uppercase; letter-spacing: 0.04em; }
-                    .stats-export-table-head span:nth-child(2), .stats-export-table-head span:nth-child(3) { text-align: right; }
-                    .stats-export-table-row { padding: 9px 0; border-bottom: 1px solid #ececec; }
-                    .stats-export-table-row:last-child { border-bottom: 0; }
-                    .stats-export-table-row label, .stats-export-table-row strong, .stats-export-table-row em { font-style: normal; }
-                    .stats-export-table-row label { font-size: 13px; font-weight: 600; color: #111111; }
-                    .stats-export-table-row strong { text-align: right; font-size: 20px; line-height: 1; color: #111111; font-variant-numeric: tabular-nums; }
-                    .stats-export-table-row em { text-align: right; font-size: 11px; color: #666666; font-variant-numeric: tabular-nums; }
+                    .stats-export-grid { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+                    .stats-dashboard-card { border: 0; background: #ffffff; box-shadow: none; }
+                    .stats-metric-list { display: flex; flex-direction: column; gap: 6px; }
+                    .stats-metric-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px 56px; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid #ececec; }
+                    .stats-metric-row:last-child { border-bottom: 0; }
+                    .stats-metric-row label { font-size: 13px; font-weight: 600; color: #111111; }
+                    .stats-metric-row strong { text-align: right; font-size: 20px; line-height: 1; color: #111111; font-variant-numeric: tabular-nums; }
+                    .stats-metric-row em { text-align: right; font-size: 11px; color: #666666; font-style: normal; font-variant-numeric: tabular-nums; }
                     .stats-chart-wrap { padding: 2px 0 0; flex: 1; min-height: 0; overflow: visible; }
-                    .stats-chart-shell { display: flex; flex-direction: column; gap: 6px; overflow: visible; }
+                    .stats-chart-shell { display: flex; flex-direction: column; gap: 8px; overflow: visible; }
                     .stats-chart { width: 100%; height: auto; display: block; }
-                    .stats-chart-grid-line { stroke: #d6d9de; stroke-width: 1; }
-                    .stats-chart-axis-label { fill: #666666; font-size: 10px; }
-                    .stats-chart-legend { display: flex !important; flex-wrap: wrap; align-items: center; gap: 6px 12px !important; overflow: visible; }
-                    .stats-chart-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; color: #444444; min-width: 0; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.04em; }
+                    .stats-chart-grid-line { stroke: rgba(148,163,184,0.16); stroke-width: 1; }
+                    .stats-chart-day-line { stroke: rgba(148,163,184,0.24); stroke-width: 1; }
+                    .stats-chart-axis-label { fill: #94a3b8; font-size: 10px; }
+                    .stats-chart-date-label { fill: #9aa7b7; }
+                    .stats-chart-line { stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; opacity: 1; }
+                    .stats-chart-line-shadow { stroke-width: 8px; stroke-linecap: round; stroke-linejoin: round; opacity: 0.14; }
+                    .stats-chart-point-ring { stroke-width: 1.5; opacity: 0.08; }
+                    .stats-chart-point { opacity: 1; }
+                    .stats-chart-series-badge rect { stroke: rgba(148,163,184,0.18); stroke-width: 1; fill: rgba(255,255,255,0.96); }
+                    .stats-chart-series-label { font-size: 11px; font-weight: 600; }
+                    .stats-chart-legend { display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px 14px !important; overflow: visible; }
+                    .stats-chart-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: #444444; min-width: 0; white-space: nowrap; }
                     .stats-chart-legend-icon { display: inline-block; width: 10px; height: 10px; border-radius: 999px; flex: 0 0 auto; border: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
                     .stats-chart-empty { min-height: 100%; display: flex; align-items: center; justify-content: center; color: #666666; font-size: 13px; border: 0; border-radius: 0; background: #ffffff; }
                     body, .stats-chart-legend-icon, .stats-chart, .stats-chart-shell { print-color-adjust: exact; -webkit-print-color-adjust: exact; }

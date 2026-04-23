@@ -4,6 +4,7 @@ import uuid
 import json
 import time
 import logging
+import math
 from pathlib import Path
 from datetime import datetime, timedelta, date
 from dateutil.relativedelta import relativedelta
@@ -3504,8 +3505,8 @@ def create_stats_report_jpg(stats):
 
     title_font = load_pil_font(42, bold=True)
     meta_font = load_pil_font(20)
-    panel_title_font = load_pil_font(24, bold=True)
-    body_font = load_pil_font(24)
+    label_font = load_pil_font(22, bold=True)
+    body_font = load_pil_font(22)
     small_font = load_pil_font(18)
     value_font = load_pil_font(36, bold=True)
 
@@ -3514,113 +3515,137 @@ def create_stats_report_jpg(stats):
     content_right = width - margin
     top = 58
 
-    draw.text((content_left, top), stats['complex_name'], font=title_font, fill='#111111')
-    top += 42
-    period_start = stats.get('first_defect_date') or stats.get('period_start') or date.today().isoformat()
-    period_end = date.today().isoformat()
-    draw.line((content_left, top, content_right, top), fill='#d6d9de', width=2)
+    def format_percent(value, total):
+        if not total:
+            return '0%'
+        return f"{round((value / total) * 1000) / 10}%"
 
-    stats_top = top + 24
-    today_label = datetime.now().strftime('%d %B %Y г.')
+    def format_short_date(date_value):
+        if not date_value:
+            return ''
+        try:
+            return datetime.strptime(date_value, '%Y-%m-%d').strftime('%d.%m')
+        except Exception:
+            return str(date_value)
+
+    def build_smooth_points(points):
+        if len(points) <= 1:
+            return points
+        smooth = [points[0]]
+        for index in range(len(points) - 1):
+            current = points[index]
+            nxt = points[index + 1]
+            control_x = (current[0] + nxt[0]) / 2
+            smooth.append((control_x, current[1]))
+            smooth.append((control_x, nxt[1]))
+            smooth.append(nxt)
+        return smooth
+
+    draw.text((content_left, top), stats['complex_name'], font=title_font, fill='#111111')
+    top += 50
+    period_start = stats.get('period_start') or stats.get('first_defect_date') or date.today().isoformat()
+    period_end = stats.get('period_end') or period_start
+    if period_start == period_end:
+        period_label = datetime.strptime(period_start, '%Y-%m-%d').strftime('%d %B %Y')
+    else:
+        period_label = f"{datetime.strptime(period_start, '%Y-%m-%d').strftime('%d %B %Y')} - {datetime.strptime(period_end, '%Y-%m-%d').strftime('%d %B %Y')}"
+    draw.text((content_left, top), f'Сводка и динамика за весь период: {period_label}', font=meta_font, fill='#555555')
 
     total = stats.get('total_apartments') or 0
     today_metrics = stats.get('today_metrics') or {}
     stat_rows = [
-        ('Вызов', today_metrics.get('call', 0), '#c2185b'),
-        ('Принято', today_metrics.get('accepted', 0), '#12a150'),
-        ('Нет доступа', today_metrics.get('no_access', 0), '#2563eb'),
-        ('Остаток с замечаниями', today_metrics.get('remaining_with_defects', 0), '#e60042'),
         ('С замечаниями', today_metrics.get('with_defects', 0), '#111111'),
+        ('Вызов', today_metrics.get('call', 0), '#c2185b'),
+        ('Принято', today_metrics.get('accepted', 0), '#16a34a'),
+        ('Остаток с замечаниями', today_metrics.get('remaining_with_defects', 0), '#e60042'),
+        ('Нет доступа', today_metrics.get('no_access', 0), '#2563eb'),
     ]
-    table_top = stats_top + 8
-    col_status = content_left
-    col_value = content_right - 230
-    col_percent = content_right - 88
-    draw.text((col_status, table_top), 'Статус', font=small_font, fill='#666666')
-    draw.text((col_value, table_top), 'Количество', font=small_font, fill='#666666')
-    draw.text((col_percent, table_top), '%', font=small_font, fill='#666666')
-    draw.line((content_left, table_top + 28, content_right, table_top + 28), fill='#d6d9de', width=1)
 
-    row_y = table_top + 42
-    row_h = 74
-    for label, value, color in stat_rows:
-        draw.line((content_left, row_y + row_h, content_right, row_y + row_h), fill='#ececec', width=1)
-        draw.rounded_rectangle((content_left, row_y + 18, content_left + 8, row_y + 50), radius=4, fill=color, outline=color)
-        draw.text((content_left + 20, row_y + 18), label, font=body_font, fill='#111111')
+    top += 54
+    metric_left = content_left
+    metric_right = content_right
+    row_h = 64
+    for index, (label, value, color) in enumerate(stat_rows):
+        row_y = top + index * row_h
+        draw.line((metric_left, row_y + row_h - 6, metric_right, row_y + row_h - 6), fill='#ececec', width=1)
+        draw.text((metric_left, row_y + 10), label, font=label_font, fill='#111111')
         value_text = str(value)
         value_bbox = draw.textbbox((0, 0), value_text, font=value_font)
-        value_x = col_value + 92 - (value_bbox[2] - value_bbox[0])
-        draw.text((value_x, row_y + 10), value_text, font=value_font, fill='#111111')
-        percent = f"{round((value / total) * 100, 1) if total else 0}%"
-        percent_bbox = draw.textbbox((0, 0), percent, font=small_font)
-        draw.text((content_right - (percent_bbox[2] - percent_bbox[0]), row_y + 24), percent, font=small_font, fill='#666666')
-        row_y += row_h + 12
+        value_x = metric_right - 180 - (value_bbox[2] - value_bbox[0])
+        draw.text((value_x, row_y + 4), value_text, font=value_font, fill='#111111')
+        percent_text = format_percent(value, total)
+        percent_bbox = draw.textbbox((0, 0), percent_text, font=small_font)
+        draw.text((metric_right - (percent_bbox[2] - percent_bbox[0]), row_y + 18), percent_text, font=small_font, fill='#666666')
 
-    chart_section_top = row_y + 20
+    chart_top = top + len(stat_rows) * row_h + 34
+    chart_left = content_left + 54
+    chart_right = content_right - 24
+    chart_bottom = height - 170
 
+    timeline = stats.get('timeline') or []
     series = [
         ('call', 'Вызов', '#c2185b'),
-        ('accepted', 'Принято', '#12a150'),
+        ('accepted', 'Принято', '#16a34a'),
         ('no_access', 'Нет доступа', '#2563eb'),
     ]
-    timeline = stats.get('timeline') or []
-    chart_left = content_left + 20
-    chart_top = chart_section_top + 20
-    chart_right = content_right
-    chart_bottom = height - 150
+
     if timeline:
         max_value = max(1, max(int(point.get(key, 0) or 0) for point in timeline for key, _, _ in series))
         inner_w = chart_right - chart_left
         inner_h = chart_bottom - chart_top
+
         for step in range(5):
             y = chart_bottom - (inner_h * step / 4)
             value = round(max_value * step / 4)
             draw.line((chart_left, y, chart_right, y), fill='#d6d9de', width=1)
             label = str(value)
             bbox = draw.textbbox((0, 0), label, font=small_font)
-            draw.text((chart_left - bbox[2] - 12, y - 9), label, font=small_font, fill='#666666')
+            draw.text((chart_left - bbox[2] - 12, y - 9), label, font=small_font, fill='#94a3b8')
 
         def to_x(index):
-            return chart_left if len(timeline) == 1 else chart_left + (inner_w * index / (len(timeline) - 1))
+            if len(timeline) == 1:
+                return chart_left
+            return chart_left + (inner_w * index / (len(timeline) - 1))
 
         def to_y(value):
             return chart_bottom - ((float(value or 0) / max_value) * inner_h)
 
-        for key, _, color in series:
-            points = [(to_x(index), to_y(point.get(key, 0))) for index, point in enumerate(timeline)]
-            if len(points) > 1:
-                draw.line(points, fill=color, width=6, joint='curve')
-            last_x, last_y = points[-1]
-            draw.ellipse((last_x - 6, last_y - 6, last_x + 6, last_y + 6), fill=color, outline=color)
+        label_step = max(1, math.ceil(len(timeline) / 8))
+        for index, point in enumerate(timeline):
+            x = to_x(index)
+            draw.line((x, chart_bottom - 10, x, chart_bottom), fill='#cbd5e1', width=1)
+            show_label = len(timeline) <= 16 or index == 0 or index == len(timeline) - 1 or index % label_step == 0
+            if show_label:
+                text_value = format_short_date(point.get('date'))
+                bbox = draw.textbbox((0, 0), text_value, font=small_font)
+                draw.text((x - (bbox[2] - bbox[0]) / 2, chart_bottom + 12), text_value, font=small_font, fill='#9aa7b7')
 
-        labels = [timeline[0]['date'], timeline[len(timeline) // 2]['date'], timeline[-1]['date']]
-        positions = [chart_left, chart_left + inner_w / 2, chart_right]
-        for idx, label in enumerate(labels):
-            text_value = datetime.strptime(label, '%Y-%m-%d').strftime('%d.%m')
-            bbox = draw.textbbox((0, 0), text_value, font=small_font)
-            x = positions[idx] - (bbox[2] / 2)
-            if idx == 0:
-                x = positions[idx]
-            elif idx == 2:
-                x = positions[idx] - bbox[2]
-            draw.text((x, chart_bottom + 12), text_value, font=small_font, fill='#666666')
+        for key, label, color in series:
+            points = [(to_x(index), to_y(point.get(key, 0))) for index, point in enumerate(timeline)]
+            smooth_points = build_smooth_points(points)
+            if len(smooth_points) > 1:
+                draw.line(smooth_points, fill=color, width=12)
+                draw.line(smooth_points, fill=color, width=5)
+            for x, y in points:
+                draw.ellipse((x - 8, y - 8, x + 8, y + 8), outline=color, width=2)
+                draw.ellipse((x - 3.5, y - 3.5, x + 3.5, y + 3.5), fill=color, outline=color)
+            last_x, last_y = points[-1]
+            badge_x = min(chart_right - 92, last_x + 12)
+            badge_y = max(chart_top + 4, last_y - 18)
+            draw.rounded_rectangle((badge_x, badge_y, badge_x + 82, badge_y + 22), radius=11, fill='#ffffff', outline='#d6d9de', width=1)
+            draw.ellipse((badge_x + 8, badge_y + 7, badge_x + 15, badge_y + 14), fill=color, outline=color)
+            draw.text((badge_x + 20, badge_y + 4), str(int(timeline[-1].get(key, 0) or 0)), font=small_font, fill='#4b5563')
     else:
         empty_bbox = draw.textbbox((0, 0), 'Нет данных для графика', font=body_font)
         draw.text((chart_left + ((chart_right - chart_left) - (empty_bbox[2] - empty_bbox[0])) / 2, chart_top + 140), 'Нет данных для графика', font=body_font, fill='#666666')
 
     legend_x = content_left
-    legend_y = chart_bottom + 28
-    legend_width = content_right - content_left
-    legend_columns = 3
-    legend_gap_x = 24
-    item_width = (legend_width - legend_gap_x * (legend_columns - 1)) / legend_columns
-    for idx, (_, label, color) in enumerate(series):
-        col = idx % legend_columns
-        row = idx // legend_columns
-        item_x = legend_x + col * (item_width + legend_gap_x)
-        item_y = legend_y + row * 34
-        draw.ellipse((item_x, item_y + 5, item_x + 10, item_y + 15), fill=color)
-        draw.text((item_x + 18, item_y), label, font=small_font, fill='#444444')
+    legend_y = chart_bottom + 54
+    current_x = legend_x
+    for _, label, color in series:
+        draw.ellipse((current_x, legend_y + 4, current_x + 10, legend_y + 14), fill=color, outline=color)
+        draw.text((current_x + 18, legend_y), label, font=small_font, fill='#444444')
+        current_x += 170
 
     output = io.BytesIO()
     image.save(output, format='JPEG', quality=92)

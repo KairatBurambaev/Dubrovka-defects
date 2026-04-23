@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Перспектива Инжиниринг гарантийный сервис</title>
+    <title>Перспектива Инжиниринг -гарантийный сервис-</title>
     <link rel="preload" href="/static/fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/static/fonts/Inter-Medium.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/static/fonts/Inter-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/static/fonts/InterDisplay-Bold.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/static/fonts/InterDisplay-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/static/style.css?v=9726">
-    <script src="/static/app.js?v=9541"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9745">
+    <script src="/static/app.js?v=9547"></script>
 </head>
 <body>
     <div class="app">
@@ -20,7 +20,7 @@
                 <div class="header-left">
                     <div id="pageTitle" class="clickable-title title-stack">
                         <span class="title-line title-primary apartment-title-row">
-                            <span id="jkName" onclick="onTitleClick()">Перспектива</span>
+                            <span id="jkName" onclick="onTitleClick()">Перспектива Инжиниринг</span>
                             <select id="mobileApartmentStatusSelect" class="select mobile-apartment-status-select" onchange="handleMobileApartmentStatusChange(this.value)">
                                 <option value="">Без статуса</option>
                                 <option value="owner_accepted">Принята</option>
@@ -32,7 +32,7 @@
                             </select>
                             <button id="headerPrintBtn" class="btn btn-sm apartment-header-print" onclick="printDefects()" style="display:none;">Печать</button>
                         </span>
-                        <span class="title-line title-secondary" id="titleSecondary">− инжиниринг −</span>
+                        <span class="title-line title-secondary" id="titleSecondary">-гарантийный сервис-</span>
                         <div class="header-sub" id="pageSubtitle"></div>
                     </div>
                     <!-- Mobile status filter dropdown -->
@@ -221,10 +221,6 @@
     <!-- Defect Modal -->
     <div id="defectModal" class="modal" onclick="closeDefectModal(event)">
         <div class="modal-content defect-modal" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h3 id="defectModalTitle">Новое замечание</h3>
-                <button class="modal-close" onclick="closeDefectModal()">×</button>
-            </div>
             <div class="modal-body">
                 <form id="addDefectForm" class="form defect-form">
                     <div class="defect-form-section">
@@ -265,7 +261,7 @@
                     <input type="file" id="defectPhotosBefore" multiple accept="image/*" hidden>
                     <input type="file" id="defectPhotosBeforeGallery" multiple accept="image/*" hidden>
                     <input type="file" id="defectPhotosBeforeCamera" accept="image/*" capture="environment" hidden>
-                    <div class="form-footer">
+                    <div class="form-footer defect-modal-footer-centered">
                         <button type="button" class="btn" onclick="closeDefectModal()">Отмена</button>
                         <button type="submit" class="btn btn-primary">Сохранить</button>
                     </div>
@@ -420,10 +416,6 @@
 
     <div id="createComplexResponsibleModal" class="modal" onclick="closeCreateComplexResponsibleModal(event)">
         <div class="modal-content create-responsible-modal" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h3 id="createComplexResponsibleTitle">Ответственные</h3>
-                <button class="modal-close" onclick="closeCreateComplexResponsibleModal()">×</button>
-            </div>
             <div class="modal-body">
                 <form id="createComplexResponsibleForm" class="form">
                     <div class="create-responsible-hint">Выберите категорию, укажите квартиры через запятую и/или дефис и заполните ответственного.</div>
