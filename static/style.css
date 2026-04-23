@@ -4457,7 +4457,7 @@ h1 {
   font: inherit;
   line-height: 1.35;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 7px;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
@@ -4472,19 +4472,29 @@ h1 {
 .defect-item-photo-icon {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 6px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.1);
-  color: #2563eb;
+  justify-content: center;
+  gap: 0;
+  margin-left: 3px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #4b5563;
   font-size: 11px;
-  line-height: 1;
+  line-height: 1.35;
   cursor: pointer;
+  width: 22px;
+  min-width: 22px;
+  height: 20px;
+  vertical-align: middle;
 }
 
 .defect-item-photo-icon svg {
   display: block;
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.35;
+  transform: translateY(-1px);
 }
 
 .defect-item-photo-count {
@@ -4511,21 +4521,21 @@ h1 {
 .defect-item-token.is-in-progress {
   color: #8a6a35;
   background: #fef3c7;
-  border-radius: 8px;
+  border-radius: 7px;
 }
 
 .defect-item-token.is-completed {
   color: #15803d;
   font-weight: 400;
   background: #dcfce7;
-  border-radius: 8px;
+  border-radius: 7px;
 }
 
 .defect-item-token.is-on-review {
   color: #2563eb;
   font-weight: 400;
   background: #dbeafe;
-  border-radius: 8px;
+  border-radius: 7px;
 }
 
 .defect-item-token.date-hover-match {
@@ -5273,6 +5283,25 @@ h1 {
   display: block;
   stroke-width: 1.8;
   vector-effect: non-scaling-stroke;
+}
+
+.defect-category-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.defect-category-icon-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .defect-section-contractors {
@@ -6322,7 +6351,7 @@ body.page-create-complex .mobile-filter-buttons {
     height: auto;
     max-height: min(98vh, 1600px);
     border: 1px solid rgba(219, 228, 238, 0.92);
-    border-radius: 24px;
+    border-radius: 0;
     overflow: hidden;
     background: var(--card);
     box-shadow: 0 28px 72px rgba(15, 23, 42, 0.2);
@@ -6353,7 +6382,7 @@ body.page-create-complex .mobile-filter-buttons {
 .stats-dashboard-shell {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
     padding: 24px 28px 28px;
     background: #ffffff;
 }
@@ -6426,7 +6455,7 @@ body.page-create-complex .mobile-filter-buttons {
     position: relative;
     overflow: hidden;
     border: 1px solid #d6d9de;
-    border-radius: 18px;
+    border-radius: 0;
     background: #ffffff;
     box-shadow: none;
 }
@@ -6475,15 +6504,19 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-dashboard-grid {
-    display: grid;
-    grid-template-columns: 280px minmax(0, 1fr);
-    gap: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
     align-items: start;
 }
 
 .stats-metrics-card {
-    width: 280px;
-    max-width: 280px;
+    width: 100%;
+    max-width: none;
+}
+
+.stats-metrics-card-wide {
+    width: 100%;
 }
 
 .stats-focus-shell {
@@ -6638,20 +6671,22 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-metric-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
     padding: 16px 18px 18px;
 }
 
 .stats-metric-row {
     position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 56px 64px;
-    gap: 12px;
-    align-items: center;
-    padding: 14px 16px;
-    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+    justify-content: space-between;
+    min-height: 132px;
+    padding: 18px;
+    border-radius: 0;
     background: #ffffff;
     border: 1px solid #e4e4e7;
 }
@@ -6666,31 +6701,32 @@ body.page-create-complex .mobile-filter-buttons {
     font-size: 13px;
     font-weight: 600;
     color: #111111;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 .stats-metric-row strong {
-    min-width: 56px;
-    width: 56px;
-    text-align: right;
-    font-size: 20px;
+    min-width: 0;
+    width: auto;
+    text-align: left;
+    font-size: 34px;
     line-height: 1;
     color: #111111;
     font-variant-numeric: tabular-nums;
 }
 
 .stats-metric-row em {
-    min-width: 64px;
-    width: 64px;
-    text-align: right;
+    min-width: 0;
+    width: auto;
+    text-align: left;
     font-size: 12px;
     color: #666666;
     font-variant-numeric: tabular-nums;
 }
 
 .stats-chart-card {
+    width: 100%;
     min-width: 0;
     min-height: 100%;
     display: flex;
@@ -6799,9 +6835,9 @@ body.page-create-complex .mobile-filter-buttons {
 }
 
 .stats-chart-wrap {
-    padding: 10px 10px 16px;
+    padding: 18px;
     flex: 1 1 auto;
-    min-height: 720px;
+    min-height: 0;
 }
 
 .stats-kpi-card.tone-accepted::before,
@@ -6837,8 +6873,18 @@ body.page-create-complex .mobile-filter-buttons {
 .stats-chart-shell {
     display: flex;
     flex-direction: column;
-    gap: 32px;
-    align-items: center;
+    gap: 18px;
+    align-items: stretch;
+}
+
+.stats-chart-shell-scrollable {
+    overflow: hidden;
+}
+
+.stats-chart-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
 }
 
 .stats-chart {
@@ -6848,13 +6894,27 @@ body.page-create-complex .mobile-filter-buttons {
     margin: 0 auto;
 }
 
+.stats-chart-daily {
+    min-width: 100%;
+}
+
 .stats-chart-grid-line {
     stroke: #d6d9de;
     stroke-width: 1;
 }
 
+.stats-chart-day-line {
+    stroke: #eef2f7;
+    stroke-width: 1;
+}
+
 .stats-chart-axis-label {
     fill: #666666;
+    font-size: 11px;
+}
+
+.stats-chart-date-label {
+    fill: #444444;
     font-size: 11px;
 }
 
@@ -6866,6 +6926,12 @@ body.page-create-complex .mobile-filter-buttons {
     border-bottom: 0;
     justify-content: center;
     margin-top: 6px;
+}
+
+.stats-chart-legend-left {
+    justify-content: flex-start;
+    padding: 0;
+    margin-top: 0;
 }
 
 .stats-chart-legend-item {
@@ -6883,7 +6949,7 @@ body.page-create-complex .mobile-filter-buttons {
 .stats-chart-legend-icon {
     width: 8px;
     height: 8px;
-    border-radius: 999px;
+    border-radius: 0;
     display: inline-block;
     flex: 0 0 auto;
 }
@@ -6896,7 +6962,7 @@ body.page-create-complex .mobile-filter-buttons {
     color: #666666;
     font-size: 13px;
     border: 1px dashed #d6d9de;
-    border-radius: 16px;
+    border-radius: 0;
     background: #ffffff;
 }
 
@@ -7513,8 +7579,8 @@ body.page-create-complex .mobile-filter-buttons {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .stats-dashboard-grid {
-    grid-template-columns: 1fr;
+  .stats-metric-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .executor-registry-modal,
@@ -7600,16 +7666,11 @@ body.page-create-complex .mobile-filter-buttons {
     width: 100%;
     max-width: 100%;
     max-height: 92dvh;
-    border-radius: 22px 22px 0 0;
+    border-radius: 0;
   }
 
-  .stats-metric-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .stats-metric-row em {
-    grid-column: 1 / -1;
-    text-align: left;
+  .stats-metric-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -7759,7 +7820,7 @@ body.page-create-complex .mobile-filter-buttons {
         width: 100%;
         max-width: 100%;
         max-height: 72vh;
-        border-radius: 12px;
+        border-radius: 0;
     }
 
     .defect-card-field-topline,
@@ -7836,18 +7897,13 @@ body.page-create-complex .mobile-filter-buttons {
     }
 
     .stats-metric-list {
+        grid-template-columns: 1fr;
         padding: 12px;
     }
 
     .stats-metric-row {
-        grid-template-columns: 1fr auto;
-        padding-right: 14px;
-    }
-
-    .stats-metric-row em {
-        grid-column: 1 / -1;
-        text-align: left;
-        min-width: 0;
+        min-height: 0;
+        padding: 16px;
     }
 
     .stats-ticket-card {
@@ -13354,10 +13410,205 @@ body.dark-theme .stats-chart-grid-line {
   stroke: rgba(148, 163, 184, 0.24);
 }
 
+body.dark-theme .stats-chart-day-line {
+  stroke: rgba(148, 163, 184, 0.12);
+}
+
 body.dark-theme .stats-chart-axis-label,
 body.dark-theme .stats-chart-legend-item {
   color: var(--text-secondary) !important;
   fill: var(--text-secondary) !important;
+}
+
+.stats-modal .stats-popover,
+.stats-modal .stats-dashboard-card,
+.stats-modal .stats-kpi-card,
+.stats-modal .stats-chart-empty,
+.stats-modal .stats-chart-legend-icon {
+  border-radius: 18px !important;
+}
+
+.stats-modal .stats-popover,
+.stats-modal .stats-dashboard-card,
+.stats-modal .stats-kpi-card,
+.stats-modal .stats-chart-card,
+.stats-modal .stats-metrics-card,
+.stats-modal .stats-metric-row,
+.stats-modal .stats-chart-empty,
+.stats-modal .stats-chart-shell,
+.stats-modal .stats-chart-wrap {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.stats-modal .stats-dashboard-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  min-height: min(82vh, 980px) !important;
+}
+
+.stats-modal .stats-metrics-card,
+.stats-modal .stats-chart-card {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.stats-modal .stats-metrics-card {
+  flex: 0 0 auto !important;
+}
+
+.stats-modal .stats-chart-card {
+  flex: 1 1 66% !important;
+  min-height: 0 !important;
+}
+
+.stats-modal .stats-metric-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.stats-modal .stats-metric-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 60px 52px !important;
+  align-items: center !important;
+  min-height: 0 !important;
+  padding: 6px 8px !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+}
+
+.stats-modal .stats-metric-row label {
+  font-size: 11px !important;
+}
+
+.stats-modal .stats-metric-row strong {
+  font-size: 18px !important;
+}
+
+.stats-modal .stats-metric-row em {
+  font-size: 10px !important;
+}
+
+.stats-modal .stats-metric-row strong,
+.stats-modal .stats-metric-row em {
+  width: auto !important;
+  min-width: 0 !important;
+  text-align: right !important;
+}
+
+.stats-modal .stats-metric-row strong {
+  font-size: 18px !important;
+}
+
+.stats-modal .stats-chart-wrap {
+  padding: 2px 0 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+.stats-modal .stats-chart-shell {
+  height: 100% !important;
+  min-height: min(66vh, 760px) !important;
+  padding: 2px 0 0 !important;
+  align-items: stretch !important;
+  background: transparent !important;
+}
+
+.stats-modal .stats-chart-scroll {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+
+.stats-modal .stats-chart-legend-left {
+  justify-content: flex-start !important;
+  padding: 4px 0 0 !important;
+}
+
+.stats-modal .stats-chart-grid-line {
+  stroke: rgba(148, 163, 184, 0.12) !important;
+}
+
+.stats-modal .stats-chart-line {
+  stroke-width: 3.5 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  opacity: 0.9;
+}
+
+.stats-modal .stats-chart-line-shadow {
+  stroke-width: 8px !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  opacity: 0.12;
+}
+
+.stats-modal .stats-chart-point-ring {
+  stroke-width: 1.5 !important;
+  opacity: 0.06;
+}
+
+.stats-modal .stats-chart-point {
+  opacity: 0.88;
+}
+
+.stats-modal .stats-chart-series-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+.stats-modal .stats-chart-series-badge rect {
+  stroke: rgba(148, 163, 184, 0.12);
+  stroke-width: 1;
+}
+
+.stats-modal .stats-chart-axis-label {
+  fill: #94a3b8 !important;
+}
+
+.stats-modal .stats-chart-date-label {
+  fill: #9aa7b7 !important;
+}
+
+.stats-modal .stats-chart-day-line {
+  stroke: rgba(148, 163, 184, 0.18) !important;
+}
+
+@media (max-width: 1024px) {
+  .stats-modal .stats-dashboard-grid {
+    min-height: auto !important;
+  }
+
+  .stats-modal .stats-chart-shell {
+    min-height: 520px !important;
+  }
+
+  .stats-modal .stats-metric-list {
+    gap: 8px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-modal .stats-popover {
+    border-radius: 18px 18px 0 0 !important;
+  }
+
+  .stats-modal .stats-metric-list {
+    gap: 8px !important;
+  }
+
+  .stats-modal .stats-metric-row {
+    grid-template-columns: minmax(0, 1fr) 56px 48px !important;
+    padding: 5px 8px !important;
+  }
+
+  .stats-modal .stats-chart-shell {
+    min-height: 460px !important;
+    padding: 6px 0 0 !important;
+  }
 }
 
 /* Final responsive overrides */
@@ -14060,6 +14311,10 @@ body.dark-theme .stats-chart-grid-line {
   stroke: #29303a !important;
 }
 
+body.dark-theme .stats-chart-day-line {
+  stroke: #232a34 !important;
+}
+
 body.dark-theme .stats-chart-axis-label,
 body.dark-theme .stats-chart-legend-item {
   color: #98a2b3 !important;
@@ -14524,6 +14779,383 @@ body.dark-theme .toolbar-status .status-item[data-status="complex"].active {
   background: #cb2455 !important;
   border-color: #a61d45 !important;
   color: #ffffff !important;
+}
+
+/* Final no-hover animation override for apartment tiles and defect statuses */
+.apt,
+.floor-apts .apt,
+.apt-sort-grid .apt,
+.defect-status-badge,
+.defect-compact-status,
+.defect-status-option {
+  transition: none !important;
+}
+
+.apt:hover,
+.apt:focus,
+.apt:active,
+.floor-apts .apt:hover,
+.floor-apts .apt:focus,
+.floor-apts .apt:active,
+.apt-sort-grid .apt:hover,
+.apt-sort-grid .apt:focus,
+.apt-sort-grid .apt:active,
+body.dark-theme .apt:hover,
+body.dark-theme .apt:focus,
+body.dark-theme .apt:active,
+body.dark-theme .floor-apts .apt:hover,
+body.dark-theme .floor-apts .apt:focus,
+body.dark-theme .floor-apts .apt:active,
+body.dark-theme .apt-sort-grid .apt:hover,
+body.dark-theme .apt-sort-grid .apt:focus,
+body.dark-theme .apt-sort-grid .apt:active,
+.defect-status-badge:hover,
+.defect-status-badge:focus,
+.defect-status-badge:active,
+.defect-compact-status:hover,
+.defect-compact-status:focus,
+.defect-compact-status:active,
+.defect-status-option:hover,
+.defect-status-option:focus,
+.defect-status-option:active,
+body.page-apartment-detail #defectsList .defect-status-badge:hover,
+body.page-apartment-detail #defectsList .defect-status-badge:focus,
+body.page-apartment-detail #defectsList .defect-status-badge:active,
+body.page-apartment-detail #defectsList .defect-compact-status:hover,
+body.page-apartment-detail #defectsList .defect-compact-status:focus,
+body.page-apartment-detail #defectsList .defect-compact-status:active {
+  transform: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.defect-status-badge.badge-new,
+.defect-status-badge.badge-new:hover,
+.defect-status-badge.badge-new:focus,
+.defect-status-badge.badge-new:active,
+.defect-compact-status.badge-new,
+.defect-compact-status.badge-new:hover,
+.defect-compact-status.badge-new:focus,
+.defect-compact-status.badge-new:active,
+.defect-status-badge.badge-recorded,
+.defect-status-badge.badge-recorded:hover,
+.defect-status-badge.badge-recorded:focus,
+.defect-status-badge.badge-recorded:active,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:focus,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:active,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:hover,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:focus,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:active {
+  background: #d7dce2 !important;
+  color: #374151 !important;
+}
+
+body.dark-theme .defect-status-badge.badge-new,
+body.dark-theme .defect-status-badge.badge-new:hover,
+body.dark-theme .defect-status-badge.badge-new:focus,
+body.dark-theme .defect-status-badge.badge-new:active,
+body.dark-theme .defect-compact-status.badge-new,
+body.dark-theme .defect-compact-status.badge-new:hover,
+body.dark-theme .defect-compact-status.badge-new:focus,
+body.dark-theme .defect-compact-status.badge-new:active,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:active,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:active {
+  background: #b7c0cb !important;
+  color: #111827 !important;
+}
+
+.defect-status-option.status-new,
+.defect-status-option.status-new:hover,
+.defect-status-option.status-new:focus,
+.defect-status-option.status-new:active,
+.defect-status-option.status-new.active,
+.defect-status-option.status-recorded,
+.defect-status-option.status-recorded:hover,
+.defect-status-option.status-recorded:focus,
+.defect-status-option.status-recorded:active,
+.defect-status-option.status-recorded.active {
+  border-color: #d7dce2 !important;
+  background: #d7dce2 !important;
+  color: #374151 !important;
+}
+
+body.dark-theme .defect-status-option.status-new,
+body.dark-theme .defect-status-option.status-new:hover,
+body.dark-theme .defect-status-option.status-new:focus,
+body.dark-theme .defect-status-option.status-new:active,
+body.dark-theme .defect-status-option.status-new.active,
+body.dark-theme .defect-status-option.status-recorded,
+body.dark-theme .defect-status-option.status-recorded:hover,
+body.dark-theme .defect-status-option.status-recorded:focus,
+body.dark-theme .defect-status-option.status-recorded:active,
+body.dark-theme .defect-status-option.status-recorded.active {
+  border-color: #b7c0cb !important;
+  background: #b7c0cb !important;
+  color: #111827 !important;
+}
+
+/* Final unified silver color for new/recorded everywhere */
+.badge-new,
+.badge-new:hover,
+.badge-new:focus,
+.badge-new:active,
+.badge-recorded,
+.badge-recorded:hover,
+.badge-recorded:focus,
+.badge-recorded:active,
+.defect-status-badge.badge-new,
+.defect-status-badge.badge-new:hover,
+.defect-status-badge.badge-new:focus,
+.defect-status-badge.badge-new:active,
+.defect-status-badge.badge-recorded,
+.defect-status-badge.badge-recorded:hover,
+.defect-status-badge.badge-recorded:focus,
+.defect-status-badge.badge-recorded:active,
+.defect-compact-status.badge-new,
+.defect-compact-status.badge-new:hover,
+.defect-compact-status.badge-new:focus,
+.defect-compact-status.badge-new:active,
+.defect-compact-status.badge-recorded,
+.defect-compact-status.badge-recorded:hover,
+.defect-compact-status.badge-recorded:focus,
+.defect-compact-status.badge-recorded:active,
+.defect-status-option.status-new,
+.defect-status-option.status-new:hover,
+.defect-status-option.status-new:focus,
+.defect-status-option.status-new:active,
+.defect-status-option.status-new.active,
+.defect-status-option.status-recorded,
+.defect-status-option.status-recorded:hover,
+.defect-status-option.status-recorded:focus,
+.defect-status-option.status-recorded:active,
+.defect-status-option.status-recorded.active,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:focus,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:active,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:focus,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:active,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:hover,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:focus,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:active,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-recorded,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:hover,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:focus,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:active {
+  border-color: #d7dce2 !important;
+  background: #d7dce2 !important;
+  color: #374151 !important;
+}
+
+body.dark-theme .badge-new,
+body.dark-theme .badge-new:hover,
+body.dark-theme .badge-new:focus,
+body.dark-theme .badge-new:active,
+body.dark-theme .badge-recorded,
+body.dark-theme .badge-recorded:hover,
+body.dark-theme .badge-recorded:focus,
+body.dark-theme .badge-recorded:active,
+body.dark-theme .defect-status-badge.badge-new,
+body.dark-theme .defect-status-badge.badge-new:hover,
+body.dark-theme .defect-status-badge.badge-new:focus,
+body.dark-theme .defect-status-badge.badge-new:active,
+body.dark-theme .defect-status-badge.badge-recorded,
+body.dark-theme .defect-status-badge.badge-recorded:hover,
+body.dark-theme .defect-status-badge.badge-recorded:focus,
+body.dark-theme .defect-status-badge.badge-recorded:active,
+body.dark-theme .defect-compact-status.badge-new,
+body.dark-theme .defect-compact-status.badge-new:hover,
+body.dark-theme .defect-compact-status.badge-new:focus,
+body.dark-theme .defect-compact-status.badge-new:active,
+body.dark-theme .defect-compact-status.badge-recorded,
+body.dark-theme .defect-compact-status.badge-recorded:hover,
+body.dark-theme .defect-compact-status.badge-recorded:focus,
+body.dark-theme .defect-compact-status.badge-recorded:active,
+body.dark-theme .defect-status-option.status-new,
+body.dark-theme .defect-status-option.status-new:hover,
+body.dark-theme .defect-status-option.status-new:focus,
+body.dark-theme .defect-status-option.status-new:active,
+body.dark-theme .defect-status-option.status-new.active,
+body.dark-theme .defect-status-option.status-recorded,
+body.dark-theme .defect-status-option.status-recorded:hover,
+body.dark-theme .defect-status-option.status-recorded:focus,
+body.dark-theme .defect-status-option.status-recorded:active,
+body.dark-theme .defect-status-option.status-recorded.active,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:active,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:active,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:active,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-recorded,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:active {
+  border-color: #b7c0cb !important;
+  background: #b7c0cb !important;
+  color: #111827 !important;
+}
+
+/* Final light silver accents for new/recorded and related chips */
+.badge-new,
+.badge-new:hover,
+.badge-new:focus,
+.badge-new:active,
+.badge-recorded,
+.badge-recorded:hover,
+.badge-recorded:focus,
+.badge-recorded:active,
+.defect-status-badge.badge-new,
+.defect-status-badge.badge-new:hover,
+.defect-status-badge.badge-new:focus,
+.defect-status-badge.badge-new:active,
+.defect-status-badge.badge-recorded,
+.defect-status-badge.badge-recorded:hover,
+.defect-status-badge.badge-recorded:focus,
+.defect-status-badge.badge-recorded:active,
+.defect-compact-status.badge-new,
+.defect-compact-status.badge-new:hover,
+.defect-compact-status.badge-new:focus,
+.defect-compact-status.badge-new:active,
+.defect-compact-status.badge-recorded,
+.defect-compact-status.badge-recorded:hover,
+.defect-compact-status.badge-recorded:focus,
+.defect-compact-status.badge-recorded:active,
+.defect-status-option.status-new,
+.defect-status-option.status-new:hover,
+.defect-status-option.status-new:focus,
+.defect-status-option.status-new:active,
+.defect-status-option.status-new.active,
+.defect-status-option.status-recorded,
+.defect-status-option.status-recorded:hover,
+.defect-status-option.status-recorded:focus,
+.defect-status-option.status-recorded:active,
+.defect-status-option.status-recorded.active,
+.defect-item-photo-icon,
+.defect-window-chip,
+.defect-icon-chip,
+.defect-photos-toggle,
+.defect-photos-icon-btn {
+  border-color: #e5e7eb !important;
+  background: #eef1f4 !important;
+  color: #4b5563 !important;
+}
+
+.defect-item-photo-icon svg,
+.defect-window-chip svg,
+.defect-icon-chip svg,
+.defect-photos-toggle svg,
+.defect-photos-icon-btn svg {
+  color: #4b5563 !important;
+  stroke: #4b5563 !important;
+}
+
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:focus,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-new:active,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:hover,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:focus,
+body.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:active,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:hover,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:focus,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-new:active,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-recorded,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:hover,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:focus,
+body.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:active {
+  border-color: #e5e7eb !important;
+  background: #eef1f4 !important;
+  color: #4b5563 !important;
+}
+
+body.dark-theme .badge-new,
+body.dark-theme .badge-new:hover,
+body.dark-theme .badge-new:focus,
+body.dark-theme .badge-new:active,
+body.dark-theme .badge-recorded,
+body.dark-theme .badge-recorded:hover,
+body.dark-theme .badge-recorded:focus,
+body.dark-theme .badge-recorded:active,
+body.dark-theme .defect-status-badge.badge-new,
+body.dark-theme .defect-status-badge.badge-new:hover,
+body.dark-theme .defect-status-badge.badge-new:focus,
+body.dark-theme .defect-status-badge.badge-new:active,
+body.dark-theme .defect-status-badge.badge-recorded,
+body.dark-theme .defect-status-badge.badge-recorded:hover,
+body.dark-theme .defect-status-badge.badge-recorded:focus,
+body.dark-theme .defect-status-badge.badge-recorded:active,
+body.dark-theme .defect-compact-status.badge-new,
+body.dark-theme .defect-compact-status.badge-new:hover,
+body.dark-theme .defect-compact-status.badge-new:focus,
+body.dark-theme .defect-compact-status.badge-new:active,
+body.dark-theme .defect-compact-status.badge-recorded,
+body.dark-theme .defect-compact-status.badge-recorded:hover,
+body.dark-theme .defect-compact-status.badge-recorded:focus,
+body.dark-theme .defect-compact-status.badge-recorded:active,
+body.dark-theme .defect-status-option.status-new,
+body.dark-theme .defect-status-option.status-new:hover,
+body.dark-theme .defect-status-option.status-new:focus,
+body.dark-theme .defect-status-option.status-new:active,
+body.dark-theme .defect-status-option.status-new.active,
+body.dark-theme .defect-status-option.status-recorded,
+body.dark-theme .defect-status-option.status-recorded:hover,
+body.dark-theme .defect-status-option.status-recorded:focus,
+body.dark-theme .defect-status-option.status-recorded:active,
+body.dark-theme .defect-status-option.status-recorded.active,
+body.dark-theme .defect-item-photo-icon,
+body.dark-theme .defect-window-chip,
+body.dark-theme .defect-icon-chip,
+body.dark-theme .defect-photos-toggle,
+body.dark-theme .defect-photos-icon-btn,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-new:active,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-status-badge.badge-recorded:active,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-new:active,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-recorded,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:hover,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:focus,
+body.dark-theme.page-apartment-detail #defectsList .defect-compact-status.badge-recorded:active {
+  border-color: #cfd5dc !important;
+  background: #d8dee5 !important;
+  color: #111827 !important;
+}
+
+body.dark-theme .defect-item-photo-icon svg,
+body.dark-theme .defect-window-chip svg,
+body.dark-theme .defect-icon-chip svg,
+body.dark-theme .defect-photos-toggle svg,
+body.dark-theme .defect-photos-icon-btn svg {
+  color: #111827 !important;
+  stroke: #111827 !important;
 }
 
 body.page-complex-detail .pill[data-filter="owner_accepted"].active {
@@ -15642,6 +16274,10 @@ body.dark-theme .stats-chart-grid-line {
   stroke: #27303b !important;
 }
 
+body.dark-theme .stats-chart-day-line {
+  stroke: #212833 !important;
+}
+
 body.dark-theme .stats-chart-axis-label,
 body.dark-theme .stats-chart-legend-item {
   color: var(--text-secondary) !important;
@@ -16021,6 +16657,135 @@ body.dark-theme .defect-media-card {
   background: #11151b !important;
   border-color: #2f3641 !important;
   box-shadow: none !important;
+}
+
+/* Defect press feedback matches apartment tiles */
+.defect-compact-row-toggleable,
+.defect-restoration-badge,
+.defect-window-chip,
+.defect-icon-chip,
+.defect-item-photo-icon,
+.defect-item-token {
+  transition: transform 0.08s ease, box-shadow 0.08s ease !important;
+}
+
+.defect-restoration-badge,
+.defect-window-chip,
+.defect-icon-chip {
+  border-radius: 7px !important;
+}
+
+.defect-restoration-badge {
+  min-width: 28px !important;
+  height: 24px !important;
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+}
+
+.defect-category-icon-btn.is-active,
+.defect-category-icon-btn.is-active:hover,
+.defect-category-icon-btn.is-active:focus,
+.defect-category-icon-btn.is-active:active {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: #ed0067 !important;
+  box-shadow: 0 0 0 3px rgba(237, 0, 103, 0.14) !important;
+}
+
+.defect-category-icon-btn.is-active svg,
+.defect-category-icon-btn.is-active:hover svg,
+.defect-category-icon-btn.is-active:focus svg,
+.defect-category-icon-btn.is-active:active svg {
+  color: #ed0067 !important;
+  stroke: #ed0067 !important;
+}
+
+.defect-compact-row-toggleable:active,
+.defect-restoration-badge:active,
+.defect-window-chip:active,
+.defect-icon-chip:active,
+.defect-item-photo-icon:active,
+.defect-item-token:active {
+  transform: scale(0.98) !important;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.12), 0 1px 2px rgb(0 0 0 / 0.06) !important;
+}
+
+/* Transparent defect cards */
+.defect-card,
+.defect-card-body,
+.defect-card-footer,
+.defect-card-field,
+.defect-card-value,
+.defect-section-header,
+.defects-list,
+.defect-compact-row,
+body.page-apartment-detail .defect-card,
+body.page-apartment-detail .defect-card-body,
+body.page-apartment-detail .defect-card-footer,
+body.page-apartment-detail .defect-card-field,
+body.page-apartment-detail .defect-card-value,
+body.page-apartment-detail .defect-section-header,
+body.page-apartment-detail .defects-list,
+body.page-apartment-detail .defect-compact-row,
+body.dark-theme .defect-card,
+body.dark-theme .defect-card-body,
+body.dark-theme .defect-card-footer,
+body.dark-theme .defect-card-field,
+body.dark-theme .defect-card-value,
+body.dark-theme .defect-section-header,
+body.dark-theme .defects-list,
+body.dark-theme .defect-compact-row {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.defect-section-header,
+.defects-list,
+body.page-apartment-detail .defect-section-header,
+body.page-apartment-detail .defects-list,
+body.dark-theme .defect-section-header,
+body.dark-theme .defects-list {
+  border-color: transparent !important;
+}
+
+.defect-compact-row,
+body.page-apartment-detail .defect-compact-row {
+  border-color: var(--border) !important;
+}
+
+body.dark-theme .defect-compact-row {
+  border-color: rgba(51, 65, 85, 0.9) !important;
+}
+
+/* Final frame shadows and narrower status buttons */
+.defect-compact-row,
+body.page-apartment-detail .defect-compact-row {
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(148, 163, 184, 0.04) !important;
+}
+
+body.dark-theme .defect-compact-row {
+  box-shadow: 0 8px 22px rgba(2, 6, 23, 0.24), 0 0 0 1px rgba(71, 85, 105, 0.16) !important;
+}
+
+.toolbar-status .status-item,
+body.page-apartment-detail .toolbar-status .status-item,
+.status-item {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+.toolbar-status .status-item:not(.status-item-action),
+body.page-apartment-detail .toolbar-status .status-item:not(.status-item-action) {
+  min-width: 84px !important;
+}
+
+.toolbar-status .status-item span,
+body.page-apartment-detail .toolbar-status .status-item span {
+  width: 100%;
+  text-align: center;
 }
 
 body.dark-theme .defect-media-thumb {

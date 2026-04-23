@@ -38,7 +38,8 @@ const state = {
     createComplexResponsibleApartments: [],
     createComplexResponsibleAssignments: [],
     selectedResponsibleFilter: '',
-    currentComplexResponsibleOptions: []
+    currentComplexResponsibleOptions: [],
+    activeDefectIconFilter: null
 };
 
 // Global filter constants
@@ -1531,7 +1532,7 @@ function renderDefectTextItems(defect) {
                     ? `ontouchstart="handleDefectItemTouchStart(${item.id}, event)" ontouchend="handleDefectItemTouchEnd(event)" ontouchmove="handleDefectItemTouchCancel(event)" ontouchcancel="handleDefectItemTouchCancel(event)"`
                     : '';
 
-                return `<button type="button" class="defect-item-token ${isEditableItem ? 'is-editable' : ''} ${getDefectItemStatusClass(itemStatus)}" data-item-id="${item.id || ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler} ${mouseHandlers} ${touchHandlers}><span class="defect-item-number">${index + 1}.</span> ${content}${itemPhotoUrls.length ? ` <span class="defect-item-photo-icon" title="Открыть фото" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(itemPhotoUrls)}, 0)' aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="12" height="12"><path d="M4 7h3l1.6-2h7.8L18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"></path><circle cx="12" cy="13" r="4"></circle></svg><span class="defect-item-photo-count">${itemPhotoUrls.length}</span></span>` : ''}${isEditableItem ? ` <span class="defect-item-edit-icon" title="Редактировать" onclick="startDefectItemEdit(${item.id}, event)" aria-hidden="true">✎</span>` : ''}</button>`;
+                return `<button type="button" class="defect-item-token ${isEditableItem ? 'is-editable' : ''} ${getDefectItemStatusClass(itemStatus)}" data-item-id="${item.id || ''}" data-item-date="${escapeHtml(itemDateKey)}" ${clickHandler} ${mouseHandlers} ${touchHandlers}><span class="defect-item-number">${index + 1}.</span> ${content}</button>${itemPhotoUrls.length ? ` <button type="button" class="defect-item-photo-icon" title="Открыть фото" onclick='event.stopPropagation(); openDefectPhoto(${JSON.stringify(itemPhotoUrls)}, 0)'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6.5 8.5h3l1.1-1.8h2.8l1.1 1.8h2a2 2 0 0 1 2 2v5.8a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2v-5.8a2 2 0 0 1 2-2Z"></path><circle cx="12" cy="13.1" r="3"></circle><path d="M17.2 10.1h.01"></path></svg></button>` : ''}${isEditableItem ? ` <span class="defect-item-edit-icon" title="Редактировать" onclick="startDefectItemEdit(${item.id}, event)" aria-hidden="true">✎</span>` : ''}`;
             }).join(' ')}
         </span>
     `;
@@ -4188,6 +4189,7 @@ async function showApartmentDetail(id) {
     state.currentApartment = id;
     if (!isSameApartment) {
         state.currentApartmentData = null;
+        state.activeDefectIconFilter = null;
         setPageTitle('Загрузка...', '');
     }
     showTab('apartment-detail');
@@ -4719,8 +4721,13 @@ function renderDefectCard(d, index) {
 function renderDefects(defects) {
     const container = elements.defectsList;
     if (!container) return;
+
+    const activeIconFilter = state.activeDefectIconFilter;
+    const visibleDefects = activeIconFilter
+        ? defects.filter((defect) => matchesDefectIconFilter(defect, activeIconFilter))
+        : defects;
     
-    if (!defects.length) {
+    if (!visibleDefects.length) {
         container.innerHTML = `
             <div class="empty-state">
                 <h3>Нет замечаний</h3>
@@ -4730,7 +4737,7 @@ function renderDefects(defects) {
         return;
     }
     
-    const grouped = defects.reduce((acc, defect) => {
+    const grouped = visibleDefects.reduce((acc, defect) => {
         if (!acc[defect.category]) acc[defect.category] = [];
         acc[defect.category].push(defect);
         return acc;
@@ -4757,10 +4764,11 @@ function renderDefects(defects) {
                 const sortedDefects = category === 'Окна' 
                     ? [...categoryDefects].sort((a, b) => Number(a.window_number ?? 0) - Number(b.window_number ?? 0))
                     : categoryDefects;
+                const isCategoryIconActive = isDefectIconFilterActive('category', category);
                 return `
                     <div class="defect-category-section expanded" id="defect-section-${idx}" data-category="${escapeHtml(category)}">
                         <div class="defect-section-header">
-                            <span class="defects-category-label">${getCategoryIcon(category)} ${escapeHtml(category)}${responsibleNames.length ? ` - ${escapeHtml(responsibleNames.join(', '))}` : ''}</span>
+                            <span class="defects-category-label"><button type="button" class="defect-category-icon-btn ${isCategoryIconActive ? 'is-active' : ''}" onclick="toggleDefectIconFilter('category', '${escapeHtml(category)}', event)">${getCategoryIcon(category)}</button>${escapeHtml(category)}${responsibleNames.length ? ` - ${escapeHtml(responsibleNames.join(', '))}` : ''}</span>
                             ${contractorNames.length ? `<span class="defect-section-contractors">${escapeHtml(contractorNames.join(', '))}</span>` : ''}
                         </div>
                         <div class="defects-list">
@@ -4796,13 +4804,12 @@ function renderDefectCompactRow(d, index) {
     const doorChipText = getDoorVariantLabel(doorVariant);
     const isRestoration = d.restoration === 1;
     const isRestorationCompleted = d.restoration_completed === 1;
-
     return `
         <div class="defect-row defect-compact-row" data-defect-id="${d.id}" data-restoration="${isRestoration ? 1 : 0}" data-restoration-completed="${isRestorationCompleted ? 1 : 0}">
             <div class="defect-compact-main">
                 <div class="defect-compact-meta">
-                    ${isWindowCategory && windowChipText ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${windowChipText}</span>` : ''}
-                    ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip defect-restoration-toggle" onclick="toggleDefectRestoration(${d.id}, event)">${escapeHtml(doorChipText)}</span>` : ''}
+                    ${isWindowCategory && windowChipText ? `<span class="defect-icon-chip">${windowChipText}</span>` : ''}
+                    ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip">${escapeHtml(doorChipText)}</span>` : ''}
                     ${isRestoration ? renderDefectRestorationBadge(d.id, isRestorationCompleted) : ''}
                     <span class="defect-compact-date" onmouseenter="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', true)" onmouseleave="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', false)">${fixedAt || '—'}</span>
                     ${extraDateBadges}
@@ -4819,6 +4826,35 @@ function renderDefectCompactRow(d, index) {
             <input type="hidden" id="defectStatus_${d.id}" value="${escapeHtml(d.status)}">
         </div>
     `;
+}
+
+function matchesDefectIconFilter(defect, filter) {
+    if (!filter?.type || !filter?.value) return true;
+    if (filter.type === 'category') {
+        return defect.category === filter.value;
+    }
+    if (filter.type === 'window') {
+        return defect.category === 'Окна' && String(defect.window_number ?? '') === String(filter.value);
+    }
+    if (filter.type === 'door') {
+        return defect.category === 'Двери' && getDoorVariantLabel(String(defect.variant_number || '').trim()) === filter.value;
+    }
+    return true;
+}
+
+function isDefectIconFilterActive(type, value) {
+    return state.activeDefectIconFilter?.type === type && String(state.activeDefectIconFilter?.value) === String(value);
+}
+
+function toggleDefectIconFilter(type, value, event) {
+    event?.stopPropagation();
+    if (!value) return;
+    if (isDefectIconFilterActive(type, value)) {
+        state.activeDefectIconFilter = null;
+    } else {
+        state.activeDefectIconFilter = { type, value };
+    }
+    renderDefects(state.currentApartmentData?.defects || []);
 }
 
 async function toggleDefectRestoration(id, event) {
@@ -6750,6 +6786,122 @@ function renderStatsTrendChart(timeline, options = {}) {
         return '<div class="stats-chart-empty">Нет данных для графика</div>';
     }
 
+    if (options.dailyBars) {
+        const series = [
+            { key: 'call', label: 'Вызов', color: '#d98aae' },
+            { key: 'accepted', label: 'Принято', color: '#82c7a1' },
+            { key: 'no_access', label: 'Нет доступа', color: '#8fb2ea' }
+        ];
+        const dayWidth = Number(options.dayWidth || 72);
+        const width = Math.max(Number(options.width || 1320), timeline.length * dayWidth);
+        const height = Number(options.height || 620);
+        const padding = {
+            top: Number(options.paddingTop || 18),
+            right: Number(options.paddingRight || 28),
+            bottom: Number(options.paddingBottom || 96),
+            left: Number(options.paddingLeft || 52),
+        };
+        const innerWidth = width - padding.left - padding.right;
+        const innerHeight = height - padding.top - padding.bottom;
+        const maxValue = Math.max(1, ...timeline.flatMap((point) => series.map((item) => Number(point[item.key] || 0))));
+        const ySteps = 4;
+        const columnWidth = timeline.length > 1 ? innerWidth / (timeline.length - 1) : innerWidth;
+        const toX = (index) => padding.left + (index * columnWidth);
+        const toY = (value) => padding.top + innerHeight - ((Number(value || 0) / maxValue) * innerHeight);
+        const buildSmoothLinePath = (key) => {
+            const points = timeline.map((point, index) => ({ x: toX(index), y: toY(point[key]) }));
+            if (!points.length) return '';
+            if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+            let path = `M ${points[0].x} ${points[0].y}`;
+            for (let index = 0; index < points.length - 1; index += 1) {
+                const current = points[index];
+                const next = points[index + 1];
+                const controlX = (current.x + next.x) / 2;
+                path += ` C ${controlX} ${current.y}, ${controlX} ${next.y}, ${next.x} ${next.y}`;
+            }
+            return path;
+        };
+
+        const gridLines = Array.from({ length: ySteps + 1 }, (_, index) => {
+            const value = Math.round((maxValue / ySteps) * index);
+            const y = padding.top + innerHeight - (innerHeight / ySteps) * index;
+            return `
+                <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="stats-chart-grid-line"></line>
+                <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="stats-chart-axis-label">${value}</text>
+            `;
+        }).join('');
+
+        const xAxisLabels = timeline.map((point, dayIndex) => {
+            const dateLabel = formatStatsShortDate(point.date);
+            const x = toX(dayIndex);
+            const showLabel = timeline.length <= 16 || dayIndex === 0 || dayIndex === timeline.length - 1 || dayIndex % Math.ceil(timeline.length / 8) === 0;
+            if (!showLabel) {
+                return `<line x1="${x}" y1="${padding.top + innerHeight - 8}" x2="${x}" y2="${padding.top + innerHeight}" class="stats-chart-day-line"></line>`;
+            }
+
+            return `
+                <g>
+                    <line x1="${x}" y1="${padding.top + innerHeight - 10}" x2="${x}" y2="${padding.top + innerHeight}" class="stats-chart-day-line"></line>
+                    <text x="${x}" y="${height - 18}" text-anchor="middle" class="stats-chart-axis-label stats-chart-date-label">${dateLabel}</text>
+                </g>
+            `;
+        }).join('');
+
+        const seriesMarkup = series.map((item) => {
+            const linePath = buildSmoothLinePath(item.key);
+            const lastPoint = timeline[timeline.length - 1] || {};
+            const lastValue = Number(lastPoint[item.key] || 0);
+            const lastX = toX(timeline.length - 1);
+            const lastY = toY(lastValue);
+            const points = timeline.map((point, index) => {
+                const value = Number(point[item.key] || 0);
+                const x = toX(index);
+                const y = toY(value);
+                return `
+                    <g>
+                        <circle cx="${x}" cy="${y}" r="3.5" fill="${item.color}" class="stats-chart-point"></circle>
+                        <circle cx="${x}" cy="${y}" r="8" fill="transparent" stroke="${item.color}" class="stats-chart-point-ring"></circle>
+                        <title>${formatStatsShortDate(point.date)} • ${item.label}: ${value}</title>
+                    </g>
+                `;
+            }).join('');
+
+            return `
+                <g>
+                    <path d="${linePath}" fill="none" stroke="${item.color}" class="stats-chart-line-shadow"></path>
+                    <path d="${linePath}" fill="none" stroke="${item.color}" class="stats-chart-line"></path>
+                    ${points}
+                    <g transform="translate(${Math.min(width - 92, lastX + 10)} ${Math.max(padding.top + 6, lastY - 18)})" class="stats-chart-series-badge">
+                        <rect width="82" height="20" rx="10" fill="rgba(255,255,255,0.94)"></rect>
+                        <circle cx="12" cy="10" r="3.5" fill="${item.color}"></circle>
+                        <text x="20" y="13" class="stats-chart-series-label" fill="#4b5563">${lastValue}</text>
+                    </g>
+                </g>
+            `;
+        }).join('');
+
+        return `
+            <div class="stats-chart-shell stats-chart-shell-scrollable">
+                <div class="stats-chart-scroll">
+                    <svg viewBox="0 0 ${width} ${height}" class="stats-chart stats-chart-daily" role="img" aria-label="Дневной график статистики по дням">
+                        ${gridLines}
+                        ${xAxisLabels}
+                        ${seriesMarkup}
+                    </svg>
+                </div>
+                <div class="stats-chart-legend stats-chart-legend-left">
+                    ${series.map((item) => `
+                        <span class="stats-chart-legend-item">
+                            <span class="stats-chart-legend-icon" style="background:${item.color};"></span>
+                            ${item.label}
+                        </span>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     const defaultSeries = [
         { key: 'call', label: 'Вызов', color: '#c2185b' },
         { key: 'accepted', label: 'Принято', color: '#12a150' },
@@ -7225,7 +7377,7 @@ async function loadStats(body, modal) {
                 </div>
 
                 <div class="stats-dashboard-grid">
-                    <section class="stats-dashboard-card stats-metrics-card">
+                    <section class="stats-dashboard-card stats-metrics-card stats-metrics-card-wide">
                         <div class="stats-metric-list">
                             ${statRows.map((row) => `
                                 <div class="stats-metric-row tone-${row.tone}">
@@ -7239,7 +7391,7 @@ async function loadStats(body, modal) {
 
                     <section class="stats-dashboard-card stats-chart-card">
                         <div class="stats-chart-wrap">
-                            ${renderStatsTrendChart(timeline)}
+                            ${renderStatsTrendChart(timeline, { dailyBars: true })}
                         </div>
                     </section>
                 </div>
