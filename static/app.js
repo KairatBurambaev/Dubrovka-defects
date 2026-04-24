@@ -39,7 +39,9 @@ const state = {
     createComplexResponsibleAssignments: [],
     selectedResponsibleFilter: '',
     currentComplexResponsibleOptions: [],
-    activeDefectIconFilter: null
+    activeDefectIconFilter: null,
+    complexDeleteMode: false,
+    pendingDeleteComplex: null,
 };
 
 // Global filter constants
@@ -635,6 +637,7 @@ function goHome() {
     state.currentDefects = [];
     state.currentComplexResponsibleOptions = [];
     state.selectedResponsibleFilter = '';
+    state.pendingDeleteComplex = null;
     state.apartmentsCacheComplexId = null;
     apartmentsRequestPromise = null;
     apartmentsRequestComplexId = null;
@@ -1081,6 +1084,127 @@ function toggleAdminMode() {
         } else if (password !== null) {
             showToast('Неверный пароль', 'error');
         }
+    }
+}
+
+function openComplexAccessModal() {
+    const modal = document.getElementById('complexAccessModal');
+    const passwordInput = document.getElementById('complexAccessPassword');
+    const actions = document.getElementById('complexAccessActions');
+    const passwordPanel = document.getElementById('complexAccessPasswordPanel');
+    const error = document.getElementById('complexAccessError');
+    const submitBtn = document.getElementById('complexAccessSubmitBtn');
+
+    if (!modal) return;
+    if (actions) actions.style.display = 'none';
+    if (passwordPanel) passwordPanel.style.display = '';
+    if (submitBtn) submitBtn.style.display = '';
+    if (passwordInput) passwordInput.value = '';
+    if (error) error.textContent = '';
+    modal.classList.add('active');
+    window.setTimeout(() => passwordInput?.focus(), 30);
+}
+
+function closeComplexAccessModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('complexAccessModal')?.classList.remove('active');
+}
+
+function submitComplexAccessPassword() {
+    const passwordInput = document.getElementById('complexAccessPassword');
+    const actions = document.getElementById('complexAccessActions');
+    const passwordPanel = document.getElementById('complexAccessPasswordPanel');
+    const error = document.getElementById('complexAccessError');
+    const submitBtn = document.getElementById('complexAccessSubmitBtn');
+    const password = passwordInput?.value || '';
+
+    if (password !== '124') {
+        if (error) error.textContent = 'Неверный пароль';
+        passwordInput?.select();
+        return;
+    }
+
+    if (error) error.textContent = '';
+    if (passwordPanel) passwordPanel.style.display = 'none';
+    if (actions) actions.style.display = 'flex';
+    if (submitBtn) submitBtn.style.display = 'none';
+}
+
+function chooseComplexAccessAction(action) {
+    closeComplexAccessModal();
+
+    if (action === 'add') {
+        state.complexDeleteMode = false;
+        showCreateComplexForm();
+        return;
+    }
+
+    if (action === 'delete') {
+        state.complexDeleteMode = true;
+        if (state.currentTab !== 'complexes') {
+            goHome();
+        } else {
+            loadComplexes();
+        }
+        showToast('Выберите ЖК для удаления', 'info');
+    }
+}
+
+function cancelComplexDeleteMode() {
+    state.complexDeleteMode = false;
+    state.pendingDeleteComplex = null;
+    document.getElementById('complexDeleteConfirmModal')?.classList.remove('active');
+    if (state.currentTab === 'complexes') {
+        loadComplexes();
+    }
+}
+
+function promptDeleteComplex(complexId, complexName, event) {
+    event?.stopPropagation();
+    const resolvedName = complexName || state.complexes.find((complex) => Number(complex.id) === Number(complexId))?.name || '';
+    state.pendingDeleteComplex = { id: Number(complexId), name: resolvedName };
+
+    const modal = document.getElementById('complexDeleteConfirmModal');
+    const title = document.getElementById('complexDeleteConfirmTitle');
+    const input = document.getElementById('complexDeleteWord');
+    const hint = document.getElementById('complexDeleteConfirmHint');
+
+    if (title) title.textContent = resolvedName || 'Этот ЖК';
+    if (hint) hint.innerHTML = 'Для подтверждения введите слово <strong>удалить</strong>';
+    if (input) input.value = '';
+    modal?.classList.add('active');
+    window.setTimeout(() => input?.focus(), 30);
+}
+
+function closeComplexDeleteConfirmModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('complexDeleteConfirmModal')?.classList.remove('active');
+}
+
+async function confirmDeleteComplexByWord() {
+    const word = (document.getElementById('complexDeleteWord')?.value || '').trim().toLowerCase();
+    const pending = state.pendingDeleteComplex;
+
+    if (word !== 'удалить') {
+        showToast('Введите слово удалить', 'error');
+        return;
+    }
+
+    if (!pending?.id) {
+        closeComplexDeleteConfirmModal();
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/complexes/${pending.id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('delete failed');
+        showToast('ЖК удален', 'success');
+        state.pendingDeleteComplex = null;
+        closeComplexDeleteConfirmModal();
+        state.complexDeleteMode = false;
+        await loadComplexes();
+    } catch (_) {
+        showToast('Ошибка удаления', 'error');
     }
 }
 
@@ -1691,6 +1815,7 @@ async function loadComplexes() {
                 const address = c.address?.trim() || 'Адрес не указан';
                 return `
                     <div class="${cardClass}" onclick="showComplexDetail(${c.id})">
+                        ${state.complexDeleteMode ? `<button type="button" class="complex-card-delete-btn" onclick="promptDeleteComplex(${c.id}, '', event)" aria-label="Удалить ЖК">×</button>` : ''}
                         <div class="complex-card-body">
                             <div class="complex-card-name">${escapeHtml(c.name)}</div>
                             <div class="complex-card-info">${escapeHtml(address)}</div>
@@ -1729,18 +1854,12 @@ function onTitleClick() {
     if (state.currentComplex) {
         window.location.href = '/';
     } else {
-        // На главной - показываем пароль для создания ЖК
-        checkPassword();
+        openComplexAccessModal();
     }
 }
 
 function checkPassword() {
-    const pwd = prompt('Введите пароль:');
-    if (pwd === '124') {
-        showCreateComplexForm();
-    } else if (pwd !== null) {
-        showToast('Неверный пароль');
-    }
+    openComplexAccessModal();
 }
 
 function showCreateComplexForm() {
@@ -3408,28 +3527,53 @@ function countsAsDefectApartment(apartment) {
     return hasRestoration || hasActiveDefects;
 }
 
+function calculateApartmentStats(apartments) {
+    const items = Array.isArray(apartments) ? apartments : [];
+
+    let available = 0;
+    let accepted = 0;
+    let call = 0;
+    let noAccess = 0;
+    let defects = 0;
+
+    items.forEach((apartment) => {
+        if (apartment.access_status === 'available') available++;
+        else if (isAcceptedApartment(apartment)) accepted++;
+        else if (apartment.access_status === 'call') call++;
+        else if (apartment.access_status === 'no_access') noAccess++;
+
+        if (countsAsDefectApartment(apartment)) defects++;
+    });
+
+    return {
+        total: items.length,
+        available,
+        accepted,
+        call,
+        noAccess,
+        defects,
+        remainingWithDefects: items.filter((apartment) => {
+            if (!countsAsDefectApartment(apartment)) return false;
+            if (apartment.access_status === 'call') return false;
+            if (isAcceptedApartment(apartment)) return false;
+            if (apartment.access_status === 'no_access') return false;
+            return true;
+        }).length,
+    };
+}
+
 // Update stats panel with current filter/counts
 function updateStatsPanel(apartments) {
     try {
         if (!elements.statAvailable) return;
-        
-        let available = 0, accepted = 0, call = 0, noAccess = 0, defects = 0;
-        
-        if (apartments) {
-            apartments.forEach(a => {
-                if (a.access_status === 'available') available++;
-                else if (isAcceptedApartment(a)) accepted++;
-                else if (a.access_status === 'call') call++;
-                else if (isNoAccessApartment(a)) noAccess++;
-                if (countsAsDefectApartment(a)) defects++;
-            });
-        }
-        
-        if (elements.statAvailable) elements.statAvailable.textContent = available;
-        if (elements.statAccepted) elements.statAccepted.textContent = accepted;
-        if (elements.statCall) elements.statCall.textContent = call;
-        if (elements.statNoAccess) elements.statNoAccess.textContent = noAccess;
-        if (elements.statDefects) elements.statDefects.textContent = defects;
+
+        const stats = calculateApartmentStats(apartments);
+
+        if (elements.statAvailable) elements.statAvailable.textContent = stats.available;
+        if (elements.statAccepted) elements.statAccepted.textContent = stats.accepted;
+        if (elements.statCall) elements.statCall.textContent = stats.call;
+        if (elements.statNoAccess) elements.statNoAccess.textContent = stats.noAccess;
+        if (elements.statDefects) elements.statDefects.textContent = stats.defects;
     } catch (e) {
         console.error('Stats panel error:', e);
     }
@@ -6788,6 +6932,13 @@ function formatStatsPercent(count, total) {
     return `${Math.round((count / total) * 1000) / 10}%`;
 }
 
+function formatSignedStatDelta(value) {
+    const number = Number(value || 0);
+    if (number > 0) return `+${number}`;
+    if (number < 0) return `${number}`;
+    return '0';
+}
+
 function formatStatsShortDate(dateValue) {
     if (!dateValue) return '';
     return new Date(dateValue).toLocaleDateString('ru-RU', {
@@ -6796,20 +6947,35 @@ function formatStatsShortDate(dateValue) {
     });
 }
 
+const STATS_SERIES_COLORS = {
+    call: '#ff2d8f',
+    accepted: '#00c853',
+    no_access: '#2f7bff',
+    recorded: '#ff7a00',
+    in_progress: '#ff2d8f',
+    on_review: '#2f7bff',
+    completed: '#00c853',
+    remaining_with_defects: '#ff1f5a',
+    with_defects: '#0f172a'
+};
+
 function renderStatsTrendChart(timeline, options = {}) {
     if (!Array.isArray(timeline) || !timeline.length) {
         return '<div class="stats-chart-empty">Нет данных для графика</div>';
     }
 
     if (options.dailyBars) {
-        const series = [
-            { key: 'call', label: 'Вызов', color: '#c2185b' },
-            { key: 'accepted', label: 'Принято', color: '#16a34a' },
-            { key: 'no_access', label: 'Нет доступа', color: '#2563eb' }
+        const series = options.series || [
+            { key: 'call', label: 'Вызов', color: STATS_SERIES_COLORS.call },
+            { key: 'accepted', label: 'Принято', color: STATS_SERIES_COLORS.accepted },
+            { key: 'no_access', label: 'Нет доступа', color: STATS_SERIES_COLORS.no_access }
         ];
+        const legendPosition = options.legendPosition || 'bottom';
         const dayWidth = Number(options.dayWidth || 72);
         const width = Math.max(Number(options.width || 1320), timeline.length * dayWidth);
         const height = Number(options.height || 620);
+        const axisFontSize = Number(options.axisFontSize || 20);
+        const badgeFontSize = Number(options.badgeFontSize || 20);
         const padding = {
             top: Number(options.paddingTop || 18),
             right: Number(options.paddingRight || 28),
@@ -6843,7 +7009,7 @@ function renderStatsTrendChart(timeline, options = {}) {
             const y = padding.top + innerHeight - (innerHeight / ySteps) * index;
             return `
                 <line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" class="stats-chart-grid-line"></line>
-                <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="stats-chart-axis-label">${value}</text>
+                <text x="${padding.left - 10}" y="${y + 4}" text-anchor="end" class="stats-chart-axis-label" style="font-size:${axisFontSize}px">${value}</text>
             `;
         }).join('');
 
@@ -6858,10 +7024,23 @@ function renderStatsTrendChart(timeline, options = {}) {
             return `
                 <g>
                     <line x1="${x}" y1="${padding.top + innerHeight - 10}" x2="${x}" y2="${padding.top + innerHeight}" class="stats-chart-day-line"></line>
-                    <text x="${x}" y="${height - 18}" text-anchor="middle" class="stats-chart-axis-label stats-chart-date-label">${dateLabel}</text>
+                    <text x="${x}" y="${height - 18}" text-anchor="middle" class="stats-chart-axis-label stats-chart-date-label" style="font-size:${Math.max(14, axisFontSize - 2)}px">${dateLabel}</text>
                 </g>
             `;
         }).join('');
+
+        const badgeLayout = new Map();
+        const badgeItems = series.map((item) => {
+            const lastPoint = timeline[timeline.length - 1] || {};
+            const lastValue = Number(lastPoint[item.key] || 0);
+            return { key: item.key, y: toY(lastValue) };
+        }).sort((a, b) => a.y - b.y);
+        let previousBadgeY = padding.top - 28;
+        badgeItems.forEach((item) => {
+            const nextY = Math.max(padding.top + 4, item.y - 18, previousBadgeY + 28);
+            badgeLayout.set(item.key, nextY);
+            previousBadgeY = nextY;
+        });
 
         const seriesMarkup = series.map((item) => {
             const linePath = buildSmoothLinePath(item.key);
@@ -6869,6 +7048,7 @@ function renderStatsTrendChart(timeline, options = {}) {
             const lastValue = Number(lastPoint[item.key] || 0);
             const lastX = toX(timeline.length - 1);
             const lastY = toY(lastValue);
+            const badgeY = Math.min(height - padding.bottom - 28, badgeLayout.get(item.key) ?? Math.max(padding.top + 6, lastY - 18));
             const points = timeline.map((point, index) => {
                 const value = Number(point[item.key] || 0);
                 const x = toX(index);
@@ -6887,17 +7067,29 @@ function renderStatsTrendChart(timeline, options = {}) {
                     <path d="${linePath}" fill="none" stroke="${item.color}" class="stats-chart-line-shadow"></path>
                     <path d="${linePath}" fill="none" stroke="${item.color}" class="stats-chart-line"></path>
                     ${points}
-                    <g transform="translate(${Math.min(width - 92, lastX + 10)} ${Math.max(padding.top + 6, lastY - 18)})" class="stats-chart-series-badge">
-                        <rect width="82" height="20" rx="10" fill="rgba(255,255,255,0.94)"></rect>
-                        <circle cx="12" cy="10" r="3.5" fill="${item.color}"></circle>
-                        <text x="20" y="13" class="stats-chart-series-label" fill="#4b5563">${lastValue}</text>
+                    <g transform="translate(${Math.min(width - 102, lastX + 10)} ${badgeY})" class="stats-chart-series-badge">
+                        <rect width="92" height="24" rx="12" fill="rgba(255,255,255,0.96)"></rect>
+                        <circle cx="14" cy="12" r="4.5" fill="${item.color}"></circle>
+                        <text x="24" y="16" class="stats-chart-series-label" fill="#334155" style="font-size:${badgeFontSize}px">${lastValue}</text>
                     </g>
                 </g>
             `;
         }).join('');
 
+        const legendMarkup = `
+            <div class="stats-chart-legend stats-chart-legend-left${legendPosition === 'top' ? ' stats-chart-legend-top' : ''}">
+                ${series.map((item) => `
+                    <span class="stats-chart-legend-item">
+                        <span class="stats-chart-legend-icon" style="background:${item.color};"></span>
+                        ${item.label}
+                    </span>
+                `).join('')}
+            </div>
+        `;
+
         return `
             <div class="stats-chart-shell stats-chart-shell-scrollable">
+                ${legendPosition === 'top' ? legendMarkup : ''}
                 <div class="stats-chart-scroll">
                     <svg viewBox="0 0 ${width} ${height}" class="stats-chart stats-chart-daily" role="img" aria-label="Дневной график статистики по дням">
                         ${gridLines}
@@ -6905,22 +7097,15 @@ function renderStatsTrendChart(timeline, options = {}) {
                         ${seriesMarkup}
                     </svg>
                 </div>
-                <div class="stats-chart-legend stats-chart-legend-left">
-                    ${series.map((item) => `
-                        <span class="stats-chart-legend-item">
-                            <span class="stats-chart-legend-icon" style="background:${item.color};"></span>
-                            ${item.label}
-                        </span>
-                    `).join('')}
-                </div>
+                ${legendPosition !== 'top' ? legendMarkup : ''}
             </div>
         `;
     }
 
     const defaultSeries = [
-        { key: 'call', label: 'Вызов', color: '#c2185b' },
-        { key: 'accepted', label: 'Принято', color: '#12a150' },
-        { key: 'no_access', label: 'Нет доступа', color: '#2563eb' }
+        { key: 'call', label: 'Вызов', color: STATS_SERIES_COLORS.call },
+        { key: 'accepted', label: 'Принято', color: STATS_SERIES_COLORS.accepted },
+        { key: 'no_access', label: 'Нет доступа', color: STATS_SERIES_COLORS.no_access }
     ];
     const legendLabels = options.legendLabels || {};
     const series = defaultSeries.map((item) => ({
@@ -6982,72 +7167,13 @@ function renderStatsTrendChart(timeline, options = {}) {
                 <text x="${padding.left + innerWidth / 2}" y="${height - 8}" text-anchor="middle" class="stats-chart-axis-label" style="font-size:${axisFontSize}px">${midLabel}</text>
                 <text x="${width - padding.right}" y="${height - 8}" text-anchor="end" class="stats-chart-axis-label" style="font-size:${axisFontSize}px">${lastLabel}</text>
             </svg>
-            <div class="stats-chart-legend" style="grid-template-columns: repeat(${legendColumns}, minmax(0, 1fr)); gap:${Math.max(6, legendGap - 4)}px ${legendGap}px;">
+            <div class="stats-chart-legend" style="grid-template-columns: repeat(${legendColumns}, minmax(0, 1fr)); gap:${Math.max(8, legendGap - 2)}px ${legendGap + 8}px;">
                 ${series.map((item) => `
-                    <span class="stats-chart-legend-item" style="font-size:${legendFontSize}px; gap:${Math.max(6, legendGap - 6)}px;">
+                    <span class="stats-chart-legend-item" style="font-size:${legendFontSize}px; gap:${Math.max(8, legendGap - 4)}px;">
                         <span class="stats-chart-legend-icon" style="background:${item.color};"></span>
                         ${item.label}
                     </span>
                 `).join('')}
-            </div>
-        </div>
-    `;
-}
-
-function getStatsPrintRows(stats) {
-    const totalApartments = stats.total_apartments || 0;
-    const todayMetrics = stats.today_metrics || {};
-    return [
-        { label: 'Вызов', value: todayMetrics.call || 0, percent: formatStatsPercent(todayMetrics.call || 0, totalApartments), tone: 'call' },
-        { label: 'Принято', value: todayMetrics.accepted || 0, percent: formatStatsPercent(todayMetrics.accepted || 0, totalApartments), tone: 'accepted' },
-        { label: 'Нет доступа', value: todayMetrics.no_access || 0, percent: formatStatsPercent(todayMetrics.no_access || 0, totalApartments), tone: 'no-access' },
-        { label: 'Остаток с замечаниями', value: todayMetrics.remaining_with_defects || 0, percent: formatStatsPercent(todayMetrics.remaining_with_defects || 0, totalApartments), tone: 'defects' },
-        { label: 'С замечаниями', value: todayMetrics.with_defects || 0, percent: formatStatsPercent(todayMetrics.with_defects || 0, totalApartments), tone: 'remaining' }
-    ];
-}
-
-function renderStatsExportLayout(stats, chartOptions = {}) {
-    const statRows = getStatsPrintRows(stats);
-    const timeline = stats.timeline || [];
-    const exportChartOptions = {
-        dailyBars: true,
-        dayWidth: 56,
-        width: 920,
-        height: 420,
-        paddingLeft: 48,
-        paddingRight: 32,
-        paddingTop: 16,
-        paddingBottom: 78,
-        ...chartOptions,
-    };
-
-    return `
-        <div class="stats-shell stats-dashboard-shell stats-export-shell">
-            <div class="stats-dashboard-head">
-                <div class="stats-dashboard-copy">
-                    <div class="stats-dashboard-title">${escapeHtml(stats.complex_name || '')}</div>
-                    <span class="stats-dashboard-period">Сводка и динамика за весь период: ${escapeHtml(formatStatsPeriodLabel(stats.period_start, stats.period_end))}</span>
-                </div>
-            </div>
-
-            <div class="stats-dashboard-grid stats-export-grid">
-                <section class="stats-dashboard-card stats-metrics-card stats-metrics-card-wide">
-                    <div class="stats-metric-list stats-export-metric-list">
-                        ${statRows.map((row) => `
-                            <div class="stats-metric-row tone-${row.tone}">
-                                <label>${escapeHtml(row.label)}</label>
-                                <strong>${row.value}</strong>
-                                <em>${escapeHtml(row.percent)}</em>
-                            </div>
-                        `).join('')}
-                    </div>
-                </section>
-
-                <section class="stats-dashboard-card stats-chart-card">
-                    <div class="stats-chart-wrap">
-                        ${renderStatsTrendChart(timeline, exportChartOptions)}
-                    </div>
-                </section>
             </div>
         </div>
     `;
@@ -7274,6 +7400,140 @@ function refreshStatsModal() {
     loadStats(document.getElementById('statsBody'), document.getElementById('statsModal'));
 }
 
+async function getResponsibleStatsDefects() {
+    await ensureCurrentComplexApartmentsLoaded(false);
+    await ensureCurrentComplexDefectsLoaded(false);
+
+    const apartmentIds = new Set(applyApartmentFilters(state.allApartments || []).map((apartment) => apartment.id));
+    const categoryFilter = document.getElementById('defectCategoryFilter')?.value || '';
+    const responsibleFilter = state.selectedResponsibleFilter || '';
+
+    return (state.currentDefects || []).filter((defect) => {
+        if (!apartmentIds.has(defect.apartment_id)) return false;
+        if (categoryFilter && defect.category !== categoryFilter) return false;
+        if (responsibleFilter && String(defect.responsible_name || '').trim() !== responsibleFilter) return false;
+        return true;
+    });
+}
+
+function buildResponsibleStatsRows(defects) {
+    const totalDefects = defects.length;
+    const completedCount = defects.filter((defect) => defect.status === 'completed').length;
+    const rows = [
+        { label: 'Замечаний', value: totalDefects, tone: 'remaining' },
+        { label: 'Новых', value: defects.filter((defect) => defect.status === 'recorded').length, tone: 'defects' },
+        { label: 'В работе', value: defects.filter((defect) => defect.status === 'in_progress').length, tone: 'call' },
+        { label: 'На проверке', value: defects.filter((defect) => defect.status === 'on_review').length, tone: 'no-access' },
+        { label: 'Принятых', value: completedCount, tone: 'accepted' },
+    ];
+
+    return rows.map((row) => ({
+        ...row,
+        percent: formatStatsPercent(row.value, totalDefects),
+    }));
+}
+
+function buildResponsibleStatsTimeline(defects) {
+    const grouped = new Map();
+
+    defects.forEach((defect) => {
+        const dateKey = getDateKey(defect.created_at);
+        if (!dateKey) return;
+
+        if (!grouped.has(dateKey)) {
+            grouped.set(dateKey, {
+                date: dateKey,
+                total: 0,
+                recorded: 0,
+                in_progress: 0,
+                on_review: 0,
+                completed: 0,
+            });
+        }
+
+        const bucket = grouped.get(dateKey);
+        bucket.total += 1;
+        if (defect.status === 'recorded') bucket.recorded += 1;
+        if (defect.status === 'in_progress') bucket.in_progress += 1;
+        if (defect.status === 'on_review') bucket.on_review += 1;
+        if (defect.status === 'completed') bucket.completed += 1;
+    });
+
+    return [...grouped.values()].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+function renderResponsibleStatsModalBody(complexName, responsibleName, defects) {
+    const statRows = buildResponsibleStatsRows(defects);
+    const timeline = buildResponsibleStatsTimeline(defects);
+    const categoryFilter = document.getElementById('defectCategoryFilter')?.value || '';
+    const subtitleParts = [
+        `Ответственный: ${responsibleName}`,
+        categoryFilter ? `Категория: ${categoryFilter}` : '',
+    ].filter(Boolean);
+
+    return `
+        <div class="stats-shell stats-dashboard-shell responsible-stats-shell">
+            <div class="stats-dashboard-head">
+                <div class="stats-dashboard-copy">
+                    <div class="stats-dashboard-title">${escapeHtml(complexName)}</div>
+                    <span class="stats-dashboard-period">${escapeHtml(subtitleParts.join(' • '))}</span>
+                </div>
+            </div>
+
+            <div class="stats-dashboard-grid">
+                <section class="stats-dashboard-card stats-metrics-card stats-metrics-card-wide">
+                    <div class="stats-metric-list">
+                        ${statRows.map((row) => `
+                            <div class="stats-metric-row tone-${row.tone}">
+                                <label>${escapeHtml(row.label)}</label>
+                                <strong>${row.value}</strong>
+                                <em>${escapeHtml(row.percent)}</em>
+                            </div>
+                        `).join('')}
+                    </div>
+                </section>
+
+                <section class="stats-dashboard-card stats-chart-card">
+                    <div class="stats-chart-wrap">
+                        ${renderStatsTrendChart(timeline, {
+                            dailyBars: true,
+                            paddingBottom: 38,
+                            series: [
+                                { key: 'recorded', label: 'Новых', color: STATS_SERIES_COLORS.recorded },
+                                { key: 'in_progress', label: 'В работе', color: STATS_SERIES_COLORS.in_progress },
+                                { key: 'on_review', label: 'На проверке', color: STATS_SERIES_COLORS.on_review },
+                                { key: 'completed', label: 'Принятых', color: STATS_SERIES_COLORS.completed },
+                            ],
+                            axisFontSize: 20,
+                            badgeFontSize: 20,
+                        })}
+                    </div>
+                </section>
+            </div>
+        </div>
+    `;
+}
+
+function getStatsAccessCounts(byAccessStatus) {
+    const counts = {};
+    (Array.isArray(byAccessStatus) ? byAccessStatus : []).forEach((item) => {
+        counts[item.access_status] = Number(item.count || 0);
+    });
+    return counts;
+}
+
+function buildCurrentStatsFromApartments(apartments) {
+    const stats = calculateApartmentStats(apartments);
+    return {
+        total: stats.total,
+        call: stats.call,
+        accepted: stats.accepted,
+        noAccess: stats.noAccess,
+        withDefects: stats.defects,
+        remainingWithDefects: stats.remainingWithDefects,
+    };
+}
+
 async function showStatsModal() {
     const modal = document.getElementById('statsModal');
     const body = document.getElementById('statsBody');
@@ -7289,6 +7549,15 @@ async function showStatsModal() {
 
 async function loadStats(body, modal) {
     try {
+        if (state.selectedResponsibleFilter) {
+            const responsibleName = state.selectedResponsibleFilter;
+            const complexName = state.currentComplexData?.name || document.getElementById('jkName')?.textContent || 'ЖК';
+            const responsibleDefects = await getResponsibleStatsDefects();
+            body.innerHTML = renderResponsibleStatsModalBody(complexName, responsibleName, responsibleDefects);
+            modal.classList.add('active');
+            return;
+        }
+
         const statsRes = await fetch(`/api/complexes/${state.currentComplex}/statistics?${getStatsQueryString()}`, { cache: 'no-store' });
         if (!statsRes.ok) throw new Error(`Statistics request failed: ${statsRes.status}`);
         const stats = await statsRes.json();
@@ -7321,63 +7590,51 @@ async function loadStats(body, modal) {
             return;
         }
 
+        const currentApartments = applyApartmentFilters(state.allApartments || []);
+        state.filteredApartments = Array.isArray(currentApartments) ? [...currentApartments] : [];
+        const currentMetrics = buildCurrentStatsFromApartments(currentApartments);
+        const acceptedTotal = currentMetrics.accepted;
+        const callTotal = currentMetrics.call;
+        const noAccessTotal = currentMetrics.noAccess;
+        const withDefectsTotal = currentMetrics.total;
+        const remainingTotal = currentMetrics.withDefects;
+        const displayTotalApartments = currentMetrics.total || totalApartments;
+
         const statRows = [
             {
                 label: 'Вызов',
-                value: todayMetrics.call || 0,
-                percent: formatStatsPercent(todayMetrics.call || 0, totalApartments),
+                value: callTotal,
+                dayValue: formatSignedStatDelta(todayMetrics.call || 0),
+                percent: formatStatsPercent(callTotal, displayTotalApartments),
                 tone: 'call'
             },
             {
                 label: 'Принято',
-                value: todayMetrics.accepted || 0,
-                percent: formatStatsPercent(todayMetrics.accepted || 0, totalApartments),
+                value: acceptedTotal,
+                dayValue: formatSignedStatDelta(todayMetrics.accepted || 0),
+                percent: formatStatsPercent(acceptedTotal, displayTotalApartments),
                 tone: 'accepted'
             },
             {
                 label: 'Нет доступа',
-                value: todayMetrics.no_access || 0,
-                percent: formatStatsPercent(todayMetrics.no_access || 0, totalApartments),
+                value: noAccessTotal,
+                dayValue: formatSignedStatDelta(todayMetrics.no_access || 0),
+                percent: formatStatsPercent(noAccessTotal, displayTotalApartments),
                 tone: 'no-access'
             },
             {
                 label: 'Остаток с замечаниями',
-                value: todayMetrics.remaining_with_defects || 0,
-                percent: formatStatsPercent(todayMetrics.remaining_with_defects || 0, totalApartments),
+                value: remainingTotal,
+                dayValue: formatSignedStatDelta(todayMetrics.remaining_with_defects || 0),
+                percent: formatStatsPercent(remainingTotal, displayTotalApartments),
                 tone: 'defects'
             },
             {
                 label: 'С замечаниями',
-                value: todayMetrics.with_defects || 0,
-                percent: formatStatsPercent(todayMetrics.with_defects || 0, totalApartments),
+                value: withDefectsTotal,
+                dayValue: formatSignedStatDelta(todayMetrics.with_defects || 0),
+                percent: formatStatsPercent(withDefectsTotal, displayTotalApartments),
                 tone: 'remaining'
-            }
-        ];
-
-        const highlightCards = [
-            {
-                label: isApartmentType ? 'Всего апартаментов' : 'Всего квартир',
-                value: totalApartments,
-                meta: 'В корпусах текущего ЖК',
-                tone: 'neutral'
-            },
-            {
-                label: 'Принято',
-                value: todayMetrics.accepted || 0,
-                meta: formatStatsPercent(todayMetrics.accepted || 0, totalApartments),
-                tone: 'accepted'
-            },
-            {
-                label: 'Остаток с замечаниями',
-                value: todayMetrics.remaining_with_defects || 0,
-                meta: formatStatsPercent(todayMetrics.remaining_with_defects || 0, totalApartments),
-                tone: 'defects'
-            },
-            {
-                label: 'Нет доступа',
-                value: todayMetrics.no_access || 0,
-                meta: formatStatsPercent(todayMetrics.no_access || 0, totalApartments),
-                tone: 'no-access'
             }
         ];
 
@@ -7386,7 +7643,7 @@ async function loadStats(body, modal) {
                 <div class="stats-dashboard-head">
                     <div class="stats-dashboard-copy">
                         <div class="stats-dashboard-title">${complexName}</div>
-                        <span class="stats-dashboard-period">Сводка и динамика за весь период: ${periodLabel}</span>
+                        <span class="stats-dashboard-period">Сводка и динамика: ${periodLabel}</span>
                     </div>
                     <div class="stats-dashboard-actions">
                         <button class="pill pill-stats" onclick="printStatsReport()">Печать</button>
@@ -7396,11 +7653,22 @@ async function loadStats(body, modal) {
 
                 <div class="stats-dashboard-grid">
                     <section class="stats-dashboard-card stats-metrics-card stats-metrics-card-wide">
+                        <div class="stats-metric-columns-head">
+                            <span></span>
+                            <div class="stats-metric-columns-labels">
+                                <span>За день</span>
+                                <span>Всего</span>
+                            </div>
+                            <span></span>
+                        </div>
                         <div class="stats-metric-list">
                             ${statRows.map((row) => `
                                 <div class="stats-metric-row tone-${row.tone}">
                                     <label>${row.label}</label>
-                                    <strong>${row.value}</strong>
+                                    <div class="stats-metric-values">
+                                        <span class="stats-metric-day">${row.dayValue}</span>
+                                        <strong>${row.value}</strong>
+                                    </div>
                                     <em>${row.percent}</em>
                                 </div>
                             `).join('')}
@@ -7409,7 +7677,7 @@ async function loadStats(body, modal) {
 
                     <section class="stats-dashboard-card stats-chart-card">
                         <div class="stats-chart-wrap">
-                            ${renderStatsTrendChart(timeline, { dailyBars: true })}
+                            ${renderStatsTrendChart(timeline, { dailyBars: true, paddingBottom: 38, axisFontSize: 20, badgeFontSize: 20 })}
                         </div>
                     </section>
                 </div>
@@ -7485,89 +7753,52 @@ function printStatsReport() {
         alert('Браузер заблокировал окно печати');
         return;
     }
-
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Подготовка печати</title></head><body style="font-family: Arial, sans-serif; padding: 24px;">Подготовка печати...</body></html>`);
-    printWindow.document.close();
-
-    fetch(`/api/complexes/${state.currentComplex}/statistics?${getStatsQueryString()}`, { cache: 'no-store' })
-    .then(r => r.json())
-    .then(stats => {
-        const jkName = stats.complex_name || document.getElementById('jkName').textContent;
-        const contentHtml = renderStatsExportLayout(stats);
-
-        printWindow.document.open();
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Отчет - ${jkName}</title>
-                <style>
-                    * { box-sizing: border-box; }
+    const imageUrl = `/api/complexes/${state.currentComplex}/statistics/jpg?${getStatsQueryString()}`;
+    printWindow.document.open();
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Печать статистики</title>
+            <style>
+                html, body {
+                    margin: 0;
+                    padding: 0;
+                    background: #ffffff;
+                    height: 100%;
+                }
+                body {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                img {
+                    display: block;
+                    width: 100%;
+                    height: auto;
+                }
+                @media print {
                     @page { size: A4 landscape; margin: 0; }
-                    html, body { width: 297mm; height: 210mm; margin: 0; padding: 0; background: #ffffff; }
-                    body { font-family: Inter, Arial, sans-serif; color: #111111; display: flex; align-items: center; justify-content: center; }
-                    .sheet { width: 297mm; height: 210mm; padding: 0; display: flex; align-items: center; justify-content: center; }
-                    .stats-export-shell { width: 78%; height: 78%; display: flex; flex-direction: column; gap: 12px; padding: 0; background: #ffffff; overflow: visible; }
-                    .stats-dashboard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 0; padding: 0 0 8px; }
-                    .stats-dashboard-copy { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-                    .stats-dashboard-title { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: #111111; }
-                    .stats-dashboard-period { font-size: 12px; color: #555555; line-height: 1.35; }
-                    .stats-export-grid { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
-                    .stats-dashboard-card { border: 0; background: #ffffff; box-shadow: none; }
-                    .stats-metric-list { display: flex; flex-direction: column; gap: 6px; }
-                    .stats-metric-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px 56px; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid #ececec; }
-                    .stats-metric-row:last-child { border-bottom: 0; }
-                    .stats-metric-row label { font-size: 13px; font-weight: 600; color: #111111; }
-                    .stats-metric-row strong { text-align: right; font-size: 20px; line-height: 1; color: #111111; font-variant-numeric: tabular-nums; }
-                    .stats-metric-row em { text-align: right; font-size: 11px; color: #666666; font-style: normal; font-variant-numeric: tabular-nums; }
-                    .stats-chart-wrap { padding: 2px 0 0; flex: 1; min-height: 0; overflow: visible; }
-                    .stats-chart-shell { display: flex; flex-direction: column; gap: 8px; overflow: visible; }
-                    .stats-chart { width: 100%; height: auto; display: block; }
-                    .stats-chart-grid-line { stroke: rgba(148,163,184,0.16); stroke-width: 1; }
-                    .stats-chart-day-line { stroke: rgba(148,163,184,0.24); stroke-width: 1; }
-                    .stats-chart-axis-label { fill: #94a3b8; font-size: 10px; }
-                    .stats-chart-date-label { fill: #9aa7b7; }
-                    .stats-chart-line { stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; opacity: 1; }
-                    .stats-chart-line-shadow { stroke-width: 8px; stroke-linecap: round; stroke-linejoin: round; opacity: 0.14; }
-                    .stats-chart-point-ring { stroke-width: 1.5; opacity: 0.08; }
-                    .stats-chart-point { opacity: 1; }
-                    .stats-chart-series-badge rect { stroke: rgba(148,163,184,0.18); stroke-width: 1; fill: rgba(255,255,255,0.96); }
-                    .stats-chart-series-label { font-size: 11px; font-weight: 600; }
-                    .stats-chart-legend { display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px 14px !important; overflow: visible; }
-                    .stats-chart-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: #444444; min-width: 0; white-space: nowrap; }
-                    .stats-chart-legend-icon { display: inline-block; width: 10px; height: 10px; border-radius: 999px; flex: 0 0 auto; border: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-                    .stats-chart-empty { min-height: 100%; display: flex; align-items: center; justify-content: center; color: #666666; font-size: 13px; border: 0; border-radius: 0; background: #ffffff; }
-                    body, .stats-chart-legend-icon, .stats-chart, .stats-chart-shell { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-                    @media print { html, body { width: auto; height: auto; } }
-                </style>
-            </head>
-            <body>
-                <div class="sheet">
-                    ${contentHtml}
-                </div>
-                <script>
-                    window.onload = function () {
-                        window.focus();
-                        setTimeout(function () {
-                            window.print();
-                        }, 300);
-                    };
-                </script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-    })
-    .catch(error => {
-        console.error('Print statistics failed', error);
-        printWindow.document.open();
-        printWindow.document.write(`<!DOCTYPE html><html><head><title>Ошибка печати</title></head><body style="font-family: Arial, sans-serif; padding: 24px;">Не удалось подготовить печать статистики.</body></html>`);
-        printWindow.document.close();
-    });
+                    body { display: block; }
+                    img { width: 100%; }
+                }
+            </style>
+        </head>
+        <body>
+            <img src="${imageUrl}" onload="window.focus(); setTimeout(function(){ window.print(); }, 250);" onerror="document.body.innerHTML='Не удалось загрузить изображение для печати';">
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
 }
 
 function exportStatsJpg() {
-    window.open(`/api/complexes/${state.currentComplex}/statistics/jpg?${getStatsQueryString()}`, '_blank');
+    const link = document.createElement('a');
+    link.href = `/api/complexes/${state.currentComplex}/statistics/jpg?${getStatsQueryString()}`;
+    link.download = `statistics-${state.currentComplex || 'complex'}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
 }
 
 function closeStatsModal(event) {

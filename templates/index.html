@@ -9,8 +9,8 @@
     <link rel="preload" href="/static/fonts/Inter-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/static/fonts/InterDisplay-Bold.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/static/fonts/InterDisplay-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/static/style.css?v=9745">
-    <script src="/static/app.js?v=9547"></script>
+    <link rel="stylesheet" href="/static/style.css?v=9787">
+    <script src="/static/app.js?v=9571"></script>
 </head>
 <body>
     <div class="app">
@@ -428,6 +428,62 @@
                         <button type="submit" class="btn btn-primary">Сохранить</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="complexAccessModal" class="modal" onclick="closeComplexAccessModal(event)">
+        <div class="modal-content complex-access-modal" onclick="event.stopPropagation()">
+            <div class="modal-header complex-access-header"></div>
+            <div class="modal-body complex-access-body">
+                <div id="complexAccessPasswordPanel" class="complex-access-panel">
+                    <div class="complex-access-copy">
+                        <strong>Перспектива Инжиниринг</strong>
+                        <span>Введите пароль для доступа к управлению жилыми комплексами.</span>
+                    </div>
+                    <div class="form-field">
+                        <label>Пароль</label>
+                        <input type="password" id="complexAccessPassword" class="input" placeholder="Введите пароль" onkeydown="if(event.key==='Enter'){event.preventDefault();submitComplexAccessPassword();}">
+                    </div>
+                    <div id="complexAccessError" class="complex-access-error"></div>
+                </div>
+                <div id="complexAccessActions" class="complex-access-actions" style="display:none;">
+                    <button type="button" class="complex-access-action-card is-add" onclick="chooseComplexAccessAction('add')">
+                        <span class="complex-access-action-title">Добавить ЖК</span>
+                        <span class="complex-access-action-text">Открыть форму создания нового жилого комплекса.</span>
+                    </button>
+                    <button type="button" class="complex-access-action-card is-delete" onclick="chooseComplexAccessAction('delete')">
+                        <span class="complex-access-action-title">Удалить</span>
+                        <span class="complex-access-action-text">Показать на карточках ЖК красные кнопки удаления.</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer complex-access-footer">
+                <button type="button" class="btn" onclick="closeComplexAccessModal()">Отмена</button>
+                <button type="button" class="btn btn-primary" id="complexAccessSubmitBtn" onclick="submitComplexAccessPassword()">Продолжить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="complexDeleteConfirmModal" class="modal" onclick="closeComplexDeleteConfirmModal(event)">
+        <div class="modal-content complex-delete-confirm-modal" onclick="event.stopPropagation()">
+            <div class="modal-header complex-delete-confirm-header">
+                <h3>Подтвердите удаление</h3>
+                <button class="modal-close" onclick="closeComplexDeleteConfirmModal()">×</button>
+            </div>
+            <div class="modal-body complex-delete-confirm-body">
+                <div class="complex-delete-confirm-copy">
+                    <strong id="complexDeleteConfirmTitle">Этот ЖК</strong>
+                    <span id="complexDeleteConfirmHint">Для подтверждения введите слово <strong>удалить</strong></span>
+                </div>
+                <div class="form-field">
+                    <label>Подтверждение</label>
+                    <input type="text" id="complexDeleteWord" class="input" placeholder="удалить" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmDeleteComplexByWord();}">
+                </div>
+            </div>
+            <div class="modal-footer complex-delete-confirm-footer">
+                <button type="button" class="btn" onclick="cancelComplexDeleteMode()">Отмена</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteComplexByWord()">Удалить</button>
             </div>
         </div>
     </div>

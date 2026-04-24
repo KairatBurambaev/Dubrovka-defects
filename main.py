@@ -2785,17 +2785,18 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         params,
     ).fetchone()[0]
 
-    with_defects = conn.execute(
+    active_defect_status_rows = conn.execute(
         f"""
-        SELECT COUNT(DISTINCT a.id)
+        SELECT COALESCE(a.access_status, '') AS access_status, COUNT(*) AS count
         FROM apartments a
-        JOIN defects d ON a.id = d.apartment_id
         WHERE a.complex_id = ?{section_filter}
-          AND a.access_status NOT IN ('owner_accepted', 'tech_accepted')
-          AND d.status NOT IN ('completed', 'rejected', 'on_review')
+          AND {active_defects_expr} > 0
+        GROUP BY COALESCE(a.access_status, '')
         """,
         params,
-    ).fetchone()[0]
+    ).fetchall()
+    active_defect_status_map = {row['access_status']: int(row['count'] or 0) for row in active_defect_status_rows}
+    with_defects = sum(active_defect_status_map.values())
 
     all_time_defects = conn.execute(
         f"""
@@ -2863,8 +2864,10 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
     ).fetchall()
 
     by_access_status = []
+    access_status_map = {}
     for row in access_status_stats:
         count = row[1]
+        access_status_map[row[0]] = count
         percentage = round((count / total) * 100, 1) if total else 0
         by_access_status.append({
             "access_status": row[0],
@@ -2932,11 +2935,131 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
 
     defect_apartment_total = len(defect_apartment_rows)
     accepted_statuses = {"owner_accepted", "tech_accepted"}
-    today_call_count = sum(1 for row in defect_apartment_rows if row["access_status"] == "call")
-    today_accepted_count = sum(1 for row in defect_apartment_rows if row["access_status"] in accepted_statuses)
-    today_no_access_count = sum(1 for row in defect_apartment_rows if row["access_status"] == "no_access")
-    today_remaining_with_defects = max(
-        defect_apartment_total - today_call_count - today_accepted_count - today_no_access_count,
+
+    report_now = datetime.now()
+    report_day_start = report_now.replace(hour=17, minute=0, second=0, microsecond=0)
+    if report_now < report_day_start:
+        report_day_start -= timedelta(days=1)
+    report_day_start_str = report_day_start.strftime("%Y-%m-%d %H:%M:%S")
+    report_now_str = report_now.strftime("%Y-%m-%d %H:%M:%S")
+
+    daily_current_status_rows = conn.execute(
+        f"""
+        SELECT status_after_window, COUNT(*) AS count
+        FROM (
+            SELECT
+                a.id AS apartment_id,
+                COALESCE(a.access_status, '') AS current_status,
+                (
+                    SELECT h.new_status
+                    FROM apartment_status_history h
+                    WHERE h.apartment_id = a.id
+                      AND datetime(h.created_at) >= datetime(?)
+                      AND datetime(h.created_at) < datetime(?)
+                    ORDER BY datetime(h.created_at) DESC, h.id DESC
+                    LIMIT 1
+                ) AS status_after_window
+            FROM apartments a
+            WHERE a.complex_id = ?{section_filter}
+        ) status_changes
+        WHERE status_after_window IS NOT NULL
+          AND status_after_window = current_status
+        GROUP BY status_after_window
+        """,
+        [report_day_start_str, report_now_str] + params,
+    ).fetchall()
+    daily_status_change_map = {row["status_after_window"]: int(row["count"] or 0) for row in daily_current_status_rows}
+
+    daily_movement_rows = conn.execute(
+        f"""
+        SELECT old_status, new_status
+        FROM apartment_status_history h
+        JOIN apartments a ON h.apartment_id = a.id
+        WHERE a.complex_id = ?{section_filter}
+          AND datetime(h.created_at) >= datetime(?)
+          AND datetime(h.created_at) < datetime(?)
+        """,
+        params + [report_day_start_str, report_now_str],
+    ).fetchall()
+    daily_status_net = {
+        "call": 0,
+        "owner_accepted": 0,
+        "tech_accepted": 0,
+        "no_access": 0,
+        "by_phone": 0,
+    }
+    for row in daily_movement_rows:
+        old_status = row["old_status"]
+        new_status = row["new_status"]
+        if old_status in daily_status_net:
+            daily_status_net[old_status] -= 1
+        if new_status in daily_status_net:
+            daily_status_net[new_status] += 1
+
+    daily_with_defects_count = conn.execute(
+        f"""
+        SELECT COUNT(DISTINCT a.id)
+        FROM apartments a
+        JOIN defects d ON d.apartment_id = a.id
+        WHERE a.complex_id = ?{section_filter}
+          AND datetime(d.created_at) >= datetime(?)
+          AND datetime(d.created_at) < datetime(?)
+        """,
+        params + [report_day_start_str, report_now_str],
+    ).fetchone()[0]
+
+    daily_remaining_with_defects_count = conn.execute(
+        f"""
+        SELECT COUNT(DISTINCT a.id)
+        FROM apartments a
+        JOIN defects d ON d.apartment_id = a.id
+        WHERE a.complex_id = ?{section_filter}
+          AND datetime(d.created_at) >= datetime(?)
+          AND datetime(d.created_at) < datetime(?)
+          AND COALESCE(a.access_status, '') NOT IN ('call', 'no_access', 'owner_accepted', 'tech_accepted')
+        """,
+        params + [report_day_start_str, report_now_str],
+    ).fetchone()[0]
+
+    active_defects_at_window_start = conn.execute(
+        f"""
+        SELECT COUNT(DISTINCT a.id)
+        FROM apartments a
+        WHERE a.complex_id = ?{section_filter}
+          AND (
+            (
+              SELECT COUNT(*)
+              FROM defects d
+              WHERE d.apartment_id = a.id
+                AND COALESCE(d.restoration, 0) != 1
+                AND datetime(d.created_at) < datetime(?)
+                AND NOT (
+                  d.status IN ('rejected', 'on_review', 'completed')
+                  AND datetime(COALESCE(d.updated_at, d.created_at)) < datetime(?)
+                )
+            )
+            +
+            (
+              SELECT COUNT(*)
+              FROM defects d
+              WHERE d.apartment_id = a.id
+                AND COALESCE(d.restoration, 0) = 1
+                AND datetime(d.created_at) < datetime(?)
+                AND NOT (
+                  COALESCE(d.restoration_completed, 0) = 1
+                  AND datetime(COALESCE(d.updated_at, d.created_at)) < datetime(?)
+                )
+            )
+          ) > 0
+        """,
+        params + [report_day_start_str, report_day_start_str, report_day_start_str, report_day_start_str],
+    ).fetchone()[0]
+
+    current_call_count = access_status_map.get('call', 0)
+    current_accepted_count = access_status_map.get('owner_accepted', 0) + access_status_map.get('tech_accepted', 0)
+    current_no_access_count = access_status_map.get('no_access', 0)
+    current_remaining_with_defects = max(
+        with_defects - current_call_count - current_accepted_count - current_no_access_count,
         0,
     )
 
@@ -2974,11 +3097,22 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
             cursor_date += timedelta(days=1)
 
     today_metrics = {
-        "call": today_call_count,
-        "accepted": today_accepted_count,
-        "no_access": today_no_access_count,
-        "with_defects": defect_apartment_total,
-        "remaining_with_defects": today_remaining_with_defects,
+        "call": daily_status_net.get("call", 0),
+        "accepted": daily_status_net.get("owner_accepted", 0) + daily_status_net.get("tech_accepted", 0),
+        "no_access": daily_status_net.get("no_access", 0),
+        "with_defects": int((with_defects or 0) - (active_defects_at_window_start or 0)),
+        "remaining_with_defects": int((with_defects or 0) - (active_defects_at_window_start or 0)),
+        "window_start": report_day_start.isoformat(timespec="minutes"),
+        "window_end": report_now.isoformat(timespec="minutes"),
+        "reset_hour": 17,
+    }
+
+    current_metrics = {
+        "call": current_call_count,
+        "accepted": current_accepted_count,
+        "no_access": current_no_access_count,
+        "with_defects": int(with_defects or 0),
+        "remaining_with_defects": int(current_remaining_with_defects or 0),
     }
 
     call_details = None
@@ -3363,6 +3497,7 @@ def build_complex_statistics(conn, complex_id: int, stat_date: Optional[str] = N
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
         "today_metrics": today_metrics,
+        "current_metrics": current_metrics,
         "timeline": timeline,
         "focus_mode": "call" if call_details else ("accepted" if accepted_details else ("no_access" if no_access_details else "")),
         "call_details": call_details,
@@ -3503,12 +3638,16 @@ def create_stats_report_jpg(stats):
     image = Image.new('RGB', (width, height), '#ffffff')
     draw = ImageDraw.Draw(image)
 
-    title_font = load_pil_font(42, bold=True)
+    title_font = load_pil_font(22, bold=True)
     meta_font = load_pil_font(20)
-    label_font = load_pil_font(22, bold=True)
+    label_font = load_pil_font(20, bold=True)
     body_font = load_pil_font(22)
     small_font = load_pil_font(18)
-    value_font = load_pil_font(36, bold=True)
+    value_font = load_pil_font(42, bold=True)
+    card_meta_font = load_pil_font(16)
+    axis_font = load_pil_font(28)
+    legend_font = load_pil_font(20)
+    badge_font = load_pil_font(24, bold=True)
 
     margin = 64
     content_left = margin
@@ -3542,51 +3681,53 @@ def create_stats_report_jpg(stats):
         return smooth
 
     draw.text((content_left, top), stats['complex_name'], font=title_font, fill='#111111')
-    top += 50
+    top += 28
     period_start = stats.get('period_start') or stats.get('first_defect_date') or date.today().isoformat()
     period_end = stats.get('period_end') or period_start
     if period_start == period_end:
         period_label = datetime.strptime(period_start, '%Y-%m-%d').strftime('%d %B %Y')
     else:
         period_label = f"{datetime.strptime(period_start, '%Y-%m-%d').strftime('%d %B %Y')} - {datetime.strptime(period_end, '%Y-%m-%d').strftime('%d %B %Y')}"
-    draw.text((content_left, top), f'Сводка и динамика за весь период: {period_label}', font=meta_font, fill='#555555')
+    draw.text((content_left, top), f'Сводка и динамика: {period_label}', font=meta_font, fill='#555555')
 
     total = stats.get('total_apartments') or 0
     today_metrics = stats.get('today_metrics') or {}
     stat_rows = [
         ('С замечаниями', today_metrics.get('with_defects', 0), '#111111'),
-        ('Вызов', today_metrics.get('call', 0), '#c2185b'),
-        ('Принято', today_metrics.get('accepted', 0), '#16a34a'),
-        ('Остаток с замечаниями', today_metrics.get('remaining_with_defects', 0), '#e60042'),
-        ('Нет доступа', today_metrics.get('no_access', 0), '#2563eb'),
+        ('Вызов', today_metrics.get('call', 0), '#ff2d8f'),
+        ('Принято', today_metrics.get('accepted', 0), '#00c853'),
+        ('Остаток с замечаниями', today_metrics.get('remaining_with_defects', 0), '#ff1f5a'),
+        ('Нет доступа', today_metrics.get('no_access', 0), '#2f7bff'),
     ]
 
     top += 54
-    metric_left = content_left
-    metric_right = content_right
-    row_h = 64
+    card_gap = 18
+    card_count = len(stat_rows)
+    card_width = int((content_right - content_left - (card_gap * (card_count - 1))) / card_count)
+    card_height = 144
+    card_top = top
     for index, (label, value, color) in enumerate(stat_rows):
-        row_y = top + index * row_h
-        draw.line((metric_left, row_y + row_h - 6, metric_right, row_y + row_h - 6), fill='#ececec', width=1)
-        draw.text((metric_left, row_y + 10), label, font=label_font, fill='#111111')
+        x0 = content_left + index * (card_width + card_gap)
+        y0 = card_top
+        x1 = x0 + card_width
+        y1 = y0 + card_height
+        draw.rectangle((x0, y0, x1, y1), outline='#d6d9de', width=1, fill='#ffffff')
+        draw.text((x0 + 18, y0 + 18), label, font=label_font, fill='#111111')
         value_text = str(value)
-        value_bbox = draw.textbbox((0, 0), value_text, font=value_font)
-        value_x = metric_right - 180 - (value_bbox[2] - value_bbox[0])
-        draw.text((value_x, row_y + 4), value_text, font=value_font, fill='#111111')
+        draw.text((x0 + 18, y0 + 56), value_text, font=value_font, fill='#111111')
         percent_text = format_percent(value, total)
-        percent_bbox = draw.textbbox((0, 0), percent_text, font=small_font)
-        draw.text((metric_right - (percent_bbox[2] - percent_bbox[0]), row_y + 18), percent_text, font=small_font, fill='#666666')
+        draw.text((x0 + 18, y1 - 28), percent_text, font=card_meta_font, fill='#666666')
 
-    chart_top = top + len(stat_rows) * row_h + 34
-    chart_left = content_left + 54
-    chart_right = content_right - 24
-    chart_bottom = height - 170
+    chart_top = card_top + card_height + 28
+    chart_left = content_left + 72
+    chart_right = content_right - 40
+    chart_bottom = height - 156
 
     timeline = stats.get('timeline') or []
     series = [
-        ('call', 'Вызов', '#c2185b'),
-        ('accepted', 'Принято', '#16a34a'),
-        ('no_access', 'Нет доступа', '#2563eb'),
+        ('call', 'Вызов', '#ff2d8f'),
+        ('accepted', 'Принято', '#00c853'),
+        ('no_access', 'Нет доступа', '#2f7bff'),
     ]
 
     if timeline:
@@ -3599,8 +3740,8 @@ def create_stats_report_jpg(stats):
             value = round(max_value * step / 4)
             draw.line((chart_left, y, chart_right, y), fill='#d6d9de', width=1)
             label = str(value)
-            bbox = draw.textbbox((0, 0), label, font=small_font)
-            draw.text((chart_left - bbox[2] - 12, y - 9), label, font=small_font, fill='#94a3b8')
+            bbox = draw.textbbox((0, 0), label, font=axis_font)
+            draw.text((chart_left - bbox[2] - 16, y - 8), label, font=axis_font, fill='#64748b')
 
         def to_x(index):
             if len(timeline) == 1:
@@ -3613,39 +3754,43 @@ def create_stats_report_jpg(stats):
         label_step = max(1, math.ceil(len(timeline) / 8))
         for index, point in enumerate(timeline):
             x = to_x(index)
-            draw.line((x, chart_bottom - 10, x, chart_bottom), fill='#cbd5e1', width=1)
+            draw.line((x, chart_bottom - 8, x, chart_bottom), fill='#cbd5e1', width=1)
             show_label = len(timeline) <= 16 or index == 0 or index == len(timeline) - 1 or index % label_step == 0
             if show_label:
                 text_value = format_short_date(point.get('date'))
-                bbox = draw.textbbox((0, 0), text_value, font=small_font)
-                draw.text((x - (bbox[2] - bbox[0]) / 2, chart_bottom + 12), text_value, font=small_font, fill='#9aa7b7')
+                bbox = draw.textbbox((0, 0), text_value, font=axis_font)
+                draw.text((x - (bbox[2] - bbox[0]) / 2, chart_bottom + 8), text_value, font=axis_font, fill='#64748b')
 
+        badge_positions = []
         for key, label, color in series:
             points = [(to_x(index), to_y(point.get(key, 0))) for index, point in enumerate(timeline)]
             smooth_points = build_smooth_points(points)
             if len(smooth_points) > 1:
-                draw.line(smooth_points, fill=color, width=12)
-                draw.line(smooth_points, fill=color, width=5)
+                draw.line(smooth_points, fill=color, width=8)
+                draw.line(smooth_points, fill=color, width=4)
             for x, y in points:
-                draw.ellipse((x - 8, y - 8, x + 8, y + 8), outline=color, width=2)
-                draw.ellipse((x - 3.5, y - 3.5, x + 3.5, y + 3.5), fill=color, outline=color)
+                draw.ellipse((x - 6, y - 6, x + 6, y + 6), outline=color, width=2)
+                draw.ellipse((x - 3, y - 3, x + 3, y + 3), fill=color, outline=color)
             last_x, last_y = points[-1]
-            badge_x = min(chart_right - 92, last_x + 12)
-            badge_y = max(chart_top + 4, last_y - 18)
-            draw.rounded_rectangle((badge_x, badge_y, badge_x + 82, badge_y + 22), radius=11, fill='#ffffff', outline='#d6d9de', width=1)
-            draw.ellipse((badge_x + 8, badge_y + 7, badge_x + 15, badge_y + 14), fill=color, outline=color)
-            draw.text((badge_x + 20, badge_y + 4), str(int(timeline[-1].get(key, 0) or 0)), font=small_font, fill='#4b5563')
+            badge_x = min(chart_right - 116, last_x + 14)
+            badge_y = max(chart_top + 2, last_y - 18)
+            while any(abs(badge_y - existing_y) < 30 for _, existing_y in badge_positions):
+                badge_y += 32
+            badge_positions.append((key, badge_y))
+            draw.rounded_rectangle((badge_x, badge_y, badge_x + 106, badge_y + 28), radius=14, fill='#ffffff', outline='#d6d9de', width=1)
+            draw.ellipse((badge_x + 10, badge_y + 9, badge_x + 19, badge_y + 18), fill=color, outline=color)
+            draw.text((badge_x + 26, badge_y + 2), str(int(timeline[-1].get(key, 0) or 0)), font=badge_font, fill='#334155')
     else:
         empty_bbox = draw.textbbox((0, 0), 'Нет данных для графика', font=body_font)
         draw.text((chart_left + ((chart_right - chart_left) - (empty_bbox[2] - empty_bbox[0])) / 2, chart_top + 140), 'Нет данных для графика', font=body_font, fill='#666666')
 
     legend_x = content_left
-    legend_y = chart_bottom + 54
+    legend_y = chart_bottom + 44
     current_x = legend_x
     for _, label, color in series:
         draw.ellipse((current_x, legend_y + 4, current_x + 10, legend_y + 14), fill=color, outline=color)
-        draw.text((current_x + 18, legend_y), label, font=small_font, fill='#444444')
-        current_x += 170
+        draw.text((current_x + 18, legend_y - 1), label, font=legend_font, fill='#1f2937')
+        current_x += 205
 
     output = io.BytesIO()
     image.save(output, format='JPEG', quality=92)
@@ -4123,29 +4268,6 @@ async def get_complex_statistics(complex_id: int, stat_date: str = None, start_d
         conn.close()
 
 
-@app.get("/api/complexes/{complex_id}/statistics/jpg")
-async def export_complex_statistics_jpg(complex_id: int, stat_date: str = None, start_date: str = None, end_date: str = None, sections: str = None, access_filters: str = None):
-    conn = get_db()
-    try:
-        section_ids = []
-        parsed_access_filters = []
-        if sections:
-            try:
-                section_ids = [int(s.strip()) for s in sections.split(',') if s.strip()]
-            except ValueError:
-                pass
-        if access_filters:
-            parsed_access_filters = [value.strip() for value in access_filters.split(',') if value.strip()]
-        stats = build_complex_statistics(conn, complex_id, stat_date, start_date, end_date, section_ids, parsed_access_filters)
-    finally:
-        conn.close()
-
-    output = create_stats_report_jpg(stats)
-    filename = f'statistics_{complex_id}.jpg'
-    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    return StreamingResponse(output, media_type='image/jpeg', headers=headers)
-
-
 @app.get('/api/complexes/{complex_id}/executor-report')
 async def get_executor_report(complex_id: int, executor_name: str):
     conn = get_db()
@@ -4166,6 +4288,29 @@ async def export_executor_report_jpg(complex_id: int, executor_name: str):
     output = create_executor_report_jpg(report)
     safe_name = sanitize_ascii_filename(report['executor_name'], 'executor')
     headers = {"Content-Disposition": f'attachment; filename="executor_report_{complex_id}_{safe_name}.jpg"'}
+    return StreamingResponse(output, media_type='image/jpeg', headers=headers)
+
+
+@app.get("/api/complexes/{complex_id}/statistics/jpg")
+async def export_complex_statistics_jpg(complex_id: int, stat_date: str = None, start_date: str = None, end_date: str = None, sections: str = None, access_filters: str = None):
+    conn = get_db()
+    try:
+        section_ids = []
+        parsed_access_filters = []
+        if sections:
+            try:
+                section_ids = [int(s.strip()) for s in sections.split(',') if s.strip()]
+            except ValueError:
+                pass
+        if access_filters:
+            parsed_access_filters = [value.strip() for value in access_filters.split(',') if value.strip()]
+        stats = build_complex_statistics(conn, complex_id, stat_date, start_date, end_date, section_ids, parsed_access_filters)
+    finally:
+        conn.close()
+
+    output = create_stats_report_jpg(stats)
+    filename = f'statistics_{complex_id}.jpg'
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
     return StreamingResponse(output, media_type='image/jpeg', headers=headers)
 
 
