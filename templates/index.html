@@ -119,7 +119,10 @@
                             <span>Сложная</span>
                         </button>
                     </div>
-                    <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()" style="display:none;">Замечания и комментарии</button>
+                    <div class="complex-toolbar-actions">
+                        <button class="pill pill-stats" id="complexCommentsBtn" onclick="showFilteredDefectCommentsModal()">Комментарии</button>
+                        <button class="pill pill-stats" id="complexPrintBtn" onclick="showFilteredDefectsModal()">Замечания</button>
+                    </div>
                     <button class="pill pill-stats" id="statsBtn" onclick="showStatsModal()" style="display:none;">Статистика</button>
                 </div>
             </header>
@@ -336,10 +339,13 @@
         <div class="modal-content filtered-defects-modal" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <div class="filtered-defects-header-actions">
-                    <button class="btn btn-secondary" onclick="showFilteredDefectCommentsModal()">Комментарии</button>
                     <button class="btn btn-primary" onclick="printFilteredDefects()">Печать</button>
                 </div>
-                <h3>Замечания по отфильтрованным квартирам</h3>
+                <div class="filtered-defects-header-copy">
+                    <h3>Замечания по отфильтрованным квартирам</h3>
+                    <div class="filtered-defects-header-numbers"></div>
+                    <div class="filtered-defects-header-subtitle"></div>
+                </div>
             </div>
             <div class="modal-body" id="filteredDefectsBody"></div>
             <div class="modal-footer filtered-defects-footer">
@@ -349,15 +355,8 @@
 
     <div id="filteredDefectCommentsModal" class="modal" onclick="closeFilteredDefectCommentsModal(event)">
         <div class="modal-content filtered-defects-modal filtered-comments-modal" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <div class="filtered-defects-header-actions">
-                    <button class="btn btn-secondary" onclick="showFilteredDefectsModal()">Замечания</button>
-                    <button class="btn btn-primary" onclick="printFilteredDefectComments()">Печать</button>
-                </div>
-                <h3>Комментарии к замечаниям отфильтрованных квартир</h3>
-            </div>
             <div class="modal-body" id="filteredDefectCommentsBody"></div>
-            <div class="modal-footer filtered-defects-footer">
+            <div class="modal-footer filtered-defects-footer" style="display:none;">
             </div>
         </div>
     </div>

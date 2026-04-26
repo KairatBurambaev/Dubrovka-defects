@@ -204,19 +204,22 @@ function hideDelayedComplexPrintButton() {
         clearTimeout(delayedComplexPrintBtnTimer);
         delayedComplexPrintBtnTimer = null;
     }
+    if (elements.complexCommentsBtn) {
+        elements.complexCommentsBtn.style.display = 'none';
+    }
     if (elements.complexPrintBtn) {
         elements.complexPrintBtn.style.display = 'none';
     }
 }
 
 function showDelayedComplexPrintButton() {
-    if (!elements.complexPrintBtn) return;
+    if (!elements.complexPrintBtn && !elements.complexCommentsBtn) return;
     if (!shouldShowComplexPrintButton()) {
         hideDelayedComplexPrintButton();
         return;
     }
 
-    if (elements.complexPrintBtn.style.display === 'inline-flex') {
+    if (elements.complexPrintBtn?.style.display === 'inline-flex' && elements.complexCommentsBtn?.style.display === 'inline-flex') {
         return;
     }
 
@@ -226,8 +229,13 @@ function showDelayedComplexPrintButton() {
     }
 
     delayedComplexPrintBtnTimer = setTimeout(() => {
-        if (shouldShowComplexPrintButton() && elements.complexPrintBtn) {
-            elements.complexPrintBtn.style.display = 'inline-flex';
+        if (shouldShowComplexPrintButton()) {
+            if (elements.complexCommentsBtn) {
+                elements.complexCommentsBtn.style.display = 'inline-flex';
+            }
+            if (elements.complexPrintBtn) {
+                elements.complexPrintBtn.style.display = 'inline-flex';
+            }
         }
         delayedComplexPrintBtnTimer = null;
     }, 120);
@@ -3009,8 +3017,10 @@ function syncAccessFilterUiAndLoad() {
 
     const mobileStatusFilter = document.getElementById('mobileStatusFilter');
     if (mobileStatusFilter && !state.accessFilter) {
-        if (state.activeAccessFilters.length > 0) {
-            mobileStatusFilter.value = state.activeAccessFilters.join(',');
+        if (state.activeAccessFilters.length === 1) {
+            mobileStatusFilter.value = state.activeAccessFilters[0];
+        } else if (state.activeAccessFilters.length > 1) {
+            mobileStatusFilter.value = '';
         } else if (state.reviewOnly) {
             mobileStatusFilter.value = 'on_review';
         } else if (state.restorationOnly) {
@@ -3635,6 +3645,25 @@ function getApartmentBadgeCount(apartment, catFilter) {
     return badgeCount;
 }
 
+function getApartmentCategoryBadgeStats(apartment, catFilter) {
+    const defaultStats = {
+        activeCount: Number(apartment.active_defects_count || 0),
+        recordedCount: Number(apartment.recorded_defects_count || 0),
+        onReviewCount: Number(apartment.on_review_defects_count || 0),
+    };
+
+    if (!catFilter || !state.currentDefects.length) {
+        return defaultStats;
+    }
+
+    const apartmentDefects = state.currentDefects.filter((defect) => defect.apartment_id === apartment.id && defect.category === catFilter);
+    return {
+        activeCount: apartmentDefects.filter((defect) => !isClosedDefectStatus(defect.status)).length,
+        recordedCount: apartmentDefects.filter((defect) => defect.status === 'recorded').length,
+        onReviewCount: apartmentDefects.filter((defect) => defect.status === 'on_review').length,
+    };
+}
+
 function getApartmentSortCount(apartment, catFilter) {
     let activeOrNewCount = Number(apartment.active_defects_count || 0);
 
@@ -3802,15 +3831,16 @@ function renderApartmentTile(apartment, propFull, catFilter) {
     const deadlineClass = getDeadlineClass(apartment);
     const cls = getApartmentClass(apartment.access_status, apartment.active_defects_count);
     const isAccepted = isAcceptedApartment(apartment);
-    const hasActiveDefects = Number(apartment?.active_defects_count || 0) > 0;
+    const badgeStats = getApartmentCategoryBadgeStats(apartment, catFilter);
+    const hasActiveDefects = badgeStats.activeCount > 0;
     
     // Show black badge for accepted apartments with defects
     const showBlackBadge = isAccepted && hasActiveDefects;
-    const badge = !isAccepted && hasActiveDefects ? `<span class="apt-badge apt-badge-total">${formatApartmentBadgeCount(apartment.active_defects_count)}</span>` : '';
-    const blackBadge = showBlackBadge ? `<span class="apt-badge apt-badge-black">${formatApartmentBadgeCount(apartment.active_defects_count)}</span>` : '';
-    const newCount = Number(apartment.recorded_defects_count || 0);
+    const badge = !isAccepted && hasActiveDefects ? `<span class="apt-badge apt-badge-total">${formatApartmentBadgeCount(badgeStats.activeCount)}</span>` : '';
+    const blackBadge = showBlackBadge ? `<span class="apt-badge apt-badge-black">${formatApartmentBadgeCount(badgeStats.activeCount)}</span>` : '';
+    const newCount = badgeStats.recordedCount;
     const newBadge = newCount > 0 && !showBlackBadge ? `<span class="apt-badge apt-badge-new">${formatApartmentBadgeCount(newCount)}</span>` : '';
-    const onReviewCount = Number(apartment.on_review_defects_count || 0);
+    const onReviewCount = badgeStats.onReviewCount;
     const reviewBadge = onReviewCount > 0 ? `<span class="apt-badge apt-badge-review">${formatApartmentBadgeCount(onReviewCount)}</span>` : '';
     const accessPhone = String(apartment.access_phone || '').trim();
     const accessComment = String(apartment.access_comment || '').trim();
@@ -4343,11 +4373,14 @@ function getDeadlineClass(apt) {
 // Apartment Detail
 async function showApartmentDetail(id) {
     const isSameApartment = state.currentApartment === id;
+    const selectedCategoryFilter = document.getElementById('defectCategoryFilter')?.value || '';
     state.currentApartment = id;
     if (!isSameApartment) {
         state.currentApartmentData = null;
-        state.activeDefectIconFilter = null;
+        state.activeDefectIconFilter = selectedCategoryFilter ? { type: 'category', value: selectedCategoryFilter } : null;
         setPageTitle('Загрузка...', '');
+    } else if (selectedCategoryFilter) {
+        state.activeDefectIconFilter = { type: 'category', value: selectedCategoryFilter };
     }
     showTab('apartment-detail');
     updateHeader(true, false);
@@ -4366,8 +4399,13 @@ async function showApartmentDetail(id) {
         const defectsRes = await fetch(`/api/apartments/${id}/defects`);
         if (!defectsRes.ok) throw new Error(`Defects fetch failed: ${defectsRes.status}`);
         const defects = await defectsRes.json();
-        const apts = await ensureCurrentComplexApartmentsLoaded(true);
-        const apt = apts.find(a => a.id === id);
+        let apts = await ensureCurrentComplexApartmentsLoaded();
+        let apt = apts.find(a => a.id === id);
+
+        if (!apt) {
+            apts = await ensureCurrentComplexApartmentsLoaded(true);
+            apt = apts.find(a => a.id === id);
+        }
         
         if (!apt) {
             const propType = state.currentPropertyType;
@@ -4391,6 +4429,9 @@ async function showApartmentDetail(id) {
     } catch (err) {
         showToast('Ошибка загрузки', 'error');
         console.error(err);
+        if (!state.currentApartmentData) {
+            backToComplex();
+        }
     }
 }
 
@@ -4424,6 +4465,17 @@ function reloadPageAfterStatusChange() {
     window.location.reload();
 }
 
+async function getResponseErrorMessage(response, fallbackMessage) {
+    try {
+        const payload = await response.json();
+        if (payload?.detail) return String(payload.detail);
+        if (payload?.message) return String(payload.message);
+    } catch (_) {
+    }
+
+    return fallbackMessage;
+}
+
 function setStatus(status) {
     const statusButton = document.querySelector(`.status-item[data-status="${status}"]`);
     const isButtonActive = statusButton?.classList.contains('active');
@@ -4450,7 +4502,7 @@ function setStatus(status) {
     syncApartmentStatusButtons(nextStatus === 'available' ? '' : nextStatus);
     applyApartmentStatusLocally(nextStatus);
     
-    saveStatus(nextStatus);
+    saveStatus(nextStatus, currentStatus);
 }
 
 function applyApartmentStatusLocally(status) {
@@ -4517,11 +4569,15 @@ async function savePhoneAndStatus() {
     const currentApartment = state.currentApartmentData;
     
     try {
-        await fetch(`/api/apartments/${state.currentApartment}/access`, {
+        const response = await fetch(`/api/apartments/${state.currentApartment}/access`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `access_status=by_phone&access_phone=${encodeURIComponent(phone)}`
         });
+
+        if (!response.ok) {
+            throw new Error(await getResponseErrorMessage(response, 'Ошибка сохранения'));
+        }
         
         if (currentApartment) {
             currentApartment.access_phone = phone;
@@ -4536,7 +4592,7 @@ async function savePhoneAndStatus() {
         syncCurrentApartmentGridAfterAccessChange();
         showToast('Сохранено', 'success');
     } catch (err) {
-        showToast('Ошибка сохранения', 'error');
+        showToast(err?.message || 'Ошибка сохранения', 'error');
     }
 }
 
@@ -4572,11 +4628,15 @@ async function saveComplexAndStatus() {
     const currentApartment = state.currentApartmentData;
     
     try {
-        await fetch(`/api/apartments/${state.currentApartment}/access`, {
+        const response = await fetch(`/api/apartments/${state.currentApartment}/access`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `access_status=complex&access_comment=${encodeURIComponent(comment)}`
         });
+
+        if (!response.ok) {
+            throw new Error(await getResponseErrorMessage(response, 'Ошибка сохранения'));
+        }
         
         if (currentApartment) {
             currentApartment.access_comment = comment;
@@ -4591,11 +4651,11 @@ async function saveComplexAndStatus() {
         syncCurrentApartmentGridAfterAccessChange();
         showToast('Сохранено', 'success');
     } catch (err) {
-        showToast('Ошибка сохранения', 'error');
+        showToast(err?.message || 'Ошибка сохранения', 'error');
     }
 }
 
-async function saveStatus(status) {
+async function saveStatus(status, previousStatus = '') {
     if (!state.currentApartment) return;
     
     try {
@@ -4611,10 +4671,12 @@ async function saveStatus(status) {
             applyApartmentStatusLocally(status);
             syncCurrentApartmentGridAfterAccessChange();
         } else {
-            showToast('Ошибка сохранения', 'error');
+            applyApartmentStatusLocally(previousStatus || 'available');
+            showToast(await getResponseErrorMessage(res, 'Ошибка сохранения'), 'error');
         }
     } catch (err) {
-        showToast('Ошибка сохранения', 'error');
+        applyApartmentStatusLocally(previousStatus || 'available');
+        showToast(err?.message || 'Ошибка сохранения', 'error');
     }
 }
 
@@ -4626,11 +4688,15 @@ async function savePhone() {
     const status = document.querySelector('.status-item.active')?.dataset.status || 'by_phone';
     
     try {
-        await fetch(`/api/apartments/${state.currentApartment}/access`, {
+        const response = await fetch(`/api/apartments/${state.currentApartment}/access`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `access_status=${status}&access_phone=${encodeURIComponent(phone)}`
         });
+
+        if (!response.ok) {
+            throw new Error(await getResponseErrorMessage(response, 'Ошибка сохранения'));
+        }
         
         state.currentApartmentData.access_phone = phone;
         if (state.currentApartment) {
@@ -4638,7 +4704,7 @@ async function savePhone() {
         }
         showToast('Телефон сохранен', 'success');
     } catch (err) {
-        showToast('Ошибка сохранения', 'error');
+        showToast(err?.message || 'Ошибка сохранения', 'error');
     }
 }
 
@@ -4648,11 +4714,15 @@ async function deletePhone() {
     const status = document.querySelector('.status-item.active')?.dataset.status || 'by_phone';
     
     try {
-        await fetch(`/api/apartments/${state.currentApartment}/access`, {
+        const response = await fetch(`/api/apartments/${state.currentApartment}/access`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `access_status=${status}&access_phone=`
         });
+
+        if (!response.ok) {
+            throw new Error(await getResponseErrorMessage(response, 'Ошибка удаления'));
+        }
         
         const phoneInput = document.getElementById('phoneInput');
         if (phoneInput) phoneInput.value = '';
@@ -4663,7 +4733,7 @@ async function deletePhone() {
         }
         showToast('Телефон удален', 'success');
     } catch (err) {
-        showToast('Ошибка удаления', 'error');
+        showToast(err?.message || 'Ошибка удаления', 'error');
     }
 }
 
@@ -4674,11 +4744,15 @@ async function saveComment() {
     const comment = commentInput?.value.trim();
     
     try {
-        await fetch(`/api/apartments/${state.currentApartment}/access`, {
+        const response = await fetch(`/api/apartments/${state.currentApartment}/access`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `access_status=complex&access_comment=${encodeURIComponent(comment)}`
         });
+
+        if (!response.ok) {
+            throw new Error(await getResponseErrorMessage(response, 'Ошибка сохранения'));
+        }
         
         state.currentApartmentData.access_comment = comment;
         if (state.currentApartment) {
@@ -4686,7 +4760,7 @@ async function saveComment() {
         }
         showToast('Комментарий сохранен', 'success');
     } catch (err) {
-        showToast('Ошибка сохранения', 'error');
+        showToast(err?.message || 'Ошибка сохранения', 'error');
     }
 }
 
@@ -4965,8 +5039,8 @@ function renderDefectCompactRow(d, index) {
         <div class="defect-row defect-compact-row" data-defect-id="${d.id}" data-restoration="${isRestoration ? 1 : 0}" data-restoration-completed="${isRestorationCompleted ? 1 : 0}">
             <div class="defect-compact-main">
                 <div class="defect-compact-meta">
-                    ${isWindowCategory && windowChipText ? `<span class="defect-icon-chip">${windowChipText}</span>` : ''}
-                    ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip">${escapeHtml(doorChipText)}</span>` : ''}
+                    ${isWindowCategory && windowChipText ? `<span class="defect-icon-chip" onclick="toggleDefectRestoration(${d.id}, event)">${windowChipText}</span>` : ''}
+                    ${isDoorCategory && doorChipText ? `<span class="defect-icon-chip" onclick="toggleDefectRestoration(${d.id}, event)">${escapeHtml(doorChipText)}</span>` : ''}
                     ${isRestoration ? renderDefectRestorationBadge(d.id, isRestorationCompleted) : ''}
                     <span class="defect-compact-date" onmouseenter="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', true)" onmouseleave="setDefectDateHover(${d.id}, '${escapeHtml(primaryDateKey)}', false)">${fixedAt || '—'}</span>
                     ${extraDateBadges}
@@ -5015,6 +5089,7 @@ function toggleDefectIconFilter(type, value, event) {
 }
 
 async function toggleDefectRestoration(id, event) {
+    event.preventDefault();
     event.stopPropagation();
     const row = event.currentTarget?.closest('.defect-compact-row');
     if (!row) return;
@@ -6557,7 +6632,7 @@ function renderFilteredDefectsTable(groups, options = {}) {
                 <tr${rowClass ? ` class="${rowClass}"` : ''}>
                     ${apartmentCell}
                     <td class="filtered-defect-summary-cell"><div class="filtered-defect-summary">${renderFilteredDefectSummary(defect)}</div></td>
-                    <td><span class="filtered-defect-status defect-status-badge ${getDefectStatusBadgeClass(defect.status)}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
+                    <td class="filtered-defect-status-cell"><span class="filtered-defect-status defect-status-badge ${getDefectStatusBadgeClass(defect.status)}">${escapeHtml(getDefectStatusLabel(defect.status))}</span></td>
                 </tr>
             `;
         }))
@@ -6577,6 +6652,45 @@ function renderFilteredDefectsTable(groups, options = {}) {
             </table>
         </div>
     `;
+}
+
+function formatApartmentNumberRanges(numbers) {
+    const normalized = [...new Set(numbers
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value)))]
+        .sort((a, b) => a - b);
+
+    if (!normalized.length) return '';
+
+    const ranges = [];
+    let start = normalized[0];
+    let end = normalized[0];
+
+    for (let i = 1; i < normalized.length; i += 1) {
+        const current = normalized[i];
+        if (current === end + 1) {
+            end = current;
+            continue;
+        }
+
+        ranges.push(start === end ? `${start}` : `${start}-${end}`);
+        start = current;
+        end = current;
+    }
+
+    ranges.push(start === end ? `${start}` : `${start}-${end}`);
+    return ranges.join(', ');
+}
+
+function getFilteredDefectsHeaderData() {
+    const apartmentNumbers = formatApartmentNumberRanges((state.filteredApartments || []).map((apartment) => apartment.number));
+    const title = state.currentComplexData?.name || 'ЖК';
+    const categorySelect = document.getElementById('defectCategoryFilter');
+    const selectedCategory = categorySelect?.value
+        ? categorySelect.options[categorySelect.selectedIndex]?.text || categorySelect.value
+        : '';
+
+    return { title, apartmentNumbers, selectedCategory };
 }
 
 function renderFilteredDefectCommentList(comments) {
@@ -6656,6 +6770,22 @@ async function showFilteredDefectsModal() {
     if (!body || !modal) return;
     if (commentsModal) commentsModal.classList.remove('active');
 
+    const { title, apartmentNumbers, selectedCategory } = getFilteredDefectsHeaderData();
+    const modalTitle = modal.querySelector('.filtered-defects-header-copy h3');
+    const modalNumbers = modal.querySelector('.filtered-defects-header-numbers');
+    const modalSubtitle = modal.querySelector('.filtered-defects-header-subtitle');
+    if (modalTitle) {
+        modalTitle.textContent = title;
+    }
+    if (modalNumbers) {
+        modalNumbers.textContent = apartmentNumbers || '';
+        modalNumbers.style.display = apartmentNumbers ? 'block' : 'none';
+    }
+    if (modalSubtitle) {
+        modalSubtitle.textContent = selectedCategory ? `Категория: ${selectedCategory}` : '';
+        modalSubtitle.style.display = selectedCategory ? 'block' : 'none';
+    }
+
     body.innerHTML = renderFilteredDefectsTable(groups);
 
     modal.classList.add('active');
@@ -6691,6 +6821,22 @@ async function showFilteredDefectCommentsModal() {
     const defectsModal = document.getElementById('filteredDefectsModal');
     if (!body || !modal) return;
     if (defectsModal) defectsModal.classList.remove('active');
+
+    const { title, apartmentNumbers, selectedCategory } = getFilteredDefectsHeaderData();
+    const modalTitle = modal.querySelector('.filtered-defects-header-copy h3');
+    const modalNumbers = modal.querySelector('.filtered-defects-header-numbers');
+    const modalSubtitle = modal.querySelector('.filtered-defects-header-subtitle');
+    if (modalTitle) {
+        modalTitle.textContent = `Комментарии: ${title}`;
+    }
+    if (modalNumbers) {
+        modalNumbers.textContent = apartmentNumbers || '';
+        modalNumbers.style.display = apartmentNumbers ? 'block' : 'none';
+    }
+    if (modalSubtitle) {
+        modalSubtitle.textContent = selectedCategory ? `Категория: ${selectedCategory}` : '';
+        modalSubtitle.style.display = selectedCategory ? 'block' : 'none';
+    }
 
     body.innerHTML = groups.map(({ apartment, comments }) => {
         const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
@@ -6738,8 +6884,7 @@ async function printFilteredDefects() {
 
     const tableHtml = renderFilteredDefectsTable(groups);
 
-    const title = `Замечания по отфильтрованным квартирам`;
-    const subtitle = state.currentComplexData?.name ? escapeHtml(state.currentComplexData.name) : '';
+    const { apartmentNumbers, title, selectedCategory } = getFilteredDefectsHeaderData();
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -6754,26 +6899,31 @@ async function printFilteredDefects() {
                 body { font-family: Inter, Arial, sans-serif; margin: 0; padding: 0; color: #111; font-size: 14px; background: #fff; }
                 .sheet { padding: 10mm 4mm; }
                 h1 { margin: 0 0 6px; font-size: 20px; }
-                .subtitle { margin-bottom: 16px; color: #475569; line-height: 1.5; }
+                .title-numbers { color: #6b7280; font-weight: 400; font-size: 11px; line-height: 1.4; }
+                .subtitle { margin-bottom: 16px; color: #475569; line-height: 1.5; font-size: 14px; }
                 .filtered-defects-table-wrap { margin-top: 10px; overflow-x: auto; }
                 table { width: 100%; border-collapse: collapse; }
                 th, td { padding: 10px 12px; border: 1px solid #dadce0; vertical-align: middle; text-align: left; }
                 th { background: #f1f3f4; font-size: 12px; text-align: center; }
-                .filtered-defects-table-flat th:first-child, .filtered-defects-table-flat td:first-child { width: 96px; }
-                .filtered-defects-table th:last-child, .filtered-defects-table td:last-child { width: 120px; }
-                .filtered-defects-apartment-cell { text-align: left; }
+                .filtered-defects-table-flat th:first-child, .filtered-defects-table-flat td:first-child { width: 15%; }
+                .filtered-defects-table-flat th:nth-child(2), .filtered-defects-table-flat td:nth-child(2) { width: 70%; }
+                .filtered-defects-table th:last-child, .filtered-defects-table td:last-child { width: 15%; }
+                .filtered-defects-apartment-cell { text-align: center; }
                 .filtered-defects-apartment-main { font-weight: 600; }
                 .filtered-defects-apartment-phone { margin-top: 4px; font-size: 12px; font-weight: 500; color: #5f6368; }
-                .filtered-defects-apartment-meta { margin-top: 4px; font-size: 11px; color: #6b7280; font-weight: 500; white-space: normal; text-align: left; }
+                .filtered-defects-apartment-meta { margin-top: 4px; font-size: 11px; color: #6b7280; font-weight: 500; white-space: normal; text-align: center; }
                 .filtered-defect-summary { line-height: 1.4; }
+                .filtered-defect-status-cell { text-align: center; }
                 .filtered-defect-status.defect-status-badge { min-width: 0; width: 100%; justify-content: center; min-height: auto; padding: 0; border-radius: 2px; background: transparent !important; border: 0 !important; box-shadow: none !important; font-size: 13px; font-weight: 800; white-space: nowrap; }
+                tr:hover, tr:hover td { background: transparent !important; box-shadow: none !important; }
                 tr { page-break-inside: avoid; }
             </style>
         </head>
         <body>
             <div class="sheet">
-                <h1>${title}</h1>
-                ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
+                <h1>${escapeHtml(title)}</h1>
+                ${apartmentNumbers ? `<div class="title-numbers">${escapeHtml(apartmentNumbers)}</div>` : ''}
+                ${selectedCategory ? `<div class="subtitle">Категория: ${escapeHtml(selectedCategory)}</div>` : ''}
                 ${tableHtml}
             </div>
         </body>
@@ -6803,8 +6953,9 @@ async function printFilteredDefectComments() {
         return;
     }
 
-    const title = 'Комментарии по отфильтрованным квартирам';
-    const subtitle = state.currentComplexData?.name ? escapeHtml(state.currentComplexData.name) : '';
+    const complexSequenceNumber = await getCurrentComplexSequenceNumber();
+    const { title: modalTitle, apartmentNumbers, selectedCategory } = getFilteredDefectsHeaderData();
+    
     const contentHtml = groups.map(({ apartment, comments }) => {
         const apartmentLabel = `${state.currentPropertyType === 'апартаменты' ? 'Апартамент' : 'Квартира'} ${apartment.number}`;
         const phoneNote = getApartmentPhoneNote(apartment);
@@ -6827,29 +6978,25 @@ async function printFilteredDefectComments() {
         <html lang="ru">
         <head>
             <meta charset="UTF-8">
-            <title>${title}</title>
+            <title>${modalTitle}</title>
             <style>
-                @page { margin: 12mm; size: A4 portrait; }
-                body { font-family: Inter, Arial, sans-serif; margin: 0; color: #111; font-size: 14px; background: #fff; }
-                .sheet { padding: 8mm 2mm; }
-                h1 { margin: 0 0 6px; font-size: 20px; }
-                .subtitle { margin-bottom: 16px; color: #475569; line-height: 1.5; }
-                .filtered-defects-group + .filtered-defects-group { margin-top: 18px; }
-                .filtered-defects-group-title { font-size: 16px; font-weight: 700; color: #202124; line-height: 1.3; }
-                .print-comment-phone { margin-top: 4px; font-size: 12px; font-weight: 500; color: #5f6368; }
-                .filtered-comment-list { display: flex; flex-direction: column; gap: 8px; }
-                .filtered-comment-card { padding: 2px 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; text-align: left; page-break-inside: avoid; }
-                .filtered-comment-head { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
-                .filtered-comment-line { color: #202124; line-height: 1.5; word-break: break-word; font-size: 14px; font-weight: 400; text-align: left; }
-                .filtered-comment-location-label { font-weight: 600; font-size: 12px; line-height: 1.4; color: #334155; padding: 0; border-radius: 999px; background: transparent; text-align: left; }
+                @page { margin: 6mm; size: A4 portrait; }
+                body { font-family: Inter, Arial, sans-serif; margin: 0; color: #111; font-size: 12px; background: #fff; }
+                .sheet { padding: 4mm 3mm; }
+                .filtered-defects-group + .filtered-defects-group { margin-top: 8px; }
+                .filtered-defects-group-title { font-size: 14px; font-weight: 700; color: #202124; line-height: 1.3; }
+                .print-comment-phone { margin-top: 2px; font-size: 11px; font-weight: 500; color: #5f6368; }
+                .filtered-comment-list { display: flex; flex-direction: column; gap: 4px; }
+                .filtered-comment-card { padding: 1px 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; text-align: left; page-break-inside: avoid; }
+                .filtered-comment-head { display: flex; align-items: flex-start; gap: 4px; margin-bottom: 2px; flex-wrap: wrap; }
+                .filtered-comment-line { color: #202124; line-height: 1.4; word-break: break-word; font-size: 12px; font-weight: 400; text-align: left; }
+                .filtered-comment-location-label { font-weight: 600; font-size: 11px; line-height: 1.3; color: #334155; padding: 0; border-radius: 999px; background: transparent; text-align: left; }
                 .filtered-comment-location-label.is-muted { color: #64748b; background: transparent; }
-                .filtered-comment-value { font-weight: 400; white-space: normal; text-align: left; font-size: 14px; line-height: 1.5; }
+                .filtered-comment-value { font-weight: 400; white-space: normal; text-align: left; font-size: 12px; line-height: 1.4; }
             </style>
         </head>
         <body>
             <div class="sheet">
-                <h1>${title}</h1>
-                ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
                 ${contentHtml}
             </div>
         </body>
@@ -6858,7 +7005,7 @@ async function printFilteredDefectComments() {
 
     printWindow.document.write(html);
     printWindow.document.close();
-    printWindow.document.title = title;
+    printWindow.document.title = modalTitle;
     setTimeout(() => printWindow.print(), 150);
 }
 
